@@ -1,0 +1,12 @@
+﻿# 临时调试文件
+_verify.py
+
+# 误创建的目录
+%USERPROFILE%/
+
+# 隐私文件（含家庭个人信息，勿公开）
+AGENTS.md
+
+# 系统文件
+Thumbs.db
+.DS_Store
