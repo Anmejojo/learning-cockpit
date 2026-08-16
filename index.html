@@ -22,7 +22,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
 .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
 
 /* 顶栏 - 玻璃拟态 */
-.topbar{background:rgba(11,13,18,0.78);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--border);color:#fff;padding:0 22px;height:var(--nav-h);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.topbar{background:radial-gradient(ellipse 120% 220% at 50% -30%,rgba(59,130,246,0.35),transparent 60%),linear-gradient(180deg,#0d1b2e,#081120);border-bottom:1px solid rgba(96,165,250,0.35);box-shadow:0 0 26px rgba(59,130,246,0.18),inset 0 0 46px rgba(0,0,0,0.35);color:#fff;padding:0 22px;height:var(--nav-h);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;overflow:hidden}
+.topbar::before{content:'';position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(96,165,250,0.055) 1px,transparent 1px),linear-gradient(90deg,rgba(96,165,250,0.055) 1px,transparent 1px);background-size:22px 22px}
+.topbar::after{content:'';position:absolute;left:0;right:0;bottom:0;height:2px;background:linear-gradient(90deg,transparent,#3b82f6,#22d3ee,#3b82f6,transparent);filter:blur(0.5px);opacity:0.9}
+.topbar .logo,.topbar .badge{position:relative;z-index:1}
+.topbar .logo{text-shadow:0 0 16px rgba(129,140,248,0.55)}
+.topbar .logo svg{filter:drop-shadow(0 0 6px rgba(129,140,248,0.95))}
 .topbar .logo{font-size:16px;font-weight:700;letter-spacing:0.3px;display:flex;align-items:center;gap:9px}
 .topbar .logo .dot{width:9px;height:9px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#a855f7);box-shadow:0 0 12px rgba(139,92,246,0.8)}
 .topbar .badge{font-size:11px;padding:4px 11px;border-radius:999px;font-weight:600}
