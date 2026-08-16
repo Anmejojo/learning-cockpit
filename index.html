@@ -158,6 +158,9 @@ input:focus,select:focus{outline:none;border-color:var(--primary-border);box-sha
   .tab-btn{padding:13px 13px;font-size:13px}
   .q-btn{padding:8px 13px;font-size:12px}
 }
+.countdown{background:linear-gradient(135deg,rgba(99,102,241,0.18),rgba(124,58,237,0.12));border:1px solid var(--primary-border)}
+.mistake-item{padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--bg-elev)}
+.task-item{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap}
 </style>
 </head>
 <body>
@@ -167,7 +170,9 @@ input:focus,select:focus{outline:none;border-color:var(--primary-border);box-sha
 <button class="tab-btn" data-tab="scores"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg>成绩追踪</button>
 <button class="tab-btn" data-tab="parts"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>零件进度</button>
 <button class="tab-btn" data-tab="daily"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fbbf24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>日常检测</button>
+<button class="tab-btn" data-tab="mistakes"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>错题本</button>
 <button class="tab-btn" data-tab="points"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#facc15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 7.5 12 12l3.5-4.5"/><path d="M12 12v5.5"/><path d="M9 14.5h6"/><path d="M9 17.5h6"/></svg>积分账本</button>
+<button class="tab-btn" data-tab="weekly"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>学习周报</button>
 </div>
 <div class="content" id="appContent"></div>
 <div class="toast" id="toast"></div>
@@ -188,7 +193,7 @@ function defData(){
     exams:[],parts:JSON.parse(JSON.stringify(PT)),dailyChecks:{},points:[],sem:'初二上',
     rate:10,
     bl:{chinese:99,math:115,english:70,geo:67,history:81,dao:63,bio:58,physics:null,pe:null,chem:null},
-    phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,
+    phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,examDate:null,mistakes:[],tasks:[],
     dci:[{key:'englishVocab',icon:'📖',label:'英语单词',pts:2},{key:'homeworkPhoto',icon:'📸',label:'作业拍照',pts:2},{key:'videoCall',icon:'📞',label:'视频通话',pts:2},{key:'extraStudy',icon:'📚',label:'额外学习1h',pts:5},{key:'askTeacher',icon:'🙋',label:'主动问老师',pts:3},{key:'classNote',icon:'📝',label:'课堂笔记拍照',pts:2},{key:'mistakeBook',icon:'📓',label:'整理错题本',pts:2},{key:'noSkipStep',icon:'✅',label:'解题不跳步',pts:2},{key:'reciteMethod',icon:'🧠',label:'背英语用方法',pts:2}]
   }
 }
@@ -252,6 +257,8 @@ function render(){
   else if(tb==='parts')rp()
   else if(tb==='daily')rdl()
   else if(tb==='points')rpt()
+  else if(tb==='mistakes')rmk()
+  else if(tb==='weekly')rwk()
 }
 
 function rd(){
@@ -263,6 +270,26 @@ function rd(){
   const dci=D.dci||defData().dci
   const tchk=D.dailyChecks[td]||{}
   const doneCount=dci.filter(function(it){return tchk[it.key]}).length
+
+  // 考试倒计时
+  const ed=D.examDate
+  let cdTxt=''
+  if(ed){
+    const now=new Date();const target=new Date(ed+'T00:00:00');const diff=Math.ceil((target-now)/86400000)
+    if(diff>0){cdTxt='⏰ 距下次大考还有 <strong>'+diff+'</strong> 天'}
+    else if(diff===0){cdTxt='🔥 今天就是大考日！'}
+    else{cdTxt='✅ 考试已结束'}
+  }else{cdTxt='⏰ 未设置下次大考日期'}
+  const cd=h('div',{className:'card countdown'})
+  cd.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'⏰'}),'考试倒计时'))
+  cd.appendChild(h('div',{style:'font-size:20px;font-weight:700',innerHTML:cdTxt}))
+  if(!VW){
+    const cdRow=h('div',{style:'display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap'})
+    cdRow.innerHTML='<input type="date" id="examDateInput" value="'+(D.examDate||'')+'" style="width:160px">'
+    cdRow.appendChild(h('button',{className:'btn btn-primary btn-sm edit-only',onClick:function(){var v=document.getElementById('examDateInput').value;D.examDate=v||null;sv(D);render();ts('✅ 考试日期已设置')}},'💾 保存日期'))
+    cd.appendChild(cdRow)
+  }
+  $c.appendChild(cd)
 
   // 今日概览 Hero
   const hero=h('div',{className:'hero'})
@@ -320,6 +347,26 @@ function rd(){
   bc.appendChild(h('div',{style:'margin-top:10px;padding:8px;background:#f7fafc;border-radius:6px;font-size:13px',innerHTML:'📊 已出分：<strong>'+bkt.toFixed(1)+'/'+bkf.toFixed(0)+'</strong>（'+bpct.toFixed(1)+'%）| 满分：'+bfull+' | 🎯 目标：二上期末≥508'}))
   if(!VW)bc.appendChild(h('button',{className:'btn btn-primary btn-sm edit-only',style:'margin-top:8px',onClick:()=>{tb='scores';sw('scores')}},'✏️ 到成绩页录入考试'))
   $c.appendChild(bc)
+
+  // 薄弱科目诊断
+  const weakSubs=[]
+  for(const s of bsubs){
+    const raw=D.bl&&D.bl[s.id]!=null?D.bl[s.id]:null
+    if(raw!=null){const wp=raw/s.full*100;if(wp<60)weakSubs.push({name:s.name,pct:wp})}
+  }
+  if(weakSubs.length){
+    const wc=h('div',{className:'card'})
+    wc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🎯'}),'薄弱科目诊断'))
+    for(const w of weakSubs){
+      let adv='回归课本，梳理知识点，多做基础题'
+      if(w.name==='英语')adv='每天背20个单词 + 朗读课文15分钟'
+      else if(w.name==='数学')adv='每天做5道基础计算题，先抓计算准确率'
+      else if(w.name==='语文')adv='每周2篇阅读理解 + 积累作文素材'
+      else if(w.name==='物理')adv='先弄懂每个公式的含义，做课本例题'
+      wc.appendChild(h('div',{className:'alert danger'},'🔴 '+w.name+' 得分率 '+w.pct.toFixed(1)+'% — 建议：'+adv))
+    }
+    $c.appendChild(wc)
+  }
 
   // 奖励与设备
   $c.appendChild(h('div',{className:'section-title'},'🎁 奖励与设备'))
@@ -555,6 +602,29 @@ function rdl(){
   cc.appendChild(grid)
   $c.appendChild(cc)
 
+  // 每日任务清单
+  const tc=h('div',{className:'card'})
+  tc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📋'}),'今日任务清单'))
+  const todayTasks=D.tasks.filter(function(t){return t.date===td})
+  const tt=h('div',null)
+  for(const task of todayTasks){
+    const item=h('div',{className:'task-item'})
+    const chk=h('button',{className:'q-btn '+(task.done?'done':''),onClick:function(){if(VW)return;task.done=!task.done;sv(D);render();ts(task.done?'✅ 任务完成':'已取消')}})
+    chk.innerHTML=(task.done?'✅ ':'⬜ ')+task.text
+    item.appendChild(chk)
+    if(!VW){const del=h('button',{className:'btn btn-danger btn-sm',style:'margin-left:6px',onClick:function(){D.tasks=D.tasks.filter(function(x){return x.id!==task.id});sv(D);render()}});del.innerHTML='✕';item.appendChild(del)}
+    tt.appendChild(item)
+  }
+  if(todayTasks.length===0){tt.appendChild(h('div',{style:'color:var(--muted);font-size:13px'},'今天还没有任务'))}
+  tc.appendChild(tt)
+  if(!VW){
+    const addRow=h('div',{style:'display:flex;gap:8px;margin-top:10px'})
+    addRow.innerHTML='<input id="taskInput" placeholder="如：背20个单词、做5道数学题" style="flex:1">'
+    addRow.appendChild(h('button',{className:'btn btn-primary btn-sm edit-only',onClick:function(){var v=document.getElementById('taskInput').value.trim();if(!v){ts('⚠️ 请输入任务');return}D.tasks.push({id:Date.now(),date:td,text:v,done:false});sv(D);render();ts('✅ 任务已添加')}},'➕ 添加'))
+    tc.appendChild(addRow)
+  }
+  $c.appendChild(tc)
+
   // Edit UI
   if(!VW){
     const ec=h('div',{className:'card edit-only'})
@@ -668,6 +738,71 @@ function rpt(){
   erc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🏅'}),'积分规则 — 大考'))
   erc.innerHTML+='<table><thead><tr><th>积分项</th><th>分值</th></tr></thead><tbody><tr><td>🏅 达标基础分</td><td><strong>+150</strong></td></tr><tr><td>🚀 超标加分</td><td><strong>+15/分</strong></td></tr><tr><td>📚 单科达标</td><td><strong>+40/科</strong></td></tr><tr><td>🌟 全科达标</td><td><strong>+80</strong></td></tr><tr><td>📈 进步奖</td><td><strong>+60</strong></td></tr><tr><td>🔥 连续达标</td><td><strong>+80</strong></td></tr></tbody></table><div style="margin-top:10px;font-size:12px;color:var(--muted);padding:8px;background:#fffbeb;border-radius:6px">💡 <strong>示例：</strong>达标150 + 超标45 + 3科120 + 进步60 = <strong>375积分</strong>（按1元=1积分，≈¥375零件预算）</div>'
   $c.appendChild(erc)
+}
+
+function rmk(){
+  $c.innerHTML=''
+  if(!VW){
+    const ac=h('div',{className:'card edit-only'})
+    ac.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📕'}),'记录错题'))
+    ac.innerHTML+='<div class="form-row"><div><label>科目</label><select id="mkSubject">'+['语文','数学','英语','物理','化学','地理','生物','历史','道法'].map(function(s){return '<option>'+s+'</option>'}).join('')+'</select></div><div><label>题目来源</label><input id="mkSource" placeholder="如：期中卷、作业"></div></div><div class="form-row"><div><label>错因/题目描述</label><input id="mkReason" placeholder="如：计算错误、语法不懂"></div></div><button class="btn btn-primary btn-sm edit-only" id="btnMk">➕ 添加错题</button>'
+    ac.querySelector('#btnMk').addEventListener('click',function(){
+      const subject=ac.querySelector('#mkSubject').value
+      const source=ac.querySelector('#mkSource').value.trim()
+      const reason=ac.querySelector('#mkReason').value.trim()
+      if(!source&&!reason){ts('⚠️ 请填写内容');return}
+      D.mistakes.push({id:Date.now(),subject:subject,source:source||'未注明',reason:reason||'',date:td,fixed:false})
+      sv(D);render();ts('✅ 错题已记录')
+    })
+    $c.appendChild(ac)
+  }
+  const lc=h('div',{className:'card'})
+  lc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📕'}),'错题本（'+D.mistakes.length+'道）'))
+  if(!D.mistakes.length){
+    lc.appendChild(h('div',{style:'text-align:center;padding:40px;color:var(--muted)'},'📭 还没有错题记录'))
+  }else{
+    const sorted=[...D.mistakes].sort(function(a,b){return b.date.localeCompare(a.date)})
+    const fixedCnt=sorted.filter(function(m){return m.fixed}).length
+    lc.appendChild(h('div',{style:'font-size:12px;color:var(--muted);margin-bottom:8px'},'已订正 '+fixedCnt+' / '+sorted.length+' 道'))
+    for(const m of sorted){
+      const row=h('div',{className:'mistake-item'})
+      row.innerHTML='<div><strong>'+m.subject+'</strong> · '+m.source+' <span style="color:var(--faint);font-size:12px">'+fd(m.date)+'</span></div><div style="font-size:13px;color:var(--muted);margin-top:2px">'+m.reason+'</div>'
+      const btn=h('button',{className:'btn btn-sm '+(m.fixed?'btn-outline':'btn-success'),style:'margin-top:6px',onClick:function(){if(VW)return;m.fixed=!m.fixed;if(m.fixed){D.points.push({date:td,source:'错题订正',points:2,type:'earn'});ts('✅ 错题订正 +2分')}else{const idx=D.points.findIndex(function(p){return p.date===td&&p.source==='错题订正'&&p.type==='earn'});if(idx>=0)D.points.splice(idx,1);ts('已取消订正')}sv(D);render()}})
+      btn.innerHTML=m.fixed?'✅ 已订正':'✔ 标记订正 +2分'
+      row.appendChild(btn)
+      if(!VW){const del=h('button',{className:'btn btn-danger btn-sm',style:'margin-top:6px;margin-left:6px',onClick:function(){D.mistakes=D.mistakes.filter(function(x){return x.id!==m.id});sv(D);render();ts('已删除')}});del.innerHTML='✕';row.appendChild(del)}
+      lc.appendChild(row)
+    }
+  }
+  $c.appendChild(lc)
+  lc.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:10px'},'💡 周末记得复习错题，订正一题 +2 积分'))
+}
+
+function rwk(){
+  $c.innerHTML=''
+  const now=new Date();const day=now.getDay()||7
+  const weekStart=new Date(now);weekStart.setDate(now.getDate()-day+1)
+  const weekStartStr=weekStart.toISOString().slice(0,10)
+  let weekChecks=0
+  for(let i=0;i<7;i++){const d=new Date(weekStart);d.setDate(weekStart.getDate()+i);const ds=d.toISOString().slice(0,10);const chk=D.dailyChecks[ds];if(chk){for(const k in chk){if(chk[k])weekChecks++}}}
+  const weekPoints=D.points.filter(function(p){return p.date>=weekStartStr}).reduce(function(s,p){return s+(p.type==='earn'?p.points:-p.points)},0)
+  const weekMistakes=D.mistakes.filter(function(m){return m.date>=weekStartStr}).length
+  const weak=[]
+  const bl=D.bl||{};const bsubs=gs(D.sem)
+  for(const s of bsubs){const raw=bl[s.id];if(raw!=null){const p=raw/s.full*100;if(p<60)weak.push(s.name+'('+p.toFixed(0)+'%)')}}
+  const rp=h('div',{className:'card'})
+  rp.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📊'}),'学习周报'))
+  rp.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-bottom:12px'},'本周：'+fd(weekStartStr)+' ~ '+fd(now.toISOString().slice(0,10))))
+  const items=[{icon:'✅',label:'本周打卡',val:weekChecks+' 次'},{icon:'⭐',label:'本周积分',val:(weekPoints>0?'+':'')+weekPoints+' 分'},{icon:'📕',label:'本周新增错题',val:weekMistakes+' 道'},{icon:'🎯',label:'薄弱科目',val:weak.length?weak.join('、'):'暂无'}]
+  for(const it of items){rp.appendChild(h('div',{style:'display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:14px'},h('span',null,it.icon+' '+it.label),h('strong',null,it.val)))}
+  rp.appendChild(h('div',{style:'margin-top:14px;padding:12px;background:var(--primary-weak);border-radius:8px;font-size:13px'},'💡 <strong>下周建议：</strong>'+(weak.length?'重点突破 '+weak[0]+'，每天15分钟专项练习':'保持当前节奏，巩固已学知识')))
+  if(!VW){
+    rp.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-top:12px',onClick:function(){
+      let txt='【阿勒学习周报】\n'+fd(weekStartStr)+' ~ '+fd(now.toISOString().slice(0,10))+'\n本周打卡：'+weekChecks+'次\n本周积分：'+(weekPoints>0?'+':'')+weekPoints+'分\n新增错题：'+weekMistakes+'道\n薄弱科目：'+(weak.length?weak.join('、'):'暂无')+'\n下周建议：'+(weak.length?'重点突破 '+weak[0]:'保持节奏')+'\n'
+      navigator.clipboard.writeText(txt).then(function(){ts('✅ 周报已复制')}).catch(function(){ts('⚠️ 复制失败')})
+    }},'📋 复制周报到家庭群'))
+  }
+  $c.appendChild(rp)
 }
 
 function sw(tab){tb=tab;document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));render();window.scrollTo({top:0,behavior:'smooth'})}
