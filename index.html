@@ -106,7 +106,7 @@ SUB['初三上']=[...SUB['初二上'],{id:'chem',name:'化学',full:100,rate:0.6
 SUB['初三下']=SUB['初三上']
 
 const PLANS=[{name:'基础套餐',data:'5GB+100分钟',cost:30},{name:'视频加成',data:'+5GB',cost:10},{name:'达标奖励',data:'+10GB',cost:20},{name:'优异奖励',data:'+20GB',cost:40}]
-const PT=[{id:1,icon:'🖱️',name:'鼠标垫',value:30,cond:'初二上期中',det:'主科均分≥100',st:1},{id:2,icon:'🐭',name:'鼠标',value:200,cond:'初二上期中',det:'主科均分≥100',st:2},{id:3,icon:'⌨️',name:'键盘',value:400,cond:'初二上期末',det:'总分≥508',st:3},{id:4,icon:'🎧',name:'耳机',value:350,cond:'初二上期末',det:'总分≥508',st:4},{id:5,icon:'🔊',name:'音响',value:400,cond:'初二下期中',det:'总分≥517',st:5},{id:6,icon:'🎒',name:'机箱',value:350,cond:'初二下期中',det:'总分≥517',st:6},{id:7,icon:'💾',name:'SSD 1TB',value:500,cond:'初二下期末',det:'总分≥538',st:7},{id:8,icon:'❄️',name:'散热器',value:300,cond:'初二下期末',det:'总分≥538',st:8},{id:9,icon:'⚡',name:'电源750W',value:500,cond:'初三上期中',det:'总分≥580',st:9},{id:10,icon:'🧠',name:'内存32G',value:600,cond:'初三上期末',det:'总分≥610',st:10},{id:11,icon:'🔧',name:'主板',value:1000,cond:'一模≥600',det:'初三下开学',st:11},{id:12,icon:'📺',name:'显示器2K',value:1200,cond:'二模≥610',det:'初三下期中',st:12},{id:13,icon:'🧮',name:'CPU',value:1500,cond:'三模≥615',det:'中考前冲刺',st:13},{id:14,icon:'🎮',name:'显卡',value:2500,cond:'中考≥625',det:'中考达标!',st:14}]
+const PT=[{id:1,icon:'🖱️',name:'鼠标垫',value:30,cond:'初二上期中',det:'主科均分≥100',st:1},{id:2,icon:'🐭',name:'鼠标',value:200,cond:'初二上期中',det:'主科均分≥100',st:2},{id:3,icon:'🔌',name:'排插',value:100,cond:'初二上期中',det:'主科均分≥100',st:3},{id:4,icon:'⌨️',name:'键盘',value:400,cond:'初二上期末',det:'总分≥508',st:4},{id:5,icon:'🎧',name:'耳机',value:350,cond:'初二上期末',det:'总分≥508',st:5},{id:6,icon:'🎥',name:'摄像头',value:200,cond:'初二上期末',det:'总分≥508',st:6},{id:7,icon:'🔊',name:'音响',value:400,cond:'初二下期中',det:'总分≥517',st:7},{id:8,icon:'🎒',name:'机箱',value:350,cond:'初二下期中',det:'总分≥517',st:8},{id:9,icon:'🕹️',name:'游戏手柄',value:350,cond:'初二下期中',det:'总分≥517',st:9},{id:10,icon:'💾',name:'SSD 1TB',value:500,cond:'初二下期末',det:'总分≥538',st:10},{id:11,icon:'❄️',name:'散热器',value:300,cond:'初二下期末',det:'总分≥538',st:11},{id:12,icon:'⚡',name:'电源750W',value:500,cond:'初三上期中',det:'总分≥580',st:12},{id:13,icon:'💽',name:'机械硬盘',value:500,cond:'初三上期中',det:'总分≥580',st:13},{id:14,icon:'🧠',name:'内存32G',value:600,cond:'初三上期末',det:'总分≥610',st:14},{id:15,icon:'🔧',name:'主板',value:1000,cond:'一模≥600',det:'初三下开学',st:15},{id:16,icon:'📺',name:'显示器2K',value:1200,cond:'二模≥610',det:'初三下期中',st:16},{id:17,icon:'🧮',name:'CPU',value:1500,cond:'三模≥615',det:'中考前冲刺',st:17},{id:18,icon:'🎮',name:'显卡',value:2500,cond:'中考≥625',det:'中考达标!',st:18}]
 
 function defData(){
   return {
@@ -347,10 +347,10 @@ function cu(ex){
   const info=ct(ex.scores,ex.sem);let ch=false
   function up(id){var p=D.parts.find(function(x){return x.id===id});if(p&&!p.unlocked){p.unlocked=true;return true}return false}
   // 初二上期中：主科均分≥100，解锁鼠标垫(1)+鼠标(2)
-  if(ex.sem==='初二上'&&ex.examType==='期中'){const avg=(ex.scores.chinese+ex.scores.math+ex.scores.english)/3;if(avg>=100){if(up(1))ch=true;if(up(2))ch=true}}
-  const conds=[{ids:[3,4],s:'初二上',e:'期末',m:508},{ids:[5,6],s:'初二下',e:'期中',m:517},{ids:[7,8],s:'初二下',e:'期末',m:538},{ids:[9],s:'初三上',e:'期中',m:580},{ids:[10],s:'初三上',e:'期末',m:610},{ids:[11],s:'初三下',e:'月考',m:600},{ids:[12],s:'初三下',e:'期中',m:610},{ids:[13],s:'初三下',e:'期末',m:615}]
+  if(ex.sem==='初二上'&&ex.examType==='期中'){const avg=(ex.scores.chinese+ex.scores.math+ex.scores.english)/3;if(avg>=100){if(up(1))ch=true;if(up(2))ch=true;if(up(3))ch=true}}
+  const conds=[{ids:[4,5,6],s:'初二上',e:'期末',m:508},{ids:[7,8,9],s:'初二下',e:'期中',m:517},{ids:[10,11],s:'初二下',e:'期末',m:538},{ids:[12,13],s:'初三上',e:'期中',m:580},{ids:[14],s:'初三上',e:'期末',m:610},{ids:[15],s:'初三下',e:'月考',m:600},{ids:[16],s:'初三下',e:'期中',m:610},{ids:[17],s:'初三下',e:'期末',m:615}]
   for(var ci=0;ci<conds.length;ci++){var c=conds[ci];if(ex.sem===c.s&&ex.examType===c.e&&info.total>=c.m){for(var k=0;k<c.ids.length;k++){if(up(c.ids[k]))ch=true}}}
-  if(ex.examType==='中考'&&info.total>=625&&up(14))ch=true
+  if(ex.examType==='中考'&&info.total>=625&&up(18))ch=true
   if(ex.sem==='初二上'&&ex.examType==='期末'&&info.total>=508&&!D.phone){D.phone=true;ch=true}
   if(ch){sv(D);ts('🎉 解锁！')}
 }
