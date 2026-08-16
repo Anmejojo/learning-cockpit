@@ -193,8 +193,8 @@ function defData(){
     exams:[],parts:JSON.parse(JSON.stringify(PT)),dailyChecks:{},points:[],sem:'初二上',
     rate:10,
     bl:{chinese:99,math:115,english:70,geo:67,history:81,dao:63,bio:58,physics:null,pe:null,chem:null},
-    phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,examDate:null,mistakes:[],tasks:[],
-    dci:[{key:'englishVocab',icon:'📖',label:'英语单词',pts:2},{key:'homeworkPhoto',icon:'📸',label:'作业拍照',pts:2},{key:'videoCall',icon:'📞',label:'视频通话',pts:2},{key:'extraStudy',icon:'📚',label:'额外学习1h',pts:5},{key:'askTeacher',icon:'🙋',label:'主动问老师',pts:3},{key:'classNote',icon:'📝',label:'课堂笔记拍照',pts:2},{key:'mistakeBook',icon:'📓',label:'整理错题本',pts:2},{key:'noSkipStep',icon:'✅',label:'解题不跳步',pts:2},{key:'reciteMethod',icon:'🧠',label:'背英语用方法',pts:2}]
+    phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,examDate:null,mistakes:[],tasks:[],ritualTime:'20:00',smallGoals:[],
+    dci:[{key:'englishVocab',icon:'📖',label:'英语单词',pts:2},{key:'homeworkPhoto',icon:'📸',label:'作业拍照',pts:2},{key:'videoCall',icon:'📞',label:'视频通话',pts:2},{key:'extraStudy',icon:'📚',label:'额外学习1h',pts:5},{key:'askTeacher',icon:'🙋',label:'主动问老师',pts:3},{key:'classNote',icon:'📝',label:'课堂笔记拍照',pts:2},{key:'mistakeBook',icon:'📓',label:'整理错题本',pts:2},{key:'noSkipStep',icon:'✅',label:'解题不跳步',pts:2},{key:'reciteMethod',icon:'🧠',label:'背英语用方法',pts:2},{key:'onTimeStudy',icon:'⏰',label:'按时开始学习',pts:2}]
   }
 }
 const SK='lc_v3'
@@ -367,6 +367,48 @@ function rd(){
     }
     $c.appendChild(wc)
   }
+
+  // 固定学习仪式
+  const rt=D.ritualTime||'20:00'
+  const rcard=h('div',{className:'card'})
+  rcard.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'⏰'}),'固定学习仪式'))
+  rcard.appendChild(h('div',{style:'font-size:14px',innerHTML:'每天 <strong>'+rt+'</strong> 固定学习，雷打不动，21天养成习惯'}))
+  rcard.appendChild(h('div',{style:'font-size:12px;color:var(--muted);margin-top:4px'},'固定时间比临时起意更省力，孩子不用纠结"要不要学"，到点就做'))
+  if(!VW){
+    const rrow=h('div',{style:'display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap'})
+    rrow.innerHTML='<span style="font-size:13px">学习时间：</span><input type="time" id="ritualTime" value="'+rt+'" style="width:130px">'
+    rrow.appendChild(h('button',{className:'btn btn-primary btn-sm edit-only',onClick:function(){var v=document.getElementById('ritualTime').value;if(v){D.ritualTime=v;sv(D);render();ts('✅ 学习时间已设为 '+v)}}},'💾 保存'))
+    rcard.appendChild(rrow)
+  }
+  $c.appendChild(rcard)
+
+  // 小目标阶梯
+  const goals=D.smallGoals||[]
+  const achieved=goals.filter(function(g){return g.done}).length
+  const gcard=h('div',{className:'card'})
+  gcard.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🎯'}),'小目标阶梯'))
+  gcard.appendChild(h('div',{style:'font-size:12px;color:var(--muted);margin-bottom:8px'},'够得着，别定太高。每次只提一点点（如英语70→75），连续达成比一次够不着更有效'))
+  if(!goals.length){
+    gcard.appendChild(h('div',{style:'color:var(--muted);font-size:13px'},'还没有小目标，点下方添加'))
+  }else{
+    for(const g of goals){
+      const row=h('div',{className:'mistake-item'})
+      row.innerHTML='<strong>'+g.subject+'</strong> '+g.from+'→'+g.to+(g.done?' <span style="color:var(--success)">✅ 已达成</span>':'')
+      const btn=h('button',{className:'btn btn-sm '+(g.done?'btn-outline':'btn-success'),style:'margin-top:4px;margin-left:8px',onClick:function(){if(VW)return;g.done=!g.done;if(g.done){D.points.push({date:td,source:'小目标达成',points:10,type:'earn'});ts('🎉 小目标达成 +10分')}else{const idx=D.points.findIndex(function(p){return p.date===td&&p.source==='小目标达成'&&p.type==='earn'});if(idx>=0)D.points.splice(idx,1);ts('已取消')}sv(D);render()}})
+      btn.innerHTML=g.done?'✅ 已达成':'✔ 标记达成 +10分'
+      row.appendChild(btn)
+      if(!VW){const del=h('button',{className:'btn btn-danger btn-sm',style:'margin-top:4px;margin-left:4px',onClick:function(){D.smallGoals=D.smallGoals.filter(function(x){return x.id!==g.id});sv(D);render()}});del.innerHTML='✕';row.appendChild(del)}
+      gcard.appendChild(row)
+    }
+    gcard.appendChild(h('div',{style:'font-size:12px;color:var(--muted);margin-top:8px'},'已达成 '+achieved+' 个小目标，继续小步前进'))
+  }
+  if(!VW){
+    const arow=h('div',{style:'display:flex;gap:8px;margin-top:10px;flex-wrap:wrap'})
+    arow.innerHTML='<input id="goalSubject" placeholder="科目" style="width:80px"><input id="goalFrom" type="number" placeholder="现在分" style="width:80px"><input id="goalTo" type="number" placeholder="目标分" style="width:80px">'
+    arow.appendChild(h('button',{className:'btn btn-primary btn-sm edit-only',onClick:function(){const s=document.getElementById('goalSubject').value.trim();const f=parseFloat(document.getElementById('goalFrom').value);const t=parseFloat(document.getElementById('goalTo').value);if(!s||isNaN(f)||isNaN(t)){ts('⚠️ 请填写完整');return}D.smallGoals.push({id:Date.now(),subject:s,from:f,to:t,done:false});sv(D);render();ts('✅ 小目标已添加')}},'➕ 添加目标'))
+    gcard.appendChild(arow)
+  }
+  $c.appendChild(gcard)
 
   // 奖励与设备
   $c.appendChild(h('div',{className:'section-title'},'🎁 奖励与设备'))
