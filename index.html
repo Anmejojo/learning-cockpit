@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>学习驾驶舱</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f0f4f8;--card:#fff;--text:#2d3748;--muted:#718096;--primary:#3182ce;--success:#38a169;--warning:#d69e2e;--danger:#e53e3e;--border:#e2e8f0;--shadow:0 2px 8px rgba(0,0,0,0.06);--radius:10px}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.topbar{background:#1a202c;color:#fff;padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.topbar .logo{font-size:18px;font-weight:700}
+.topbar .badge{font-size:11px;padding:3px 10px;border-radius:12px;font-weight:600}
+.topbar .badge.edit{background:#38a169}.topbar .badge.view{background:#718096}
+.tabs{display:flex;background:#fff;border-bottom:1px solid var(--border);position:sticky;top:56px;z-index:99;padding:0 24px}
+.tab-btn{padding:14px 18px;border:none;background:none;font-size:14px;cursor:pointer;color:var(--muted);font-weight:500;border-bottom:3px solid transparent;transition:all 0.2s;white-space:nowrap}
+.tab-btn:hover{color:var(--primary);background:#ebf4ff}
+.tab-btn.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:700}
+.content{max-width:1100px;margin:0 auto;padding:24px}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-bottom:16px}
+.card-header{font-size:15px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:16px}
+.stat-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;text-align:center;border-left:4px solid transparent}
+.stat-card .sv{font-size:28px;font-weight:800}
+.stat-card .sl{font-size:12px;color:var(--muted);margin-top:4px}
+.stat-card.warn{border-left-color:var(--warning)}.stat-card.danger{border-left-color:var(--danger)}
+.stat-card.success{border-left-color:var(--success)}.stat-card.primary{border-left-color:var(--primary)}
+.progress-bar{height:10px;background:#edf2f7;border-radius:5px;overflow:hidden;margin:8px 0}
+.progress-bar .fill{height:100%;border-radius:5px;transition:width 0.6s}
+.fill.primary{background:var(--primary)}.fill.success{background:var(--success)}.fill.warning{background:var(--warning)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)}
+th{background:#f7fafc;font-weight:600;color:var(--muted);font-size:12px}
+tr:hover{background:#f7fafc}
+.btn{padding:8px 16px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.btn-primary{background:var(--primary);color:#fff}.btn-success{background:var(--success);color:#fff}
+.btn-warning{background:var(--warning);color:#fff}.btn-danger{background:var(--danger);color:#fff}
+.btn-sm{padding:4px 10px;font-size:12px;border-radius:4px}
+.btn-outline{background:#fff;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{background:#f7fafc}
+input,select{padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%;font-family:inherit}
+input:focus,select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(49,130,206,0.15)}
+.form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:10px}
+.form-row label{font-size:12px;color:var(--muted);font-weight:600;display:block;margin-bottom:2px}
+.parts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.part-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;text-align:center;border:2px solid var(--border);transition:all 0.3s;position:relative}
+.part-card.unlocked{border-color:var(--success);background:#f0fff4}
+.part-card.locked{opacity:0.55;filter:grayscale(0.6)}
+.part-card .pi{font-size:36px;margin-bottom:6px}
+.part-card .pn{font-weight:700;font-size:14px;margin-bottom:4px}
+.part-card .pv{font-size:12px;color:var(--muted);margin-bottom:4px}
+.part-card .pc{font-size:11px;color:var(--muted);background:#f7fafc;padding:3px 8px;border-radius:4px}
+.pb{position:absolute;top:8px;right:8px;font-size:18px}
+.alert{padding:12px 16px;border-radius:8px;margin-bottom:10px;font-size:13px;display:flex;align-items:center;gap:8px}
+.alert.warning{background:#fffff0;border:1px solid #faf089;color:#975a16}
+.alert.danger{background:#fff5f5;border:1px solid #fed7d7;color:#9b2c2c}
+.check-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.check-item{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;text-align:center;cursor:pointer;border:2px solid var(--border);transition:all 0.2s;user-select:none}
+.check-item:hover{border-color:var(--primary)}
+.check-item.done{border-color:var(--success);background:#f0fff4}
+.check-item .ci{font-size:32px}.check-item .cl{font-size:13px;font-weight:600;margin-top:4px}
+.check-item .cs{font-size:11px;color:var(--muted);margin-top:2px}
+.ps{display:flex;gap:14px;margin-bottom:16px;flex-wrap:wrap}
+.ps .psi{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 20px;text-align:center;flex:1;min-width:100px}
+.psi .pv{font-size:28px;font-weight:800}.psi .pl{font-size:12px;color:var(--muted)}
+.toast{position:fixed;bottom:24px;right:24px;background:#1a202c;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;z-index:999;opacity:0;transform:translateY(20px);transition:all 0.3s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+.view-only .edit-only{display:none!important}
+@media(max-width:768px){.stat-grid{grid-template-columns:repeat(2,1fr)}.parts-grid{grid-template-columns:repeat(2,1fr)}.form-row{grid-template-columns:1fr}.content{padding:12px}.tabs{padding:0 8px;overflow-x:auto}.tab-btn{padding:12px 14px;font-size:12px}}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="logo">🚀 学习驾驶舱</div><div class="badge edit edit-only" id="modeBadge">✏️ 家长模式</div></div>
+<div class="tabs" id="tabNav">
+<button class="tab-btn active" data-tab="dashboard">📊 驾驶舱</button>
+<button class="tab-btn" data-tab="scores">📝 成绩追踪</button>
+<button class="tab-btn" data-tab="parts">💻 零件进度</button>
+<button class="tab-btn" data-tab="daily">✅ 日常检测</button>
+<button class="tab-btn" data-tab="points">💰 积分账本</button>
+</div>
+<div class="content" id="appContent"></div>
+<div class="toast" id="toast"></div>
+<script>
+
+
+const SUB={}
+SUB['初二上']=[{id:'chinese',name:'语文',full:150,rate:1},{id:'math',name:'数学',full:150,rate:1},{id:'english',name:'英语',full:150,rate:1},{id:'physics',name:'物理',full:100,rate:0.9},{id:'geo',name:'地理',full:100,rate:0.3},{id:'bio',name:'生物',full:100,rate:0.3},{id:'dao',name:'道法',full:100,rate:0.5},{id:'history',name:'历史',full:100,rate:0.5},{id:'pe',name:'体育',full:40,rate:1}]
+SUB['初二下']=SUB['初二上']
+SUB['初三上']=[...SUB['初二上'],{id:'chem',name:'化学',full:100,rate:0.6}]
+SUB['初三下']=SUB['初三上']
+
+const PLANS=[{name:'基础套餐',data:'5GB+100分钟',cost:30},{name:'视频加成',data:'+5GB',cost:10},{name:'达标奖励',data:'+10GB',cost:20},{name:'优异奖励',data:'+20GB',cost:40}]
+const PT=[{id:1,icon:'🖱️',name:'键鼠套装',value:300,cond:'初二上期中',det:'主科均分≥100',st:1},{id:2,icon:'🎒',name:'机箱',value:350,cond:'初二上期末',det:'总分≥508',st:2},{id:3,icon:'🔊',name:'音箱/耳机',value:300,cond:'初二下期中',det:'总分≥517',st:3},{id:4,icon:'💾',name:'SSD 1TB',value:500,cond:'初二下期末',det:'总分≥538',st:4},{id:5,icon:'❄️',name:'散热器',value:300,cond:'初三上期中',det:'总分≥580',st:5},{id:6,icon:'⚡',name:'电源750W',value:500,cond:'初三上期末',det:'总分≥610',st:6},{id:7,icon:'🧠',name:'内存32G',value:600,cond:'一模≥600',det:'初三下开学',st:7},{id:8,icon:'🔧',name:'主板',value:1000,cond:'二模≥610',det:'初三下期中',st:8},{id:9,icon:'📺',name:'显示器2K',value:1200,cond:'三模≥615',det:'初三下期末',st:9},{id:10,icon:'🧮',name:'CPU',value:1500,cond:'稳定≥620',det:'中考前冲刺',st:10},{id:11,icon:'🎮',name:'显卡',value:2500,cond:'中考≥625',det:'中考达标!',st:11}]
+
+function defData(){
+  return {
+    exams:[],parts:JSON.parse(JSON.stringify(PT)),dailyChecks:{},points:[],sem:'初二上',
+    rate:10,
+    bl:{chinese:99,math:115,english:70,geo:67,history:81,dao:63,bio:58,physics:null,pe:null,chem:null},
+    phone:false,phDate:null,tabUnlock:false,pl:0,
+    dci:[{key:'englishVocab',icon:'📖',label:'英语单词',pts:2},{key:'homeworkPhoto',icon:'📸',label:'作业拍照',pts:2},{key:'videoCall',icon:'📞',label:'视频通话',pts:2},{key:'extraStudy',icon:'📚',label:'额外学习1h',pts:5},{key:'askTeacher',icon:'🙋',label:'主动问老师',pts:3}]
+  }
+}
+const SK='lc_v3'
+function ld(){
+  try{
+    // Try current key first
+    let r=localStorage.getItem(SK)
+    // Fall back to old keys
+    if(!r){r=localStorage.getItem('learning_cockpit_data')}
+    if(!r){r=localStorage.getItem('learning_cockpit_v2')}
+    if(r){
+      const d=JSON.parse(r)
+      const df=defData()
+      for(const k of Object.keys(df)){
+        if(!(k in d))d[k]=df[k]
+        // Migrate old field names
+        if(k==='dailyCheckItems'&&!d.dci&&d.dailyCheckItems)d.dci=d.dailyCheckItems
+      }
+      // Migrate old keys to new key
+      if(!localStorage.getItem(SK))localStorage.setItem(SK,JSON.stringify(d))
+      return d
+    }
+  }catch(e){console.error('Load error:',e)}
+  return defData()
+}
+function sv(d){try{localStorage.setItem(SK,JSON.stringify(d))}catch(e){ts('保存失败')}}
+
+const up=new URLSearchParams(window.location.search)
+const VW=up.has('view')||up.has('readonly')
+if(VW){document.body.classList.add('view-only');const b=document.getElementById('modeBadge');b.textContent='👀 查看模式';b.className='badge view';b.style.display=''}
+
+function ts(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2000)}
+function gs(sem){return SUB[sem]||SUB['初二上']}
+function ct(sc,sem){const subs=gs(sem);let t=0,f=0;for(const s of subs){f+=s.full*s.rate;if(sc[s.id]!=null)t+=sc[s.id]*s.rate}return{total:Math.round(t*10)/10,fullTotal:Math.round(f*10)/10,pct:f>0?Math.round(t/f*1000)/10:0}}
+function fd(d){if(!d)return'—';const p=d.split('-');return p[0]+'年'+parseInt(p[1])+'月'+parseInt(p[2])+'日'}
+function ps(v){return v.toFixed(1)+'%'}
+
+let D=ld()
+let tb='dashboard'
+const $c=document.getElementById('appContent')
+const td=new Date().toISOString().slice(0,10)
+const itms=D.dci||defData().dci
+if(!D.dailyChecks[td]){const ds={};for(const it of itms)ds[it.key]=false;D.dailyChecks[td]=ds;sv(D)}
+
+function h(tag,attrs,...children){
+  const el=document.createElement(tag)
+  if(attrs){for(const[k,v]of Object.entries(attrs)){if(k==='className')el.className=v;else if(k==='innerHTML')el.innerHTML=v;else if(k.startsWith('on'))el.addEventListener(k.slice(2).toLowerCase(),v);else el.setAttribute(k,v)}}
+  for(const child of children){if(child==null)continue;if(typeof child==='string')el.appendChild(document.createTextNode(child));else el.appendChild(child)}
+  return el
+}
+
+function render(){
+  $c.innerHTML=''
+  if(tb==='dashboard')rd()
+  else if(tb==='scores')rs()
+  else if(tb==='parts')rp()
+  else if(tb==='daily')rdl()
+  else if(tb==='points')rpt()
+}
+
+function rd(){
+  const lt=D.exams.length?[...D.exams].sort((a,b)=>b.date.localeCompare(a.date))[0]:null
+  const si=lt?ct(lt.scores,lt.sem||D.sem):{total:0,fullTotal:gs(D.sem).reduce((s,sub)=>s+sub.full*sub.rate,0),pct:0}
+  const pu=D.parts.filter(p=>p.unlocked).length
+  const te=D.points.filter(p=>p.type==='earn').reduce((s,p)=>s+p.points,0)
+  const ts_=D.points.filter(p=>p.type==='spend').reduce((s,p)=>s+p.points,0)
+
+  const sg=h('div',{className:'stat-grid'})
+  sg.appendChild(h('div',{className:'stat-card primary'},h('div',{className:'sv'},si.total+''),h('div',{className:'sl'},'总分/'+si.fullTotal+' ('+ps(si.pct)+')')))
+  sg.appendChild(h('div',{className:'stat-card '+(si.pct<65?'warn':'success')},h('div',{className:'sv'},si.pct>0?(625-Math.round(si.total/si.fullTotal*800))+'':'?'),h('div',{className:'sl'},'距三中625线')))
+  sg.appendChild(h('div',{className:'stat-card primary'},h('div',{className:'sv'},'💻 '+pu+'/'+D.parts.length),h('div',{className:'sl'},'零件已解锁')))
+  sg.appendChild(h('div',{className:'stat-card success'},h('div',{className:'sv'},'⭐ '+(te-ts_)),h('div',{className:'sl'},'可用积分')))
+  const md=(D.phone?1:0)+(D.tabUnlock?1:0)
+  sg.appendChild(h('div',{className:'stat-card '+(md>0?'success':'primary')},h('div',{className:'sv'},'🏆 '+md+'/2'),h('div',{className:'sl'},'里程碑')))
+  $c.appendChild(sg)
+
+  // Baseline
+  const bc=h('div',{className:'card'})
+  bc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📏'}),'当前成绩基准线'))
+  const bsubs=gs(D.sem)
+  let btb='<table><thead><tr><th>科目</th><th>卷面</th><th>折算</th><th>得分率</th><th>状态</th></tr></thead><tbody>'
+  let bkt=0,bkf=0
+  for(const s of bsubs){
+    const raw=D.bl&&D.bl[s.id]!=null?D.bl[s.id]:null
+    const conv=raw!=null?raw*s.rate:null;const pct=raw!=null?raw/s.full*100:0
+    if(raw!=null){bkt+=conv;bkf+=s.full*s.rate}
+    btb+='<tr><td><strong>'+s.name+'</strong></td><td>'+(raw!=null?raw+'/'+s.full:'?/'+s.full)+'</td><td>'+(conv!=null?conv.toFixed(1)+'/'+(s.full*s.rate).toFixed(0):'—')+'</td><td style="color:'+(pct<55?'var(--danger)':pct<70?'var(--warning)':'var(--success)')+';font-weight:600">'+(raw!=null?pct.toFixed(1)+'%':'—')+'</td><td style="color:'+(raw!=null?'var(--success)':'var(--muted)')+'">'+(raw!=null?'✅ 已有':'⬜ 待考')+'</td></tr>'
+  }
+  btb+='</tbody></table>'
+  bc.innerHTML+=btb
+  const bpct=bkf>0?(bkt/bkf*100):0
+  const bfull=bsubs.reduce((s,sub)=>s+sub.full*sub.rate,0)
+  bc.appendChild(h('div',{style:'margin-top:10px;padding:8px;background:#f7fafc;border-radius:6px;font-size:13px',innerHTML:'📊 已出分：<strong>'+bkt.toFixed(1)+'/'+bkf.toFixed(0)+'</strong>（'+bpct.toFixed(1)+'%）| 满分：'+bfull+' | 🎯 目标：二上期末≥508'}))
+  if(!VW)bc.appendChild(h('button',{className:'btn btn-primary btn-sm edit-only',style:'margin-top:8px',onClick:()=>{tb='scores';sw('scores')}},'✏️ 到成绩页录入考试'))
+  $c.appendChild(bc)
+
+  // Milestones
+  const mc=h('div',{className:'card'})
+  mc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🏆'}),'里程碑大奖'))
+  mc.innerHTML+='<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)"><div style="font-size:40px">📱</div><div style="flex:1"><div style="font-weight:700;font-size:15px">📱 手机 ≤3000元 '+(D.phone?(D.phDate?'✅ 已发放':'🔓 已解锁待发放'):'🔒 待解锁')+'</div><div style="font-size:13px;color:var(--muted)">条件：初二上期末总分≥508</div>'+(D.phone&&!D.phDate&&!VW?'<button class="btn btn-success btn-sm edit-only" style="margin-top:6px" onclick="D.phDate=new Date().toISOString().slice(0,10);sv(D);render()">✅ 标记已发放</button>':'')+'</div></div>'
+  mc.innerHTML+='<div style="display:flex;align-items:center;gap:12px;padding:10px 0"><div style="font-size:40px">💻</div><div style="flex:1"><div style="font-weight:700;font-size:15px">💻 平板 ≤5000元 '+(D.tabUnlock?'✅ 已解锁':'🔒 待高考达标')+'</div><div style="font-size:13px;color:var(--muted)">条件：高考达一本线</div></div></div>'
+  $c.appendChild(mc)
+
+  // Phone plan
+  const plc=D.pl||0
+  const pc=h('div',{className:'card'})
+  pc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📞'}),'话费管理'))
+  pc.innerHTML+='<table><thead><tr><th>套餐</th><th>内容</th><th>月费</th><th>当前</th></tr></thead><tbody>'+PLANS.map((p,i)=>'<tr><td>'+p.name+'</td><td>'+p.data+'</td><td>¥'+p.cost+'</td><td>'+(i<=plc?'✅':'⬜')+'</td></tr>').join('')+'</tbody></table>'
+  const pcost=PLANS.slice(0,Math.min(plc+1,PLANS.length)).reduce((s,p)=>s+p.cost,0)
+  pc.appendChild(h('div',{style:'margin-top:10px;font-size:13px',innerHTML:'💰 月费：<strong>¥'+pcost+'</strong> | 📱：'+(D.phone?'✅ '+(D.phDate?'已发放('+D.phDate+')':'待发放'):'⬜ 待达标')}))
+  if(!VW){
+    const br=h('div',{style:'display:flex;gap:8px;margin-top:10px'})
+    if(plc<PLANS.length-1)br.appendChild(h('button',{className:'btn btn-success btn-sm edit-only',onClick:()=>{D.pl=Math.min(plc+1,PLANS.length-1);sv(D);render();ts('📈 已升级')}},'📈 升级'))
+    if(plc>0)br.appendChild(h('button',{className:'btn btn-warning btn-sm edit-only',onClick:()=>{D.pl=Math.max(plc-1,0);sv(D);render();ts('📉 已降级')}},'📉 降级'))
+    pc.appendChild(br)
+  }
+  $c.appendChild(pc)
+
+  // Alerts
+  const tchk=D.dailyChecks[td]||{}
+  const al=[]
+  if(!tchk.englishVocab)al.push({l:'warning',m:'🔴 今天英语单词还没打卡！'})
+  if(!tchk.videoCall)al.push({l:'warning',m:'📞 今天还没视频通话'})
+  if(lt&&si.pct<62)al.push({l:'danger',m:'⚠️ 最近成绩偏低：'+ps(si.pct)})
+  const pr=D.parts.filter(p=>p.received).length
+  if(pu>0&&pu>pr)al.push({l:'success',m:'📦 '+(pu-pr)+'个零件已解锁待下单'})
+  if(al.length){
+    const ac=h('div',{className:'card'})
+    ac.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🚨'}),'实时预警'))
+    for(const a of al)ac.appendChild(h('div',{className:'alert '+a.l},a.m))
+    $c.appendChild(ac)
+  }
+
+  if(!VW){
+    const ec=h('div',{className:'card edit-only'})
+    ec.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔧'}),'数据管理'))
+    const ebr=h('div',{style:'display:flex;gap:8px;flex-wrap:wrap'})
+    ebr.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:()=>{const b=new Blob([JSON.stringify(D,null,2)],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='备份_'+td+'.json';a.click();URL.revokeObjectURL(u);ts('📥 已导出')}},'📥 导出备份'))
+    ebr.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:()=>{const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(confirm('将覆盖当前所有数据？')){const df=defData();for(const k of Object.keys(df)){if(!(k in d))d[k]=df[k];}D=d;sv(D);render();ts('✅ 已导入')}}catch(err){ts('⚠️ 格式错误')}};r.readAsText(f)};inp.click()}},'📤 导入备份'))
+    ec.appendChild(ebr)
+    $c.appendChild(ec)
+  }
+}
+
+function rs(){
+  if(!VW){
+    const fc=h('div',{className:'card edit-only'})
+    fc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📝'}),'录入考试成绩'))
+    fc.innerHTML+='<div class="form-row"><div><label>日期</label><input type="date" id="ed" value="'+td+'"></div><div><label>学期</label><select id="es">'+['初二上','初二下','初三上','初三下'].map(s=>'<option value="'+s+'"'+(D.sem===s?' selected':'')+'>'+s+'</option>').join('')+'</select></div><div><label>类型</label><select id="et"><option>期中</option><option>期末</option><option>月考</option><option>模拟考</option><option>中考</option></select></div></div><div class="form-row" id="ei"></div><button class="btn btn-primary edit-only" id="bae">💾 保存成绩</button>'
+    function ui(){const sem=fc.querySelector('#es').value;const subs=gs(sem);fc.querySelector('#ei').innerHTML=subs.map(s=>'<div><label>'+s.name+'（满分'+s.full+'，×'+(s.rate*100).toFixed(0)+'%）</label><input type="number" step="0.5" min="0" max="'+s.full+'" placeholder="卷面分" data-sub="'+s.id+'" data-full="'+s.full+'" data-rate="'+s.rate+'"></div>').join('')}
+    fc.querySelector('#es').addEventListener('change',ui);ui()
+    fc.querySelector('#bae').addEventListener('click',()=>{
+      const scores={};const inputs=fc.querySelectorAll('#ei input');let has=false
+      for(const inp of inputs){const v=parseFloat(inp.value);if(!isNaN(v)){scores[inp.dataset.sub]=v;has=true}}
+      if(!has){ts('⚠️ 请至少输入一科');return}
+      const ex={date:fc.querySelector('#ed').value,sem:fc.querySelector('#es').value,examType:fc.querySelector('#et').value,scores}
+      D.exams.push(ex);D.sem=ex.sem;cu(ex);sv(D);ts('✅ 已保存');render()
+    })
+    $c.appendChild(fc)
+  }
+  const lc=h('div',{className:'card'})
+  lc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📋'}),'成绩记录（'+D.exams.length+'次）'))
+  if(!D.exams.length){lc.appendChild(h('div',{style:'text-align:center;padding:40px;color:var(--muted)'},'📭 暂无记录'))}
+  else{
+    const sorted=[...D.exams].sort((a,b)=>b.date.localeCompare(a.date))
+    let rowHtml=''
+    for(const ex of sorted){
+      const info=ct(ex.scores,ex.sem)
+      const pctColor=info.pct<65?'var(--danger)':info.pct<75?'var(--warning)':'var(--success)'
+      rowHtml+='<tr><td>'+fd(ex.date)+'</td><td>'+ex.sem+'</td><td>'+ex.examType+'</td>'
+      rowHtml+='<td><strong>'+info.total+'</strong>/'+info.fullTotal+'</td>'
+      rowHtml+='<td style="color:'+pctColor+';font-weight:700">'+ps(info.pct)+'</td>'
+      if(!VW){
+        rowHtml+='<td><button class="btn btn-danger btn-sm" onclick="D.exams=D.exams.filter(function(e){return e.date!==\''+ex.date+'\'||e.examType!==\''+ex.examType+'\'});sv(D);render()">🗑</button></td>'
+      }else{rowHtml+='<td></td>'}
+      rowHtml+='</tr>'
+    }
+    var th='<table><thead><tr>'
+    th+='<th>日期</th><th>学期</th><th>类型</th><th>总分</th><th>得分率</th><th>操作</th>'
+    th+='</tr></thead><tbody>'+rowHtml+'</tbody></table>'
+    lc.innerHTML+=th
+  }
+  $c.appendChild(lc)
+}
+
+function cu(ex){
+  const info=ct(ex.scores,ex.sem);let ch=false
+  // Find part by id (robust against add/remove)
+  function up(id){var p=D.parts.find(function(x){return x.id===id});if(p&&!p.unlocked){p.unlocked=true;return true}return false}
+  if(ex.sem==='初二上'&&ex.examType==='期中'){const avg=(ex.scores.chinese+ex.scores.math+ex.scores.english)/3;if(avg>=100&&up(1))ch=true}
+  const conds=[{i:2,s:'初二上',e:'期末',m:508},{i:3,s:'初二下',e:'期中',m:517},{i:4,s:'初二下',e:'期末',m:538},{i:5,s:'初三上',e:'期中',m:580},{i:6,s:'初三上',e:'期末',m:610},{i:7,s:'初三下',e:'月考',m:600},{i:8,s:'初三下',e:'期中',m:610},{i:9,s:'初三下',e:'期末',m:615}]
+  for(var ci=0;ci<conds.length;ci++){var c=conds[ci];if(ex.sem===c.s&&ex.examType===c.e&&info.total>=c.m&&up(c.i))ch=true}
+  if(info.total>=620&&up(10))ch=true
+  if(ex.examType==='中考'&&info.total>=625&&up(11))ch=true
+  if(ex.sem==='初二上'&&ex.examType==='期末'&&info.total>=508&&!D.phone){D.phone=true;ch=true}
+  if(ex.examType==='高考'&&!D.tabUnlock){D.tabUnlock=true;ch=true}
+  if(ch){sv(D);ts('🎉 解锁！')}
+}
+
+function rp(){
+  const rate=D.rate||1
+  const pu=D.parts.filter(p=>p.unlocked).length
+  const pr=D.parts.filter(p=>p.received).length
+  const tv=D.parts.filter(p=>p.unlocked).reduce((s,p)=>s+p.value,0)
+  const tpc=D.parts.filter(p=>p.unlocked).reduce((s,p)=>s+Math.round(p.value*rate),0)
+
+  const sg=h('div',{className:'stat-grid'})
+  sg.appendChild(h('div',{className:'stat-card success'},h('div',{className:'sv'},pu+'/'+D.parts.length),h('div',{className:'sl'},'已解锁')))
+  sg.appendChild(h('div',{className:'stat-card primary'},h('div',{className:'sv'},pr+'/11'),h('div',{className:'sl'},'已签收')))
+  sg.appendChild(h('div',{className:'stat-card '+(pu>=3?'success':'warning')},h('div',{className:'sv'},'¥'+tv.toLocaleString()),h('div',{className:'sl'},'已解锁价值')))
+  sg.appendChild(h('div',{className:'stat-card primary'},h('div',{className:'sv'},'⭐'+tpc.toLocaleString()),h('div',{className:'sl'},'已解锁需积分')))
+  $c.appendChild(sg)
+
+  if(!VW){
+    const rc=h('div',{className:'card edit-only'})
+    rc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'💱'}),'积分兑换率'))
+    rc.innerHTML+='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span>当前：<strong>1元 = '+rate+' 积分</strong></span><input type="number" id="ri" value="'+rate+'" min="0.1" max="100" step="0.1" style="width:80px"><button class="btn btn-primary btn-sm" id="br">更新</button></div><div style="font-size:11px;color:var(--muted);margin-top:6px">修改后所有零件所需积分自动重算</div>'
+    rc.querySelector('#br').addEventListener('click',()=>{const nr=parseFloat(rc.querySelector('#ri').value);if(nr>0){D.rate=nr;sv(D);render();ts('💱 1元='+nr+'积分')}})
+    $c.appendChild(rc)
+  }
+
+  const pc=h('div',{className:'card'})
+  pc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'💻'}),'零件清单（¥价格 / ⭐积分）'))
+  const grid=h('div',{className:'parts-grid'})
+  for(const part of D.parts){
+    const pcost=Math.round(part.value*rate)
+    const card=h('div',{className:'part-card '+(part.unlocked?'unlocked':'locked'),onClick:()=>{if(!VW&&part.unlocked&&!part.received){if(confirm('标记 "'+part.name+'" 为已签收？')){part.received=true;sv(D);render();ts('✅ 已标记')}}}})
+    card.innerHTML='<div class="pb">'+(part.received?'✅':part.unlocked?'🔓':'🔒')+'</div><div class="pi">'+part.icon+'</div><div class="pn">'+part.name+'</div><div class="pv">¥'+part.value.toLocaleString()+' / ⭐'+pcost.toLocaleString()+'</div><div class="pc">'+part.cond+'</div><div style="font-size:10px;color:var(--muted);margin-top:2px">'+part.det+'</div>'
+    if(!VW)card.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-top:6px;font-size:10px',onClick:(e)=>{e.stopPropagation();const np=prompt('修改 '+part.name+' 价格（当前：¥'+part.value.toLocaleString()+'）：',part.value);if(np!==null){const v=parseFloat(np);if(!isNaN(v)&&v>0){part.value=v;sv(D);render();ts('✅ 已更新')}}}},'✏️ 改价'))
+    grid.appendChild(card)
+  }
+  pc.appendChild(grid)
+  const av=D.parts.reduce((s,p)=>s+p.value,0)
+  const ap=D.parts.reduce((s,p)=>s+Math.round(p.value*rate),0)
+  pc.appendChild(h('div',{style:'margin-top:14px;padding:10px;background:#f7fafc;border-radius:6px;font-size:13px;text-align:center',innerHTML:'💰 全部总价：<strong>¥'+av.toLocaleString()+'</strong> | 共需积分：<strong>⭐'+ap.toLocaleString()+'</strong>（1元='+rate+'分）'}))
+  $c.appendChild(pc)
+
+  // Parts edit UI (only for parent)
+  if(!VW){
+    var pec=h('div',{className:'card edit-only'})
+    pec.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'⚙️'}),'管理零件清单'))
+    
+    var pet=h('table')
+    pet.innerHTML='<thead><tr><th>图标</th><th>名称</th><th>价格¥</th><th>解锁条件</th><th>说明</th><th>操作</th></tr></thead><tbody></tbody>'
+    var petb=pet.querySelector('tbody')
+    for(var ei=0;ei<D.parts.length;ei++){
+      var ep=D.parts[ei]
+      var etr=h('tr')
+      etr.innerHTML='<td><input value="'+ep.icon+'" data-pi="'+ei+'" data-pf="icon" style="width:50px;text-align:center"></td>'+
+        '<td><input value="'+ep.name.replace(/"/g,'&quot;')+'" data-pi="'+ei+'" data-pf="name" style="width:100px"></td>'+
+        '<td><input type="number" value="'+ep.value+'" data-pi="'+ei+'" data-pf="value" style="width:70px"></td>'+
+        '<td><input value="'+ep.cond.replace(/"/g,'&quot;')+'" data-pi="'+ei+'" data-pf="cond" style="width:100px"></td>'+
+        '<td><input value="'+(ep.det||'').replace(/"/g,'&quot;')+'" data-pi="'+ei+'" data-pf="det" style="width:100px"></td>'+
+        '<td><button class="btn btn-danger btn-sm" data-pdel="'+ei+'">✕</button></td>'
+      petb.appendChild(etr)
+    }
+    pec.appendChild(pet)
+    
+    pec.appendChild(h('button',{className:'btn btn-primary btn-sm',style:'margin-top:8px',onClick:function(){
+      var pinputs=pec.querySelectorAll('input[data-pi]')
+      for(var pii=0;pii<pinputs.length;pii++){
+        var inp=pinputs[pii]
+        var pi=parseInt(inp.getAttribute('data-pi'))
+        var pf=inp.getAttribute('data-pf')
+        if(!isNaN(pi)&&pf){
+          if(pf==='value')D.parts[pi][pf]=parseFloat(inp.value)||0
+          else D.parts[pi][pf]=inp.value
+        }
+      }
+      sv(D);render();ts('✅ 零件已更新')
+    }},'💾 保存修改'))
+    
+    pec.addEventListener('click',function(ev){
+      var db=ev.target.closest('[data-pdel]')
+      if(db){
+        var pi=parseInt(db.getAttribute('data-pdel'))
+        var nm=D.parts[pi].name
+        if(confirm('删除零件：'+nm+'？')){
+          D.parts.splice(pi,1);sv(D);render();ts('已删除：'+nm)
+        }
+      }
+    })
+    
+    var par=h('div',{style:'display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap'})
+    par.innerHTML='<input id="pnIcon" placeholder="图标" style="width:60px" value="⭐">'+
+      '<input id="pnName" placeholder="名称" style="width:100px">'+
+      '<input id="pnValue" type="number" placeholder="价格¥" style="width:80px" value="100">'+
+      '<input id="pnCond" placeholder="解锁条件" style="width:100px">'+
+      '<input id="pnDet" placeholder="说明" style="width:100px">'
+    par.appendChild(h('button',{className:'btn btn-success btn-sm',onClick:function(){
+      var icon=pec.querySelector('#pnIcon').value||'⭐'
+      var name=pec.querySelector('#pnName').value.trim()
+      var value=parseFloat(pec.querySelector('#pnValue').value)||100
+      var cond=pec.querySelector('#pnCond').value.trim()||'手动'
+      var det=pec.querySelector('#pnDet').value.trim()||''
+      if(!name){ts('⚠️ 请输入名称');return}
+      var newId=Math.max.apply(null,D.parts.map(function(p){return p.id}).concat([0]))+1
+      D.parts.push({id:newId,icon:icon,name:name,value:value,cond:cond,det:det,unlocked:false,received:false})
+      sv(D);render();ts('✅ 已添加：'+name)
+    }},'➕ 添加零件'))
+    pec.appendChild(par)
+    
+    $c.appendChild(pec)
+  }
+}
+
+function rdl(){
+  const ci=D.dci||defData().dci
+  const tchk=D.dailyChecks[td]||{}
+
+  const cc=h('div',{className:'card'})
+  cc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'✅'}),'今日打卡 — '+fd(td)))
+  const grid=h('div',{className:'check-grid'})
+  for(const item of ci){
+    const done=tchk[item.key]||false
+    const cii=h('div',{className:'check-item '+(done?'done':''),onClick:()=>{if(VW)return;const nv=!D.dailyChecks[td][item.key];D.dailyChecks[td][item.key]=nv;if(nv){D.points.push({date:td,source:item.label,points:item.pts,type:'earn'})}else{D.points=D.points.filter(p=>!(p.date===td&&p.source===item.label&&p.type==='earn'))}sv(D);render();ts(nv?'✅ '+item.label+' +'+item.pts+'分':'已取消 '+item.label)}})
+    cii.innerHTML='<div class="ci">'+(done?'✅':item.icon)+'</div><div class="cl">'+item.label+'</div><div class="cs">+'+item.pts+' 积分</div>'
+    grid.appendChild(cii)
+  }
+  cc.appendChild(grid)
+  $c.appendChild(cc)
+
+  // Edit UI
+  if(!VW){
+    const ec=h('div',{className:'card edit-only'})
+    ec.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'⚙️'}),'管理打卡项目'))
+    // Build edit table with DOM (not innerHTML, which breaks save)
+    const edt=h('table')
+    edt.innerHTML='<thead><tr><th>图标</th><th>名称</th><th>积分</th><th>操作</th></tr></thead><tbody></tbody>'
+    const edtb=edt.querySelector('tbody')
+    for(let i=0;i<ci.length;i++){
+      const item=ci[i]
+      const tr=h('tr')
+      const tdi=h('td')
+      const inpIcon=h('input',{value:item.icon,'data-idx':i,'data-field':'icon',style:'width:50px;text-align:center'})
+      tdi.appendChild(inpIcon);tr.appendChild(tdi)
+      const tdl=h('td')
+      const inpLabel=h('input',{value:item.label,'data-idx':i,'data-field':'label',style:'width:120px'})
+      tdl.appendChild(inpLabel);tr.appendChild(tdl)
+      const tdp=h('td')
+      const inpPts=h('input',{type:'number',value:item.pts,'data-idx':i,'data-field':'pts',style:'width:60px'})
+      tdp.appendChild(inpPts);tr.appendChild(tdp)
+      const tdd=h('td')
+      const delBtn=h('button',{className:'btn btn-danger btn-sm','data-del':i},'✕')
+      delBtn.addEventListener('click',function(){
+        const idx=parseInt(this.dataset.del)
+        const nm=D.dci[idx].label
+        if(confirm('删除：'+nm+'？')){
+          const ok=D.dci[idx].key
+          D.dci.splice(idx,1)
+          for(const date in D.dailyChecks){if(D.dailyChecks[date][ok]!==undefined)delete D.dailyChecks[date][ok]}
+          sv(D);render();ts('已删除：'+nm)
+        }
+      })
+      tdd.appendChild(delBtn);tr.appendChild(tdd)
+      edtb.appendChild(tr)
+    }
+    ec.appendChild(edt)
+    ec.appendChild(h('button',{className:'btn btn-primary btn-sm',style:'margin-top:8px',onClick:function(){
+      const inputs=ec.querySelectorAll('input[data-idx]');
+      for(let ii=0;ii<inputs.length;ii++){
+        const inp=inputs[ii];
+        const idx=parseInt(inp.getAttribute('data-idx'));
+        const field=inp.getAttribute('data-field');
+        if(!isNaN(idx)&&field){
+          if(field==='pts')D.dci[idx][field]=parseInt(inp.value)||1;
+          else D.dci[idx][field]=inp.value;
+        }
+      }
+      sv(D);render();ts('✅ 已更新');
+    }},'💾 保存修改'))
+        ec.addEventListener('click',(e)=>{const db=e.target.closest('[data-del]');if(db){const idx=parseInt(db.dataset.del);const nm=D.dci[idx].label;if(confirm('删除：'+nm+'？')){const ok=D.dci[idx].key;D.dci.splice(idx,1);for(const date in D.dailyChecks){if(D.dailyChecks[date][ok]!==undefined)delete D.dailyChecks[date][ok]}sv(D);render();ts('已删除：'+nm)}}})
+    const ar=h('div',{style:'display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap'})
+    ar.innerHTML='<input id="ni" placeholder="图标" style="width:60px" value="⭐"><input id="nl" placeholder="名称" style="width:140px"><input id="np" type="number" placeholder="积分" style="width:70px" value="2"><input id="nk" placeholder="英文标识" style="width:100px">'
+    ar.appendChild(h('button',{className:'btn btn-success btn-sm',onClick:()=>{const icon=ec.querySelector('#ni').value||'⭐';const label=ec.querySelector('#nl').value.trim();const pts=parseInt(ec.querySelector('#np').value)||2;const key=ec.querySelector('#nk').value.trim()||('c_'+Date.now());if(!label){ts('⚠️ 请输入名称');return}D.dci.push({key,icon,label,pts});sv(D);render();ts('✅ 已添加：'+label)}},'➕ 添加项目'))
+    ec.appendChild(ar)
+    $c.appendChild(ec)
+  }
+
+  const sc=h('div',{className:'card'})
+  sc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔥'}),'连续打卡'))
+  function cs_(key){let s=0;const d=new Date();for(let i=0;i<30;i++){const ds=d.toISOString().slice(0,10);const chk=D.dailyChecks[ds];if(chk&&chk[key]){s++;d.setDate(d.getDate()-1)}else break}return s}
+  sc.innerHTML+='<table><thead><tr><th>项目</th><th>连续天数</th><th>状态</th></tr></thead><tbody>'+ci.map(item=>{const s=cs_(item.key);const st=s>=7?'🟢 优秀':s>=3?'🟡 良好':s>0?'🟠 一般':'🔴 未打卡';return'<tr><td>'+item.icon+' '+item.label+'</td><td><strong>'+s+'</strong> 天</td><td>'+st+'</td></tr>'}).join('')+'</tbody></table>'
+  $c.appendChild(sc)
+}
+
+function rpt(){
+  const te=D.points.filter(p=>p.type==='earn').reduce((s,p)=>s+p.points,0)
+  const ts_=D.points.filter(p=>p.type==='spend').reduce((s,p)=>s+p.points,0)
+  const sm=h('div',{className:'ps'})
+  sm.appendChild(h('div',{className:'psi'},h('div',{className:'pv',style:'color:var(--primary)'},'⭐ '+te),h('div',{className:'pl'},'累计赚取')))
+  sm.appendChild(h('div',{className:'psi'},h('div',{className:'pv',style:'color:var(--danger)'},'💸 '+ts_),h('div',{className:'pl'},'已使用')))
+  sm.appendChild(h('div',{className:'psi'},h('div',{className:'pv',style:'color:var(--success)'},'💰 '+(te-ts_)),h('div',{className:'pl'},'可用积分')))
+  $c.appendChild(sm)
+
+  if(!VW){
+    const ac=h('div',{className:'card edit-only'})
+    ac.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'➕'}),'手动添加'))
+    ac.innerHTML+='<div class="form-row"><div><label>日期</label><input type="date" id="pd" value="'+td+'"></div><div><label>来源</label><input type="text" id="psrc" placeholder="如：单元测试达标"></div><div><label>分值</label><input type="number" id="pv" placeholder="正=赚，负=花"></div></div><button class="btn btn-primary btn-sm" id="bap">💾 添加</button>'
+    ac.querySelector('#bap').addEventListener('click',()=>{const src=ac.querySelector('#psrc').value.trim();const val=parseInt(ac.querySelector('#pv').value);if(!src||isNaN(val)||val===0){ts('⚠️ 请填写完整');return}D.points.push({date:ac.querySelector('#pd').value,source:src,points:Math.abs(val),type:val>0?'earn':'spend'});sv(D);render();ts('✅ 已添加')})
+    $c.appendChild(ac)
+  }
+
+  const dc=h('div',{className:'card'})
+  dc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📋'}),'积分明细（'+D.points.length+'条）'))
+  if(!D.points.length){dc.appendChild(h('div',{style:'text-align:center;padding:40px;color:var(--muted)'},'📭 暂无记录'))}
+  else{
+    const sorted=[...D.points].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,50)
+    var rows2=''
+    for(var pi=0;pi<sorted.length;pi++){
+      var p=sorted[pi]
+      rows2+='<tr><td>'+fd(p.date)+'</td><td>'+p.source+'</td>'
+      rows2+='<td>'+(p.type==='earn'?'🟢 赚取':'🔴 支出')+'</td>'
+      rows2+='<td style="font-weight:700;color:'+(p.type==='earn'?'var(--success)':'var(--danger)')+'">'+(p.type==='earn'?'+':'-')+p.points+'</td>'
+      if(!VW){
+        var btnId='btn_'+pi
+        rows2+='<td><button id="'+btnId+'" class="btn btn-danger btn-sm">🗑</button></td>'
+      }else{rows2+='<td></td>'}
+      rows2+='</tr>'
+    }
+    dc.innerHTML+='<table><thead><tr><th>日期</th><th>来源</th><th>类型</th><th>分值</th><th>操作</th></tr></thead><tbody>'+rows2+'</tbody></table>'
+    if(!VW){for(var pi2=0;pi2<sorted.length;pi2++){(function(p2){var el=dc.querySelector('#btn_'+pi2);if(el)el.onclick=function(){D.points=D.points.filter(function(x){return x.date!==p2.date||x.source!==p2.source});sv(D);render()}})(sorted[pi2])}}
+    if(D.points.length>50)dc.appendChild(h('div',{style:'text-align:center;color:var(--muted);margin-top:8px;font-size:12px'},'仅显示最近50条'))
+  }
+  $c.appendChild(dc)
+
+  const rc=h('div',{className:'card'})
+  rc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📖'}),'积分规则 — 日常'))
+  rc.innerHTML+='<table><thead><tr><th>来源</th><th>积分</th></tr></thead><tbody><tr><td>每日打卡</td><td>+2~5/次（可调）</td></tr><tr><td>单元测试达标</td><td>+15/次</td></tr></tbody></table>'
+  $c.appendChild(rc)
+
+  const erc=h('div',{className:'card'})
+  erc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🏅'}),'积分规则 — 大考'))
+  erc.innerHTML+='<table><thead><tr><th>积分项</th><th>分值</th></tr></thead><tbody><tr><td>🏅 达标基础分</td><td><strong>+150</strong></td></tr><tr><td>🚀 超标加分</td><td><strong>+15/分</strong></td></tr><tr><td>📚 单科达标</td><td><strong>+40/科</strong></td></tr><tr><td>🌟 全科达标</td><td><strong>+80</strong></td></tr><tr><td>📈 进步奖</td><td><strong>+60</strong></td></tr><tr><td>🔥 连续达标</td><td><strong>+80</strong></td></tr></tbody></table><div style="margin-top:10px;font-size:12px;color:var(--muted);padding:8px;background:#fffbeb;border-radius:6px">💡 <strong>示例：</strong>达标150 + 超标45 + 3科120 + 进步60 = <strong>375积分</strong>（按1元=1积分，≈¥375零件预算）</div>'
+  $c.appendChild(erc)
+}
+
+function sw(tab){tb=tab;document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));render();window.scrollTo({top:0,behavior:'smooth'})}
+document.getElementById('tabNav').addEventListener('click',(e)=>{const btn=e.target.closest('.tab-btn');if(btn)sw(btn.dataset.tab)})
+render()
+</script>
+</body>
+</html>
