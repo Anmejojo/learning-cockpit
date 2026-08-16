@@ -175,7 +175,7 @@ function defData(){
     rate:10,
     bl:{chinese:99,math:115,english:70,geo:67,history:81,dao:63,bio:58,physics:null,pe:null,chem:null},
     phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,
-    dci:[{key:'englishVocab',icon:'📖',label:'英语单词',pts:2},{key:'homeworkPhoto',icon:'📸',label:'作业拍照',pts:2},{key:'videoCall',icon:'📞',label:'视频通话',pts:2},{key:'extraStudy',icon:'📚',label:'额外学习1h',pts:5},{key:'askTeacher',icon:'🙋',label:'主动问老师',pts:3}]
+    dci:[{key:'englishVocab',icon:'📖',label:'英语单词',pts:2},{key:'homeworkPhoto',icon:'📸',label:'作业拍照',pts:2},{key:'videoCall',icon:'📞',label:'视频通话',pts:2},{key:'extraStudy',icon:'📚',label:'额外学习1h',pts:5},{key:'askTeacher',icon:'🙋',label:'主动问老师',pts:3},{key:'classNote',icon:'📝',label:'课堂笔记拍照',pts:2},{key:'mistakeBook',icon:'📓',label:'整理错题本',pts:2},{key:'noSkipStep',icon:'✅',label:'解题不跳步',pts:2},{key:'reciteMethod',icon:'🧠',label:'背英语用方法',pts:2}]
   }
 }
 const SK='lc_v3'
@@ -196,6 +196,8 @@ function ld(){
       }
       // 零件结构变更时自动重置为新清单
       if(d.parts.length!==PT.length){d.parts=JSON.parse(JSON.stringify(PT))}
+      // 打卡项目新增时自动补充
+      if(d.dci&&Array.isArray(d.dci)){const defDci=defData().dci;for(const item of defDci){if(!d.dci.some(function(x){return x.key===item.key})){d.dci.push(item)}}}
       // Migrate old keys to new key
       if(!localStorage.getItem(SK))localStorage.setItem(SK,JSON.stringify(d))
       return d
