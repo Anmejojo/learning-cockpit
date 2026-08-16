@@ -67,6 +67,22 @@ input:focus,select:focus{outline:none;border-color:var(--primary);box-shadow:0 0
 .toast.show{opacity:1;transform:translateY(0)}
 .view-only .edit-only{display:none!important}
 @media(max-width:768px){.stat-grid{grid-template-columns:repeat(2,1fr)}.parts-grid{grid-template-columns:repeat(2,1fr)}.form-row{grid-template-columns:1fr}.content{padding:12px}.tabs{padding:0 8px;overflow-x:auto}.tab-btn{padding:12px 14px;font-size:12px}}
+.hero{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:16px}
+.hero-item{border-radius:12px;padding:18px 20px;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.08)}
+.hero-item.blue{background:linear-gradient(135deg,#3182ce,#2b6cb0)}
+.hero-item.green{background:linear-gradient(135deg,#38a169,#276749)}
+.hero-item.orange{background:linear-gradient(135deg,#dd6b20,#c05621)}
+.hero-item .hl{font-size:13px;opacity:0.92;margin-bottom:6px;font-weight:600}
+.hero-item .hn{font-size:32px;font-weight:800;line-height:1.15}
+.hero-item .hs{font-size:12px;opacity:0.88;margin-top:5px}
+.section-title{font-size:13px;font-weight:700;color:var(--muted);margin:20px 0 10px;display:flex;align-items:center;gap:6px}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border);margin-left:8px}
+.check-quick{display:flex;gap:8px;flex-wrap:wrap}
+.q-btn{padding:10px 16px;border-radius:8px;border:2px solid var(--border);background:#fff;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.15s;font-family:inherit}
+.q-btn:hover{border-color:var(--primary);transform:translateY(-1px)}
+.q-btn.done{border-color:var(--success);background:#f0fff4;color:#276749}
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+@media(max-width:768px){.hero{grid-template-columns:1fr}.hero-item .hn{font-size:26px}.q-btn{padding:9px 12px;font-size:12px}.stat-grid{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
@@ -167,21 +183,52 @@ function rd(){
   const pu=D.parts.filter(p=>p.unlocked).length
   const te=D.points.filter(p=>p.type==='earn').reduce((s,p)=>s+p.points,0)
   const ts_=D.points.filter(p=>p.type==='spend').reduce((s,p)=>s+p.points,0)
+  const dci=D.dci||defData().dci
+  const tchk=D.dailyChecks[td]||{}
+  const doneCount=dci.filter(function(it){return tchk[it.key]}).length
 
-  const sg=h('div',{className:'stat-grid'})
-  sg.appendChild(h('div',{className:'stat-card primary'},h('div',{className:'sv'},si.total+''),h('div',{className:'sl'},'总分/'+si.fullTotal+' ('+ps(si.pct)+')')))
-  sg.appendChild(h('div',{className:'stat-card '+(si.pct<65?'warn':'success')},h('div',{className:'sv'},si.pct>0?(625-Math.round(si.total/si.fullTotal*800))+'':'?'),h('div',{className:'sl'},'距三中625线')))
-  sg.appendChild(h('div',{className:'stat-card primary'},h('div',{className:'sv'},'💻 '+pu+'/'+D.parts.length),h('div',{className:'sl'},'零件已解锁')))
-  sg.appendChild(h('div',{className:'stat-card success'},h('div',{className:'sv'},'⭐ '+(te-ts_)),h('div',{className:'sl'},'可用积分')))
-  const md=(D.phone?1:0)
-  sg.appendChild(h('div',{className:'stat-card '+(md>0?'success':'primary')},h('div',{className:'sv'},'🏆 '+md+'/2'),h('div',{className:'sl'},'里程碑')))
-  $c.appendChild(sg)
+  // 今日概览 Hero
+  const hero=h('div',{className:'hero'})
+  hero.appendChild(h('div',{className:'hero-item blue'},h('div',{className:'hl'},'最近考试总分'),h('div',{className:'hn'},lt?(si.total+' 分'):'未录成绩'),h('div',{className:'hs'},lt?('得分率 '+ps(si.pct)+' · 满分 '+si.fullTotal):'去「成绩追踪」录第一次考试')))
+  hero.appendChild(h('div',{className:'hero-item green'},h('div',{className:'hl'},'距三中 625 线'),h('div',{className:'hn'},lt?(si.total/si.fullTotal*800>=625?'✅ 已达标':'差 '+(625-Math.round(si.total/si.fullTotal*800))+' 分'):'—'),h('div',{className:'hs'},'目标：中考 ≥625 分')))
+  hero.appendChild(h('div',{className:'hero-item '+(doneCount===dci.length?'green':'orange')},h('div',{className:'hl'},'今日打卡'),h('div',{className:'hn'},doneCount+' / '+dci.length),h('div',{className:'hs'},doneCount===dci.length?'✅ 全部完成，真棒':('还有 '+(dci.length-doneCount)+' 项未完成'))))
+  $c.appendChild(hero)
 
-  // Baseline
+  // 今日打卡快捷区
+  const cq=h('div',{className:'card'})
+  cq.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'✅'}),'今日打卡'))
+  const cqRow=h('div',{className:'check-quick'})
+  for(const item of dci){
+    const done=tchk[item.key]||false
+    const qb=h('button',{className:'q-btn '+(done?'done':''),onClick:function(){if(VW)return;const nv=!D.dailyChecks[td][item.key];D.dailyChecks[td][item.key]=nv;if(nv){D.points.push({date:td,source:item.label,points:item.pts,type:'earn'})}else{D.points=D.points.filter(function(p){return !(p.date===td&&p.source===item.label&&p.type==='earn')})}sv(D);render();ts(nv?'✅ '+item.label+' +'+item.pts+'分':'已取消 '+item.label)}})
+    qb.innerHTML=(done?'✅ ':'')+item.icon+' '+item.label+' +'+item.pts
+    cqRow.appendChild(qb)
+  }
+  cq.appendChild(cqRow)
+  $c.appendChild(cq)
+
+  // 预警区
+  const al=[]
+  if(!tchk.englishVocab)al.push({l:'warning',m:'🔴 今天英语单词还没打卡！'})
+  if(!tchk.videoCall)al.push({l:'warning',m:'📞 今天还没视频通话'})
+  if(lt&&si.pct<62)al.push({l:'danger',m:'⚠️ 最近成绩偏低：'+ps(si.pct)+'，目标需≥62%'})
+  const pr=D.parts.filter(p=>p.received).length
+  if(pu>0&&pu>pr)al.push({l:'success',m:'📦 '+(pu-pr)+'个零件已解锁待下单！'})
+  if(al.length){
+    const ac=h('div',{className:'card'})
+    ac.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🚨'}),'需要关注'))
+    for(const a of al)ac.appendChild(h('div',{className:'alert '+a.l},a.m))
+    $c.appendChild(ac)
+  }
+
+  // 学习详情
+  $c.appendChild(h('div',{className:'section-title'},'📚 学习详情'))
+
+  // 基准线
   const bc=h('div',{className:'card'})
   bc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📏'}),'当前成绩基准线'))
   const bsubs=gs(D.sem)
-  let btb='<table><thead><tr><th>科目</th><th>卷面</th><th>折算</th><th>得分率</th><th>状态</th></tr></thead><tbody>'
+  let btb='<div class="table-scroll"><table><thead><tr><th>科目</th><th>卷面</th><th>折算</th><th>得分率</th><th>状态</th></tr></thead><tbody>'
   let bkt=0,bkf=0
   for(const s of bsubs){
     const raw=D.bl&&D.bl[s.id]!=null?D.bl[s.id]:null
@@ -189,7 +236,7 @@ function rd(){
     if(raw!=null){bkt+=conv;bkf+=s.full*s.rate}
     btb+='<tr><td><strong>'+s.name+'</strong></td><td>'+(raw!=null?raw+'/'+s.full:'?/'+s.full)+'</td><td>'+(conv!=null?conv.toFixed(1)+'/'+(s.full*s.rate).toFixed(0):'—')+'</td><td style="color:'+(pct<55?'var(--danger)':pct<70?'var(--warning)':'var(--success)')+';font-weight:600">'+(raw!=null?pct.toFixed(1)+'%':'—')+'</td><td style="color:'+(raw!=null?'var(--success)':'var(--muted)')+'">'+(raw!=null?'✅ 已有':'⬜ 待考')+'</td></tr>'
   }
-  btb+='</tbody></table>'
+  btb+='</tbody></table></div>'
   bc.innerHTML+=btb
   const bpct=bkf>0?(bkt/bkf*100):0
   const bfull=bsubs.reduce((s,sub)=>s+sub.full*sub.rate,0)
@@ -197,7 +244,18 @@ function rd(){
   if(!VW)bc.appendChild(h('button',{className:'btn btn-primary btn-sm edit-only',style:'margin-top:8px',onClick:()=>{tb='scores';sw('scores')}},'✏️ 到成绩页录入考试'))
   $c.appendChild(bc)
 
-  // Milestones
+  // 奖励与设备
+  $c.appendChild(h('div',{className:'section-title'},'🎁 奖励与设备'))
+
+  // 小数据条
+  const mini=h('div',{className:'stat-grid',style:'grid-template-columns:repeat(3,1fr)'})
+  mini.appendChild(h('div',{className:'stat-card primary'},h('div',{className:'sv',style:'font-size:22px'},'💻 '+pu+'/'+D.parts.length),h('div',{className:'sl'},'零件已解锁')))
+  mini.appendChild(h('div',{className:'stat-card success'},h('div',{className:'sv',style:'font-size:22px'},'⭐ '+(te-ts_)),h('div',{className:'sl'},'可用积分')))
+  const md=(D.phone?1:0)
+  mini.appendChild(h('div',{className:'stat-card '+(md>0?'success':'primary')},h('div',{className:'sv',style:'font-size:22px'},'🏆 '+md+'/2'),h('div',{className:'sl'},'里程碑')))
+  $c.appendChild(mini)
+
+  // 奖励机制总览
   const mc=h('div',{className:'card'})
   mc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🏆'}),'奖励机制总览'))
   mc.innerHTML+='<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)"><div style="font-size:40px">📱</div><div style="flex:1"><div style="font-weight:700;font-size:15px">📱 手机 ≤3000元 '+(D.phone?(D.phDate?'✅ 已发放':'🔓 已解锁待发放'):'🔒 待解锁')+'</div><div style="font-size:13px;color:var(--muted)">条件：初二上期末总分≥508</div>'+(D.phone&&!D.phDate&&!VW?'<button class="btn btn-success btn-sm edit-only" style="margin-top:6px" onclick="D.phDate=new Date().toISOString().slice(0,10);sv(D);render()">✅ 标记已发放</button>':'')+'</div></div>'
@@ -205,7 +263,7 @@ function rd(){
   mc.innerHTML+='<div style="display:flex;align-items:center;gap:12px;padding:10px 0"><div style="font-size:40px">🖥️</div><div style="flex:1"><div style="font-weight:700;font-size:15px">🖥️ 电脑零部件 '+(D.parts.filter(function(p){return p.unlocked}).length)+'/'+D.parts.length+' 已解锁</div><div style="font-size:13px;color:var(--muted)">考试达标逐件解锁，攒齐全套组装</div></div></div>'
   $c.appendChild(mc)
 
-  // Phone plan
+  // 话费管理
   const plc=D.pl||0
   const pc=h('div',{className:'card'})
   pc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📞'}),'话费管理'))
@@ -229,25 +287,11 @@ function rd(){
     limitRow.innerHTML='<span style="font-size:13px">调整限时：</span><input type="number" id="tabLimit" value="'+(D.tabDailyMinutes||60)+'" min="10" max="240" step="10" style="width:70px"><span style="font-size:13px">分钟</span>'
     limitRow.appendChild(h('button',{className:'btn btn-primary btn-sm edit-only',onClick:function(){var v=parseInt(document.getElementById('tabLimit').value);if(v>0){D.tabDailyMinutes=v;sv(D);render();ts('✅ 平板限时已设为 '+v+' 分钟')}}},'💾 保存'))
     tabCard.appendChild(limitRow)
-    tabCard.appendChild(h('div',{style:'font-size:11px;color:var(--muted);margin-top:6px'},'提示：网页记录规则，实际锁屏请在平板系统的"屏幕使用时间/家长控制"里设置相应时长'))
+    tabCard.appendChild(h('div',{style:'font-size:11px;color:var(--muted);margin-top:6px'},'提示：网页记录规则，实际锁屏请在平板系统的“屏幕使用时间/家长控制”里设置相应时长'))
   }
   $c.appendChild(tabCard)
 
-  // Alerts
-  const tchk=D.dailyChecks[td]||{}
-  const al=[]
-  if(!tchk.englishVocab)al.push({l:'warning',m:'🔴 今天英语单词还没打卡！'})
-  if(!tchk.videoCall)al.push({l:'warning',m:'📞 今天还没视频通话'})
-  if(lt&&si.pct<62)al.push({l:'danger',m:'⚠️ 最近成绩偏低：'+ps(si.pct)})
-  const pr=D.parts.filter(p=>p.received).length
-  if(pu>0&&pu>pr)al.push({l:'success',m:'📦 '+(pu-pr)+'个零件已解锁待下单'})
-  if(al.length){
-    const ac=h('div',{className:'card'})
-    ac.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🚨'}),'实时预警'))
-    for(const a of al)ac.appendChild(h('div',{className:'alert '+a.l},a.m))
-    $c.appendChild(ac)
-  }
-
+  // 数据管理
   if(!VW){
     const ec=h('div',{className:'card edit-only'})
     ec.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔧'}),'数据管理'))
@@ -258,7 +302,6 @@ function rd(){
     $c.appendChild(ec)
   }
 }
-
 function rs(){
   if(!VW){
     const fc=h('div',{className:'card edit-only'})
