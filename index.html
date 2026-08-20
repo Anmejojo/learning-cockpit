@@ -165,6 +165,7 @@ input:focus,select:focus{outline:none;border-color:var(--primary-border);box-sha
 .streak-line{display:flex;align-items:baseline;gap:4px;font-size:15px}
 .streak-big{font-size:40px;font-weight:800;color:var(--warning);font-variant-numeric:tabular-nums;line-height:1}
 .streak-line2{font-size:13px;color:var(--muted);margin-top:6px}
+.daily-praise{margin:0 0 14px;padding:12px 16px;border-radius:10px;font-size:14px;font-weight:600;text-align:center;background:linear-gradient(135deg,rgba(99,102,241,0.14),rgba(139,92,246,0.1));border:1px solid var(--primary-border);color:#c7d2fe;line-height:1.5}
 </style>
 </head>
 <body>
@@ -235,6 +236,8 @@ const VW=up.has('view')||up.has('readonly')
 if(VW){document.body.classList.add('view-only');const b=document.getElementById('modeBadge');b.textContent='👀 查看模式';b.className='badge view';b.style.display=''}
 
 function ts(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2000)}
+const PRAISE={check:['今天又进步了一点！','坚持就是胜利！','好习惯正在养成！','认真完成，真棒！'],score:['这次有进步，继续保持！','努力有回报了！','成绩稳步上升，加油！'],part:['攒下奖励，离目标更近一步！','一分耕耘一分收获！'],task:['任务完成，说到做到！','又完成一件，真棒！'],goal:['小目标达成，一步步变强！'],unlock:['太棒了，解锁新奖励！','努力开花结果了！'],week:['这周的努力看得见！','下周继续加油！'],default:['继续加油！','每天都有进步！']}
+function praise(cat){const a=PRAISE[cat]||PRAISE.default;return a[Math.floor(Math.random()*a.length)]}
 function gs(sem){return SUB[sem]||SUB['初二上']}
 function ct(sc,sem){const subs=gs(sem);let t=0,f=0;for(const s of subs){f+=s.full*s.rate;if(sc[s.id]!=null)t+=sc[s.id]*s.rate}return{total:Math.round(t*10)/10,fullTotal:Math.round(f*10)/10,pct:f>0?Math.round(t/f*1000)/10:0}}
 function fd(d){if(!d)return'—';const p=d.split('-');return p[0]+'年'+parseInt(p[1])+'月'+parseInt(p[2])+'日'}
@@ -302,13 +305,19 @@ function rd(){
   hero.appendChild(h('div',{className:'hero-item '+(doneCount===dci.length?'green':'orange')},h('div',{className:'hl'},'今日打卡'),h('div',{className:'hn'},doneCount+' / '+dci.length),h('div',{className:'hs'},doneCount===dci.length?'✅ 全部完成，真棒':('还有 '+(dci.length-doneCount)+' 项未完成'))))
   $c.appendChild(hero)
 
+  // 今日寄语（每天固定一句，孩子也能看到）
+  const dailyPraise=['每天进步一点点，长期就是大跨越！','今天的学习态度，决定明天的成绩！','坚持做好每一件小事，成功自然到来！','不积跬步，无以至千里！','你比自己想象的更优秀！','认真的人，运气都不会差！']
+  const dailyP=dailyPraise[new Date().getDate()%dailyPraise.length]
+  const dp=h('div',{className:'daily-praise'},'💬 今日寄语：'+dailyP)
+  $c.appendChild(dp)
+
   // 今日打卡快捷区
   const cq=h('div',{className:'card'})
   cq.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'✅'}),'今日打卡'))
   const cqRow=h('div',{className:'check-quick'})
   for(const item of dci){
     const done=tchk[item.key]||false
-    const qb=h('button',{className:'q-btn '+(done?'done':''),onClick:function(){if(VW)return;const nv=!D.dailyChecks[td][item.key];D.dailyChecks[td][item.key]=nv;if(nv){D.points.push({date:td,source:item.label,points:item.pts,type:'earn'})}else{D.points=D.points.filter(function(p){return !(p.date===td&&p.source===item.label&&p.type==='earn')})}sv(D);render();ts(nv?'✅ '+item.label+' +'+item.pts+'分':'已取消 '+item.label)}})
+    const qb=h('button',{className:'q-btn '+(done?'done':''),onClick:function(){if(VW)return;const nv=!D.dailyChecks[td][item.key];D.dailyChecks[td][item.key]=nv;if(nv){D.points.push({date:td,source:item.label,points:item.pts,type:'earn'})}else{D.points=D.points.filter(function(p){return !(p.date===td&&p.source===item.label&&p.type==='earn')})}sv(D);render();ts(nv?'✅ '+item.label+' +'+item.pts+'分 · '+praise('check'):'已取消 '+item.label)}})
     qb.innerHTML=(done?'✅ ':'')+item.icon+' '+item.label+' +'+item.pts
     cqRow.appendChild(qb)
   }
@@ -398,7 +407,7 @@ function rd(){
     for(const g of goals){
       const row=h('div',{className:'mistake-item'})
       row.innerHTML='<strong>'+g.subject+'</strong> '+g.from+'→'+g.to+(g.done?' <span style="color:var(--success)">✅ 已达成</span>':'')
-      const btn=h('button',{className:'btn btn-sm '+(g.done?'btn-outline':'btn-success'),style:'margin-top:4px;margin-left:8px',onClick:function(){if(VW)return;g.done=!g.done;if(g.done){D.points.push({date:td,source:'小目标达成',points:10,type:'earn'});ts('🎉 小目标达成 +10分')}else{const idx=D.points.findIndex(function(p){return p.date===td&&p.source==='小目标达成'&&p.type==='earn'});if(idx>=0)D.points.splice(idx,1);ts('已取消')}sv(D);render()}})
+      const btn=h('button',{className:'btn btn-sm '+(g.done?'btn-outline':'btn-success'),style:'margin-top:4px;margin-left:8px',onClick:function(){if(VW)return;g.done=!g.done;if(g.done){D.points.push({date:td,source:'小目标达成',points:10,type:'earn'});ts('🎉 小目标达成 +10分 · '+praise('goal'))}else{const idx=D.points.findIndex(function(p){return p.date===td&&p.source==='小目标达成'&&p.type==='earn'});if(idx>=0)D.points.splice(idx,1);ts('已取消')}sv(D);render()}})
       btn.innerHTML=g.done?'✅ 已达成':'✔ 标记达成 +10分'
       row.appendChild(btn)
       if(!VW){const del=h('button',{className:'btn btn-danger btn-sm',style:'margin-top:4px;margin-left:4px',onClick:function(){D.smallGoals=D.smallGoals.filter(function(x){return x.id!==g.id});sv(D);render()}});del.innerHTML='✕';row.appendChild(del)}
@@ -473,6 +482,7 @@ function rd(){
   }
 }
 function rs(){
+  $c.appendChild(h('div',{className:'daily-praise'},'📈 每一次记录，都是进步的足迹！'))
   if(!VW){
     const fc=h('div',{className:'card edit-only'})
     fc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📝'}),'录入考试成绩'))
@@ -484,7 +494,7 @@ function rs(){
       for(const inp of inputs){const v=parseFloat(inp.value);if(!isNaN(v)){scores[inp.dataset.sub]=v;has=true}}
       if(!has){ts('⚠️ 请至少输入一科');return}
       const ex={date:fc.querySelector('#ed').value,sem:fc.querySelector('#es').value,examType:fc.querySelector('#et').value,scores}
-      D.exams.push(ex);D.sem=ex.sem;cu(ex);sv(D);ts('✅ 已保存');render()
+      D.exams.push(ex);D.sem=ex.sem;cu(ex);sv(D);ts('✅ 成绩已保存 · '+praise('score'));render()
     })
     $c.appendChild(fc)
   }
@@ -522,10 +532,11 @@ function cu(ex){
   for(var ci=0;ci<conds.length;ci++){var c=conds[ci];if(ex.sem===c.s&&ex.examType===c.e&&info.total>=c.m){for(var k=0;k<c.ids.length;k++){if(up(c.ids[k]))ch=true}}}
   if(ex.examType==='中考'&&info.total>=625&&up(18))ch=true
   if(ex.sem==='初二上'&&ex.examType==='期末'&&info.total>=508&&!D.phone){D.phone=true;ch=true}
-  if(ch){sv(D);ts('🎉 解锁！')}
+  if(ch){sv(D);ts('🎉 解锁！ · '+praise('unlock'))}
 }
 
 function rp(){
+  $c.appendChild(h('div',{className:'daily-praise'},'🎁 每一件奖励，都是你努力的证明！'))
   const rate=D.rate||1
   const pu=D.parts.filter(p=>p.unlocked).length
   const pr=D.parts.filter(p=>p.received).length
@@ -555,12 +566,12 @@ function rp(){
   const availPts=teP-tsP
   for(const part of D.parts){
     const pcost=Math.round(part.value*rate)
-    const card=h('div',{className:'part-card '+(part.unlocked?'unlocked':'locked'),onClick:()=>{if(!VW&&part.unlocked&&!part.received){if(confirm('标记 "'+part.name+'" 为已签收？')){part.received=true;sv(D);render();ts('✅ 已标记')}}}})
+    const card=h('div',{className:'part-card '+(part.unlocked?'unlocked':'locked'),onClick:()=>{if(!VW&&part.unlocked&&!part.received){if(confirm('标记 "'+part.name+'" 为已签收？')){part.received=true;sv(D);render();ts('✅ 已标记签收 · '+praise('part'))}}}})
     card.innerHTML='<div class="pb">'+(part.received?'✅':part.unlocked?'🔓':'🔒')+'</div><div class="pi">'+part.icon+'</div><div class="pn">'+part.name+'</div><div class="pv">¥'+part.value.toLocaleString()+' / ⭐'+pcost.toLocaleString()+'</div><div class="pc">'+part.cond+'</div><div style="font-size:10px;color:var(--muted);margin-top:2px">'+(part.exchange?('需 '+pcost.toLocaleString()+' 积分兑换'):part.det)+'</div>'
     if(part.exchange&&!part.unlocked&&!VW){
       const need=pcost
       const can=availPts>=need
-      card.appendChild(h('button',{className:'btn btn-sm '+(can?'btn-success':'btn-outline'),style:'margin-top:6px;font-size:11px',onClick:(e)=>{e.stopPropagation();if(availPts<need){ts('⚠️ 积分不足，还差 '+(need-availPts).toLocaleString()+' 分');return}if(confirm('确认用 '+need.toLocaleString()+' 积分兑换 '+part.name+'？')){D.points.push({date:td,source:'兑换 '+part.name,points:need,type:'spend'});part.unlocked=true;sv(D);render();ts('✅ 已兑换 '+part.name)}}},(can?'💰 兑换 ⭐':'🔒 积分不足')))
+      card.appendChild(h('button',{className:'btn btn-sm '+(can?'btn-success':'btn-outline'),style:'margin-top:6px;font-size:11px',onClick:(e)=>{e.stopPropagation();if(availPts<need){ts('⚠️ 积分不足，还差 '+(need-availPts).toLocaleString()+' 分');return}if(confirm('确认用 '+need.toLocaleString()+' 积分兑换 '+part.name+'？')){D.points.push({date:td,source:'兑换 '+part.name,points:need,type:'spend'});part.unlocked=true;sv(D);render();ts('✅ 已兑换 '+part.name+' · '+praise('part'))}}},(can?'💰 兑换 ⭐':'🔒 积分不足')))
     }
     if(!VW)card.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-top:6px;font-size:10px',onClick:(e)=>{e.stopPropagation();const np=prompt('修改 '+part.name+' 价格（当前：¥'+part.value.toLocaleString()+'）：',part.value);if(np!==null){const v=parseFloat(np);if(!isNaN(v)&&v>0){part.value=v;sv(D);render();ts('✅ 已更新')}}}},'✏️ 改价'))
     grid.appendChild(card)
@@ -641,6 +652,7 @@ function rp(){
 }
 
 function rdl(){
+  $c.appendChild(h('div',{className:'daily-praise'},'✅ 每天坚持一点点，习惯自然养成！'))
   const ci=D.dci||defData().dci
   const tchk=D.dailyChecks[td]||{}
 
@@ -649,7 +661,7 @@ function rdl(){
   const grid=h('div',{className:'check-grid'})
   for(const item of ci){
     const done=tchk[item.key]||false
-    const cii=h('div',{className:'check-item '+(done?'done':''),onClick:()=>{if(VW)return;const nv=!D.dailyChecks[td][item.key];D.dailyChecks[td][item.key]=nv;if(nv){D.points.push({date:td,source:item.label,points:item.pts,type:'earn'})}else{D.points=D.points.filter(p=>!(p.date===td&&p.source===item.label&&p.type==='earn'))}sv(D);render();ts(nv?'✅ '+item.label+' +'+item.pts+'分':'已取消 '+item.label)}})
+    const cii=h('div',{className:'check-item '+(done?'done':''),onClick:()=>{if(VW)return;const nv=!D.dailyChecks[td][item.key];D.dailyChecks[td][item.key]=nv;if(nv){D.points.push({date:td,source:item.label,points:item.pts,type:'earn'})}else{D.points=D.points.filter(p=>!(p.date===td&&p.source===item.label&&p.type==='earn'))}sv(D);render();ts(nv?'✅ '+item.label+' +'+item.pts+'分 · '+praise('check'):'已取消 '+item.label)}})
     cii.innerHTML='<div class="ci">'+(done?'✅':item.icon)+'</div><div class="cl">'+item.label+'</div><div class="cs">+'+item.pts+' 积分</div>'
     grid.appendChild(cii)
   }
@@ -663,7 +675,7 @@ function rdl(){
   const tt=h('div',null)
   for(const task of todayTasks){
     const item=h('div',{className:'task-item'})
-    const chk=h('button',{className:'q-btn '+(task.done?'done':''),onClick:function(){if(VW)return;task.done=!task.done;sv(D);render();ts(task.done?'✅ 任务完成':'已取消')}})
+    const chk=h('button',{className:'q-btn '+(task.done?'done':''),onClick:function(){if(VW)return;task.done=!task.done;sv(D);render();ts(task.done?'✅ 任务完成 · '+praise('task'):'已取消')}})
     chk.innerHTML=(task.done?'✅ ':'⬜ ')+task.text
     item.appendChild(chk)
     if(!VW){const del=h('button',{className:'btn btn-danger btn-sm',style:'margin-left:6px',onClick:function(){D.tasks=D.tasks.filter(function(x){return x.id!==task.id});sv(D);render()}});del.innerHTML='✕';item.appendChild(del)}
@@ -744,6 +756,7 @@ function rdl(){
 }
 
 function rpt(){
+  $c.appendChild(h('div',{className:'daily-praise'},'💡 攒下每一分，兑换你想要的奖励！'))
   const te=D.points.filter(p=>p.type==='earn').reduce((s,p)=>s+p.points,0)
   const ts_=D.points.filter(p=>p.type==='spend').reduce((s,p)=>s+p.points,0)
   const sm=h('div',{className:'ps'})
@@ -909,10 +922,11 @@ function rwk(){
   const items=[{icon:'✅',label:'本周打卡',val:weekChecks+' 次'},{icon:'⭐',label:'本周积分',val:(weekPoints>0?'+':'')+weekPoints+' 分'},{icon:'📕',label:'本周新增错题',val:weekMistakes+' 道'},{icon:'🎯',label:'薄弱科目',val:weak.length?weak.join('、'):'暂无'}]
   for(const it of items){rp.appendChild(h('div',{style:'display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:14px'},h('span',null,it.icon+' '+it.label),h('strong',null,it.val)))}
   rp.appendChild(h('div',{style:'margin-top:14px;padding:12px;background:var(--primary-weak);border-radius:8px;font-size:13px'},'💡 <strong>下周建议：</strong>'+(weak.length?'重点突破 '+weak[0]+'，每天15分钟专项练习':'保持当前节奏，巩固已学知识')))
+  rp.appendChild(h('div',{className:'daily-praise',style:'margin-top:12px'},'💬 一周的坚持看得见，下周继续加油！'))
   if(!VW){
     rp.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-top:12px',onClick:function(){
       let txt='【阿勒学习周报】\n'+fd(weekStartStr)+' ~ '+fd(now.toISOString().slice(0,10))+'\n本周打卡：'+weekChecks+'次\n本周积分：'+(weekPoints>0?'+':'')+weekPoints+'分\n新增错题：'+weekMistakes+'道\n薄弱科目：'+(weak.length?weak.join('、'):'暂无')+'\n下周建议：'+(weak.length?'重点突破 '+weak[0]:'保持节奏')+'\n'
-      navigator.clipboard.writeText(txt).then(function(){ts('✅ 周报已复制')}).catch(function(){ts('⚠️ 复制失败')})
+      navigator.clipboard.writeText(txt).then(function(){ts('✅ 周报已复制 · '+praise('week'))}).catch(function(){ts('⚠️ 复制失败')})
     }},'📋 复制周报到家庭群'))
   }
   $c.appendChild(rp)
