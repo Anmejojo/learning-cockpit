@@ -161,6 +161,10 @@ input:focus,select:focus{outline:none;border-color:var(--primary-border);box-sha
 .countdown{background:linear-gradient(135deg,rgba(99,102,241,0.18),rgba(124,58,237,0.12));border:1px solid var(--primary-border)}
 .mistake-item{padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--bg-elev)}
 .task-item{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.praise-box{margin-top:12px;padding:14px 16px;border-radius:10px;font-size:15px;font-weight:600;text-align:center;background:linear-gradient(135deg,var(--primary-weak),rgba(124,58,237,0.12));border:1px solid var(--primary-border);color:#c7d2fe;line-height:1.5}
+.streak-line{display:flex;align-items:baseline;gap:4px;font-size:15px}
+.streak-big{font-size:40px;font-weight:800;color:var(--warning);font-variant-numeric:tabular-nums;line-height:1}
+.streak-line2{font-size:13px;color:var(--muted);margin-top:6px}
 </style>
 </head>
 <body>
@@ -186,14 +190,14 @@ SUB['初三上']=[...SUB['初二上'],{id:'chem',name:'化学',full:100,rate:0.6
 SUB['初三下']=SUB['初三上']
 
 const PLANS=[{name:'基础套餐',data:'5GB+100分钟',cost:30},{name:'视频加成',data:'+5GB',cost:10},{name:'达标奖励',data:'+10GB',cost:20},{name:'优异奖励',data:'+20GB',cost:40}]
-const PT=[{id:1,icon:'🖱️',name:'鼠标垫',value:30,cond:'初二上期中',det:'主科均分≥100',st:1},{id:2,icon:'🐭',name:'鼠标',value:200,cond:'初二上期中',det:'主科均分≥100',st:2},{id:3,icon:'🔌',name:'排插',value:100,cond:'初二上期中',det:'主科均分≥100',st:3},{id:4,icon:'⌨️',name:'键盘',value:400,cond:'初二上期末',det:'总分≥508',st:4},{id:5,icon:'🎧',name:'耳机',value:350,cond:'初二上期末',det:'总分≥508',st:5},{id:6,icon:'🎥',name:'摄像头',value:200,cond:'初二上期末',det:'总分≥508',st:6},{id:7,icon:'🔊',name:'音响',value:400,cond:'初二下期中',det:'总分≥517',st:7},{id:8,icon:'🎒',name:'机箱',value:350,cond:'初二下期中',det:'总分≥517',st:8},{id:9,icon:'🕹️',name:'游戏手柄',value:350,cond:'初二下期中',det:'总分≥517',st:9},{id:10,icon:'💾',name:'SSD 1TB',value:500,cond:'初二下期末',det:'总分≥538',st:10},{id:11,icon:'❄️',name:'散热器',value:300,cond:'初二下期末',det:'总分≥538',st:11},{id:12,icon:'⚡',name:'电源750W',value:500,cond:'初三上期中',det:'总分≥580',st:12},{id:13,icon:'💽',name:'机械硬盘',value:500,cond:'初三上期中',det:'总分≥580',st:13},{id:14,icon:'🧠',name:'内存32G',value:600,cond:'初三上期末',det:'总分≥610',st:14},{id:15,icon:'🔧',name:'主板',value:1000,cond:'一模≥600',det:'初三下开学',st:15},{id:16,icon:'📺',name:'显示器2K',value:1200,cond:'二模≥610',det:'初三下期中',st:16},{id:17,icon:'🧮',name:'CPU',value:1500,cond:'三模≥615',det:'中考前冲刺',st:17},{id:18,icon:'🎮',name:'显卡',value:2500,cond:'中考≥625',det:'中考达标!',st:18},{id:19,icon:'🎮',name:'Switch游戏机',value:3508,cond:'中考达标',det:'中考≥625，游戏机大奖',st:19},{id:20,icon:'🗡️',name:'塞尔达游戏',value:287,cond:'中考达标',det:'Switch游戏卡带',st:20}]
+const PT=[{id:1,icon:'🖱️',name:'鼠标垫',value:30,cond:'初二上期中',det:'主科均分≥100',st:1},{id:2,icon:'🐭',name:'鼠标',value:200,cond:'初二上期中',det:'主科均分≥100',st:2},{id:3,icon:'🔌',name:'排插',value:100,cond:'初二上期中',det:'主科均分≥100',st:3},{id:4,icon:'⌨️',name:'键盘',value:400,cond:'初二上期末',det:'总分≥508',st:4},{id:5,icon:'🎧',name:'耳机',value:350,cond:'初二上期末',det:'总分≥508',st:5},{id:6,icon:'🎥',name:'摄像头',value:200,cond:'初二上期末',det:'总分≥508',st:6},{id:7,icon:'🔊',name:'音响',value:400,cond:'初二下期中',det:'总分≥517',st:7},{id:8,icon:'🎒',name:'机箱',value:350,cond:'初二下期中',det:'总分≥517',st:8},{id:9,icon:'🕹️',name:'游戏手柄',value:350,cond:'初二下期中',det:'总分≥517',st:9},{id:10,icon:'💾',name:'SSD 1TB',value:500,cond:'初二下期末',det:'总分≥538',st:10},{id:11,icon:'❄️',name:'散热器',value:300,cond:'初二下期末',det:'总分≥538',st:11},{id:12,icon:'⚡',name:'电源750W',value:500,cond:'初三上期中',det:'总分≥580',st:12},{id:13,icon:'💽',name:'机械硬盘',value:500,cond:'初三上期中',det:'总分≥580',st:13},{id:14,icon:'🧠',name:'内存32G',value:600,cond:'初三上期末',det:'总分≥610',st:14},{id:15,icon:'🔧',name:'主板',value:1000,cond:'一模≥600',det:'初三下开学',st:15},{id:16,icon:'📺',name:'显示器2K',value:1200,cond:'二模≥610',det:'初三下期中',st:16},{id:17,icon:'🧮',name:'CPU',value:1500,cond:'三模≥615',det:'中考前冲刺',st:17},{id:18,icon:'🎮',name:'显卡',value:2500,cond:'中考≥625',det:'中考达标!',st:18},{id:19,icon:'🎮',name:'Switch游戏机',value:3508,cond:'积分兑换',det:'游戏机大奖',exchange:true,st:19},{id:20,icon:'🗡️',name:'塞尔达游戏',value:287,cond:'积分兑换',det:'Switch游戏卡带',exchange:true,st:20}]
 
 function defData(){
   return {
     exams:[],parts:JSON.parse(JSON.stringify(PT)),dailyChecks:{},points:[],sem:'初二上',
     rate:10,
     bl:{chinese:99,math:115,english:70,geo:67,history:81,dao:63,bio:58,physics:null,pe:null,chem:null},
-    phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,examDate:null,mistakes:[],tasks:[],ritualTime:'20:00',smallGoals:[],
+    phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,examDate:null,mistakes:[],tasks:[],ritualTime:'20:00',smallGoals:[],mistakeMilestones:[],
     dci:[{key:'englishVocab',icon:'📖',label:'英语单词',pts:2},{key:'homeworkPhoto',icon:'📸',label:'作业拍照',pts:2},{key:'videoCall',icon:'📞',label:'视频通话',pts:2},{key:'extraStudy',icon:'📚',label:'额外学习1h',pts:5},{key:'askTeacher',icon:'🙋',label:'主动问老师',pts:3},{key:'classNote',icon:'📝',label:'课堂笔记拍照',pts:2},{key:'mistakeBook',icon:'📓',label:'整理错题本',pts:2},{key:'noSkipStep',icon:'✅',label:'解题不跳步',pts:2},{key:'reciteMethod',icon:'🧠',label:'背英语用方法',pts:2},{key:'onTimeStudy',icon:'⏰',label:'按时开始学习',pts:2}]
   }
 }
@@ -516,7 +520,7 @@ function cu(ex){
   if(ex.sem==='初二上'&&ex.examType==='期中'){const avg=(ex.scores.chinese+ex.scores.math+ex.scores.english)/3;if(avg>=100){if(up(1))ch=true;if(up(2))ch=true;if(up(3))ch=true}}
   const conds=[{ids:[4,5,6],s:'初二上',e:'期末',m:508},{ids:[7,8,9],s:'初二下',e:'期中',m:517},{ids:[10,11],s:'初二下',e:'期末',m:538},{ids:[12,13],s:'初三上',e:'期中',m:580},{ids:[14],s:'初三上',e:'期末',m:610},{ids:[15],s:'初三下',e:'月考',m:600},{ids:[16],s:'初三下',e:'期中',m:610},{ids:[17],s:'初三下',e:'期末',m:615}]
   for(var ci=0;ci<conds.length;ci++){var c=conds[ci];if(ex.sem===c.s&&ex.examType===c.e&&info.total>=c.m){for(var k=0;k<c.ids.length;k++){if(up(c.ids[k]))ch=true}}}
-  if(ex.examType==='中考'&&info.total>=625){if(up(18))ch=true;if(up(19))ch=true;if(up(20))ch=true}
+  if(ex.examType==='中考'&&info.total>=625&&up(18))ch=true
   if(ex.sem==='初二上'&&ex.examType==='期末'&&info.total>=508&&!D.phone){D.phone=true;ch=true}
   if(ch){sv(D);ts('🎉 解锁！')}
 }
@@ -546,10 +550,18 @@ function rp(){
   const pc=h('div',{className:'card'})
   pc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'💻'}),'零件清单（¥价格 / ⭐积分）'))
   const grid=h('div',{className:'parts-grid'})
+  const teP=D.points.filter(p=>p.type==='earn').reduce((s,p)=>s+p.points,0)
+  const tsP=D.points.filter(p=>p.type==='spend').reduce((s,p)=>s+p.points,0)
+  const availPts=teP-tsP
   for(const part of D.parts){
     const pcost=Math.round(part.value*rate)
     const card=h('div',{className:'part-card '+(part.unlocked?'unlocked':'locked'),onClick:()=>{if(!VW&&part.unlocked&&!part.received){if(confirm('标记 "'+part.name+'" 为已签收？')){part.received=true;sv(D);render();ts('✅ 已标记')}}}})
-    card.innerHTML='<div class="pb">'+(part.received?'✅':part.unlocked?'🔓':'🔒')+'</div><div class="pi">'+part.icon+'</div><div class="pn">'+part.name+'</div><div class="pv">¥'+part.value.toLocaleString()+' / ⭐'+pcost.toLocaleString()+'</div><div class="pc">'+part.cond+'</div><div style="font-size:10px;color:var(--muted);margin-top:2px">'+part.det+'</div>'
+    card.innerHTML='<div class="pb">'+(part.received?'✅':part.unlocked?'🔓':'🔒')+'</div><div class="pi">'+part.icon+'</div><div class="pn">'+part.name+'</div><div class="pv">¥'+part.value.toLocaleString()+' / ⭐'+pcost.toLocaleString()+'</div><div class="pc">'+part.cond+'</div><div style="font-size:10px;color:var(--muted);margin-top:2px">'+(part.exchange?('需 '+pcost.toLocaleString()+' 积分兑换'):part.det)+'</div>'
+    if(part.exchange&&!part.unlocked&&!VW){
+      const need=pcost
+      const can=availPts>=need
+      card.appendChild(h('button',{className:'btn btn-sm '+(can?'btn-success':'btn-outline'),style:'margin-top:6px;font-size:11px',onClick:(e)=>{e.stopPropagation();if(availPts<need){ts('⚠️ 积分不足，还差 '+(need-availPts).toLocaleString()+' 分');return}if(confirm('确认用 '+need.toLocaleString()+' 积分兑换 '+part.name+'？')){D.points.push({date:td,source:'兑换 '+part.name,points:need,type:'spend'});part.unlocked=true;sv(D);render();ts('✅ 已兑换 '+part.name)}}},(can?'💰 兑换 ⭐':'🔒 积分不足')))
+    }
     if(!VW)card.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-top:6px;font-size:10px',onClick:(e)=>{e.stopPropagation();const np=prompt('修改 '+part.name+' 价格（当前：¥'+part.value.toLocaleString()+'）：',part.value);if(np!==null){const v=parseFloat(np);if(!isNaN(v)&&v>0){part.value=v;sv(D);render();ts('✅ 已更新')}}}},'✏️ 改价'))
     grid.appendChild(card)
   }
@@ -784,40 +796,99 @@ function rpt(){
 
 function rmk(){
   $c.innerHTML=''
-  if(!VW){
-    const ac=h('div',{className:'card edit-only'})
-    ac.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📕'}),'记录错题'))
-    ac.innerHTML+='<div class="form-row"><div><label>科目</label><select id="mkSubject">'+['语文','数学','英语','物理','化学','地理','生物','历史','道法'].map(function(s){return '<option>'+s+'</option>'}).join('')+'</select></div><div><label>题目来源</label><input id="mkSource" placeholder="如：期中卷、作业"></div></div><div class="form-row"><div><label>错因/题目描述</label><input id="mkReason" placeholder="如：计算错误、语法不懂"></div></div><button class="btn btn-primary btn-sm edit-only" id="btnMk">➕ 添加错题</button>'
-    ac.querySelector('#btnMk').addEventListener('click',function(){
-      const subject=ac.querySelector('#mkSubject').value
-      const source=ac.querySelector('#mkSource').value.trim()
-      const reason=ac.querySelector('#mkReason').value.trim()
-      if(!source&&!reason){ts('⚠️ 请填写内容');return}
-      D.mistakes.push({id:Date.now(),subject:subject,source:source||'未注明',reason:reason||'',date:td,fixed:false})
-      sv(D);render();ts('✅ 错题已记录')
-    })
-    $c.appendChild(ac)
-  }
-  const lc=h('div',{className:'card'})
-  lc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📕'}),'错题本（'+D.mistakes.length+'道）'))
-  if(!D.mistakes.length){
-    lc.appendChild(h('div',{style:'text-align:center;padding:40px;color:var(--muted)'},'📭 还没有错题记录'))
-  }else{
-    const sorted=[...D.mistakes].sort(function(a,b){return b.date.localeCompare(a.date)})
-    const fixedCnt=sorted.filter(function(m){return m.fixed}).length
-    lc.appendChild(h('div',{style:'font-size:12px;color:var(--muted);margin-bottom:8px'},'已订正 '+fixedCnt+' / '+sorted.length+' 道'))
-    for(const m of sorted){
-      const row=h('div',{className:'mistake-item'})
-      row.innerHTML='<div><strong>'+m.subject+'</strong> · '+m.source+' <span style="color:var(--faint);font-size:12px">'+fd(m.date)+'</span></div><div style="font-size:13px;color:var(--muted);margin-top:2px">'+m.reason+'</div>'
-      const btn=h('button',{className:'btn btn-sm '+(m.fixed?'btn-outline':'btn-success'),style:'margin-top:6px',onClick:function(){if(VW)return;m.fixed=!m.fixed;if(m.fixed){D.points.push({date:td,source:'错题订正',points:2,type:'earn'});ts('✅ 错题订正 +2分')}else{const idx=D.points.findIndex(function(p){return p.date===td&&p.source==='错题订正'&&p.type==='earn'});if(idx>=0)D.points.splice(idx,1);ts('已取消订正')}sv(D);render()}})
-      btn.innerHTML=m.fixed?'✅ 已订正':'✔ 标记订正 +2分'
-      row.appendChild(btn)
-      if(!VW){const del=h('button',{className:'btn btn-danger btn-sm',style:'margin-top:6px;margin-left:6px',onClick:function(){D.mistakes=D.mistakes.filter(function(x){return x.id!==m.id});sv(D);render();ts('已删除')}});del.innerHTML='✕';row.appendChild(del)}
-      lc.appendChild(row)
+  // 辅助函数
+  function streakBefore(){let s=0;const d=new Date();d.setDate(d.getDate()-1);for(let i=0;i<366;i++){const ds=d.toISOString().slice(0,10);const chk=D.dailyChecks[ds];if(chk&&chk.mistakeBook){s++;d.setDate(d.getDate()-1)}else break}return s}
+  function totalDays(){let c=0;for(const ds in D.dailyChecks){if(D.dailyChecks[ds]&&D.dailyChecks[ds].mistakeBook)c++}return c}
+  function reward(day){if(day===7)return 8;if(day===14)return 12;if(day===21)return 30;if(day===30)return 50;if(day>=3)return 3;return 2}
+
+  const tchk=D.dailyChecks[td]||{}
+  const todayDone=!!(tchk.mistakeBook)
+  const sb=streakBefore()
+  const curStreak=todayDone?(sb+1):sb
+  const total=totalDays()
+  const todayReward=reward(sb+1)
+
+  // 随机鼓励语（孩子也能看到）
+  const praises=['今天又巩固了知识点，越错越少！','消灭一道错题，就是消灭一个丢分点！','坚持就是胜利，好习惯正在养成！','认真整理错题，成绩稳步上升！','不放过每一道错题，你就越来越强！']
+  const praise=praises[Math.floor(Math.random()*praises.length)]
+
+  // 即将到达的里程碑提示
+  let nextTip=''
+  const nextMs=[{d:7,p:8},{d:14,p:12},{d:21,p:30},{d:30,p:50}]
+  for(const nm of nextMs){if(curStreak<nm.d){nextTip='🔥 再坚持 <strong>'+(nm.d-curStreak)+'</strong> 天，奖励升级到 +'+nm.p+' 分！';break}}
+  if(!nextTip)nextTip='🌟 已经连续 '+curStreak+' 天，太棒了，继续保持！'
+
+  // 1. 今日错题本大卡片
+  const big=h('div',{className:'card'})
+  big.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📓'}),'今日错题本'))
+  const bigBtn=h('button',{className:'q-btn mk-big'+(todayDone?' done':''),style:'width:100%;padding:22px;font-size:17px;text-align:center;border-radius:12px;font-weight:700',onClick:function(){
+    if(VW)return
+    const nv=!D.dailyChecks[td].mistakeBook
+    D.dailyChecks[td].mistakeBook=nv
+    if(nv){
+      const r=reward(sb+1)
+      D.points.push({date:td,source:'整理错题本',points:r,type:'earn'})
+      let msBonus=0
+      if(!D.mistakeMilestones)D.mistakeMilestones=[]
+      const totalAfter=totalDays()
+      const ms=[{d:21,p:50},{d:50,p:100},{d:100,p:200}]
+      for(const m of ms){if(totalAfter>=m.d&&D.mistakeMilestones.indexOf(m.d)<0){D.mistakeMilestones.push(m.d);msBonus+=m.p;D.points.push({date:td,source:'错题本里程碑'+m.d+'天',points:m.p,type:'earn'})}}
+      const msg='✅ '+praise+' → +'+(r+msBonus)+'分'+(msBonus?'（含里程碑+'+msBonus+'）':'')
+      sv(D);render();ts(msg)
+    }else{
+      D.points=D.points.filter(function(p){return !(p.date===td&&p.source==='整理错题本'&&p.type==='earn')})
+      sv(D);render();ts('已取消整理')
     }
+  }})
+  bigBtn.innerHTML=(todayDone?'✅ ':'📓 ')+(todayDone?'今天已整理错题本':'点击标记：今天整理了错题本')+' <span style="opacity:0.75">(+'+todayReward+'分)</span>'
+  big.appendChild(bigBtn)
+  big.appendChild(h('div',{className:'praise-box'},'✨ '+praise))
+  $c.appendChild(big)
+
+  // 2. 连续进度卡片
+  const prog=h('div',{className:'card'})
+  prog.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔥'}),'连续进度'))
+  prog.appendChild(h('div',{className:'streak-line'},h('span',{className:'streak-big'},curStreak),h('span',null,' 天连续整理错题本')))
+  prog.appendChild(h('div',{className:'streak-line2'},'📚 累计整理 '+total+' 天'))
+  prog.appendChild(h('div',{style:'margin-top:10px;font-size:14px;color:var(--warning)'},nextTip))
+  $c.appendChild(prog)
+
+  // 3. 奖励规则卡片（孩子也能看到）
+  const rule=h('div',{className:'card'})
+  rule.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🏆'}),'坚持奖励规则'))
+  rule.innerHTML+='<table><thead><tr><th>连续整理</th><th>当日奖励</th><th>说明</th></tr></thead><tbody>'+
+    '<tr><td>第 1-2 天</td><td><strong>+2 分</strong></td><td>起步，门槛极低</td></tr>'+
+    '<tr><td>第 3-6 天</td><td><strong>+3 分</strong></td><td>开始有加成</td></tr>'+
+    '<tr style="background:var(--success-weak)"><td>第 7 天</td><td><strong>+8 分</strong></td><td>🎉 周达标！</td></tr>'+
+    '<tr><td>第 8-13 天</td><td><strong>+3 分</strong></td><td></td></tr>'+
+    '<tr style="background:var(--success-weak)"><td>第 14 天</td><td><strong>+12 分</strong></td><td>双周达标</td></tr>'+
+    '<tr><td>第 15-20 天</td><td><strong>+3 分</strong></td><td></td></tr>'+
+    '<tr style="background:var(--warning-weak)"><td>第 21 天</td><td><strong>+30 分</strong></td><td>🏆 习惯养成大奖</td></tr>'+
+    '<tr><td>第 22-29 天</td><td><strong>+3 分</strong></td><td></td></tr>'+
+    '<tr style="background:var(--warning-weak)"><td>第 30 天</td><td><strong>+50 分</strong></td><td>🎊 月度里程碑</td></tr>'+
+    '</tbody></table>'
+  rule.appendChild(h('div',{style:'margin-top:12px;font-size:13px'},'💡 <strong>累计里程碑：</strong>累计 21 天 +50 分 | 累计 50 天 +100 分 | 累计 100 天 +200 分'))
+  $c.appendChild(rule)
+
+  // 4. 最近14天记录
+  const hist=h('div',{className:'card'})
+  hist.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📅'}),'最近14天记录'))
+  const days=[]
+  const hd=new Date()
+  for(let i=0;i<14;i++){const ds=hd.toISOString().slice(0,10);const chk=D.dailyChecks[ds];days.push({date:ds,done:!!(chk&&chk.mistakeBook)});hd.setDate(hd.getDate()-1)}
+  const histRow=h('div',{style:'display:flex;gap:6px;flex-wrap:wrap'})
+  for(const item of days){
+    const cell=h('div',{style:'text-align:center;font-size:11px;color:var(--muted);min-width:36px'})
+    cell.innerHTML=(item.done?'🟢':'⚪')+'<br>'+item.date.slice(5)
+    histRow.appendChild(cell)
   }
-  $c.appendChild(lc)
-  lc.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:10px'},'💡 周末记得复习错题，订正一题 +2 积分'))
+  hist.appendChild(histRow)
+  hist.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:8px'},'🟢=整理了  ⚪=没整理'))
+  $c.appendChild(hist)
+
+  // 说明
+  const tip=h('div',{style:'font-size:13px;color:var(--muted);margin-top:10px;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:10px;line-height:1.7'},'💡 <strong>如何做：</strong>每天整理至少 1 道错题，把错题抄到错题本、弄懂错因、周末复习。每整理一次，就点上面的按钮记录，积分自动到账。坚持越久，奖励越多！')
+  $c.appendChild(tip)
 }
 
 function rwk(){
