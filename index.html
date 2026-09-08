@@ -250,9 +250,13 @@ async function loadCloud(){
   }catch(e){console.error('云端读取失败',e);return null}
 }
 async function saveCloud(d){
-  if(!cloudReady)return
-  try{await cloudRdb.from(CLOUD_TABLE).upsert({id:CLOUD_ID,data:d,updated_at:new Date().toISOString()})}
-  catch(e){console.error('云端写入失败',JSON.stringify(e))}
+  if(!cloudReady)return false
+  try{
+    const r=await cloudRdb.from(CLOUD_TABLE).upsert({id:CLOUD_ID,data:d,updated_at:new Date().toISOString()})
+    if(r&&r.error){console.error('云端写入失败',JSON.stringify(r.error));return false}
+    return true
+  }
+  catch(e){console.error('云端写入失败',JSON.stringify(e));return false}
 }
 function ld(){
   try{
