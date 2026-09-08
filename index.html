@@ -254,6 +254,20 @@ async function saveCloud(d){
   try{await cloudRdb.from(CLOUD_TABLE).upsert({id:CLOUD_ID,data:d,updated_at:new Date().toISOString()})}
   catch(e){console.error('云端写入失败',e)}
 }
+function ld(){
+  try{
+    let r=localStorage.getItem(SK)
+    if(!r){r=localStorage.getItem('learning_cockpit_data')}
+    if(!r){r=localStorage.getItem('learning_cockpit_v2')}
+    if(r){
+      const d=normalize(JSON.parse(r))
+      if(!localStorage.getItem(SK))localStorage.setItem(SK,JSON.stringify(d))
+      return d
+    }
+  }catch(e){console.error('Load error:',e)}
+  return defData()
+}
+
 function sv(d){try{localStorage.setItem(SK,JSON.stringify(d))}catch(e){};if(cloudReady){saveCloud(d)}}
 
 const up=new URLSearchParams(window.location.search)
