@@ -173,9 +173,10 @@ input:focus,select:focus{outline:none;border-color:var(--primary-border);box-sha
 .subject-item .subj-name{font-size:13px;font-weight:600;margin-top:4px}
 .subject-item .subj-cnt{font-size:12px;color:var(--muted);margin-top:3px;font-variant-numeric:tabular-nums}
 </style>
+<script src="https://static.cloudbase.net/cloudbase-js-sdk/latest/cloudbase.full.js"></script>
 </head>
 <body>
-<div class="topbar"><div class="logo"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>阿勒学习驾驶舱</div><div class="badge edit edit-only" id="modeBadge">✏️ 家长模式</div></div>
+<div class="topbar"><div class="logo"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>阿勒学习驾驶舱</div><div class="badge edit edit-only" id="modeBadge">✏️ 家长模式</div><span id="cloudBadge" style="font-size:11px;margin-left:8px;color:#8b93a5">🔌 连接中...</span></div>
 <div class="tabs" id="tabNav">
 <button class="tab-btn active" data-tab="dashboard"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#818cf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.6 2.7a10 10 0 1 0 5.7 5.7"/><circle cx="12" cy="12" r="2.2" fill="#818cf8"/><path d="M13.4 10.6 19 5"/></svg>驾驶舱</button>
 <button class="tab-btn" data-tab="scores"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg>成绩追踪</button>
@@ -209,6 +210,50 @@ function defData(){
   }
 }
 const SK='lc_v3'
+// ===== 腾讯云开发接入 =====
+const CLOUD_ENV='jiajia-study-d6gjyod13d77728d6'
+const CLOUD_DOC='main'
+let cloudApp=null,cloudAuth=null,cloudDb=null,cloudReady=false
+function setCloudStatus(txt,ok){
+  const el=document.getElementById('cloudBadge')
+  if(el){el.innerHTML=txt;el.style.color=ok?'#6ee7b7':'#fbbf24'}
+}
+function normalize(d){
+  const df=defData()
+  for(const k of Object.keys(df)){
+    if(!(k in d))d[k]=df[k]
+    if(k==='dailyCheckItems'&&!d.dci&&d.dailyCheckItems)d.dci=d.dailyCheckItems
+  }
+  if(!d.parts||d.parts.length!==PT.length){d.parts=JSON.parse(JSON.stringify(PT))}
+  if(d.dci&&Array.isArray(d.dci)){const dd=defData().dci;for(const item of dd){if(!d.dci.some(function(x){return x.key===item.key})){d.dci.push(item)}}}
+  return d
+}
+async function initCloud(){
+  try{
+    if(typeof window==='undefined'||!window.cloudbase){setCloudStatus('SDK未加载',false);return false}
+    cloudApp=cloudbase.init({env:CLOUD_ENV})
+    cloudAuth=cloudApp.auth({persistence:'local'})
+    try{await cloudAuth.anonymousAuthProvider().signIn()}
+    catch(e1){try{await cloudAuth.signInAnonymously()}catch(e2){throw e2}}
+    cloudDb=cloudApp.database()
+    cloudReady=true
+    return true
+  }catch(e){console.error('云端初始化失败',e);setCloudStatus('连接失败',false);cloudReady=false;return false}
+}
+async function loadCloud(){
+  if(!cloudReady)return null
+  try{
+    const res=await cloudDb.collection('study_data').doc(CLOUD_DOC).get()
+    if(res&&res.data&&res.data.length>0&&res.data[0]&&res.data[0].data){return res.data[0].data}
+    return null
+  }catch(e){console.error('云端读取失败',e);return null}
+}
+async function saveCloud(d){
+  if(!cloudReady)return
+  try{await cloudDb.collection('study_data').doc(CLOUD_DOC).set({data:d,updatedAt:Date.now()})}
+  catch(e){console.error('云端写入失败',e)}
+}
+
 function ld(){
   try{
     // Try current key first
@@ -235,7 +280,7 @@ function ld(){
   }catch(e){console.error('Load error:',e)}
   return defData()
 }
-function sv(d){try{localStorage.setItem(SK,JSON.stringify(d))}catch(e){ts('保存失败')}}
+function sv(d){try{localStorage.setItem(SK,JSON.stringify(d))}catch(e){};if(cloudReady){saveCloud(d)}}
 
 const up=new URLSearchParams(window.location.search)
 const VW=up.has('view')||up.has('readonly')
@@ -969,6 +1014,17 @@ function rwk(){
 function sw(tab){tb=tab;document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));render();window.scrollTo({top:0,behavior:'smooth'})}
 document.getElementById('tabNav').addEventListener('click',(e)=>{const btn=e.target.closest('.tab-btn');if(btn)sw(btn.dataset.tab)})
 render()
+;(async function boot(){
+  const ok=await initCloud()
+  if(ok){
+    setCloudStatus('同步中...',true)
+    const cd=await loadCloud()
+    if(cd){D=normalize(cd);sv(D);render();setCloudStatus('云端已同步',true)}
+    else{await saveCloud(D);setCloudStatus('云端已连接',true)}
+  }else{
+    setCloudStatus('本地模式',false)
+  }
+})()
 </script>
 </body>
 </html>
