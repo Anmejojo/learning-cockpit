@@ -244,7 +244,7 @@ async function loadCloud(){
   if(!cloudReady)return null
   try{
     const {data,error}=await cloudRdb.from(CLOUD_TABLE).select('*').eq('id',CLOUD_ID).limit(1)
-    if(error){console.error('云端读取失败',error);return null}
+    if(error){console.error('云端读取失败',JSON.stringify(error));return null}
     if(data&&data.length>0&&data[0]&&data[0].data){return data[0].data}
     return null
   }catch(e){console.error('云端读取失败',e);return null}
@@ -252,7 +252,7 @@ async function loadCloud(){
 async function saveCloud(d){
   if(!cloudReady)return
   try{await cloudRdb.from(CLOUD_TABLE).upsert({id:CLOUD_ID,data:d,updated_at:new Date().toISOString()})}
-  catch(e){console.error('云端写入失败',e)}
+  catch(e){console.error('云端写入失败',JSON.stringify(e))}
 }
 function ld(){
   try{
