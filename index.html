@@ -210,10 +210,13 @@ function defData(){
   }
 }
 const SK='lc_v3'
-// ===== 腾讯云开发接入 =====
+// ===== 腾讯云开发接入（PostgreSQL + rdb）=====
 const CLOUD_ENV='jiajia-study-d6gjyod13d77728d6'
-const CLOUD_DOC='main'
-let cloudApp=null,cloudAuth=null,cloudDb=null,cloudReady=false
+const CLOUD_REGION='ap-shanghai'
+const CLOUD_KEY='eyJhbGciOiJSUzI1NiIsImtpZCI6IjNhNjk3Y2I2LWRjMDMtNGFkMi04ZGQ2LTFkMWNjNjZhNGQ5MSJ9.eyJpc3MiOiJodHRwczovL2ppYWppYS1zdHVkeS1kNmdqeW9kMTNkNzc3MjhkNi5hcC1zaGFuZ2hhaS50Y2ItYXBpLnRlbmNlbnRjbG91ZGFwaS5jb20iLCJzdWIiOiJhbm9uIiwiYXVkIjoiamlhamlhLXN0dWR5LWQ2Z2p5b2QxM2Q3NzcyOGQ2IiwiZXhwIjo0MDkyNTI4NDk2LCJpYXQiOjE3ODg4NDUyOTYsIm5vbmNlIjoiODhqMEJEQV9Tci1qTVNMT1BhVWFBZyIsImF0X2hhc2giOiI4OGowQkRBX1NyLWpNU0xPUGFVYUFnIiwibmFtZSI6IkFub255bW91cyIsInNjb3BlIjoiYW5vbnltb3VzIiwicHJvamVjdF9pZCI6ImppYWppYS1zdHVkeS1kNmdqeW9kMTNkNzc3MjhkNiIsIm1ldGEiOnsicGxhdGZvcm0iOiJQdWJsaXNoYWJsZUtleSJ9LCJyb2xlIjoiYW5vbiIsImlzX2Fub255bW91cyI6dHJ1ZSwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiYW5vbnltb3VzIiwicHJvdmlkZXJzIjpbImFub255bW91cyJdfSwidXNlcl9tZXRhZGF0YSI6eyJuYW1lIjoiQW5vbnltb3VzIn0sInVzZXJfdHlwZSI6IiIsImNsaWVudF90eXBlIjoiY2xpZW50X3VzZXIiLCJpc19zeXN0ZW1fYWRtaW4iOmZhbHNlfQ.Mp-ZotDDKuzD-fXrSi9TvnFQLh_HhZqfy3ZHON4TWnhbuG6y2atGQSk6fjYMJqNX3QYajY5ZaQ3gAcrLYUF_Sx3CFRj3Ugeask5lKlWFnlEkn7PpY9joBFcSP7-TXeNwssT4FoiuqlzoEetJw8pQFtTo8iB3vOYLBsWAw5O3uNPysNWRN9YKA3RXSvcqQOOMMWXjmVEJsuTLzK_w0VmuahW_RyXIvJk_mpnZ-PeAA21uWhGJws5spytiKEyG9OXen4_SeICfTUYBxLncReGrluLxRU9nyDnPTyq3aKemz0I5AbPJdngwsRtxk3W17Os6OxvUBwbWfGbeJOwFn74O8Q'
+const CLOUD_TABLE='study_data'
+const CLOUD_ID=1
+let cloudApp=null,cloudRdb=null,cloudReady=false
 function setCloudStatus(txt,ok){
   const el=document.getElementById('cloudBadge')
   if(el){el.innerHTML=txt;el.style.color=ok?'#6ee7b7':'#fbbf24'}
@@ -231,11 +234,8 @@ function normalize(d){
 async function initCloud(){
   try{
     if(typeof window==='undefined'||!window.cloudbase){setCloudStatus('SDK未加载',false);return false}
-    cloudApp=cloudbase.init({env:CLOUD_ENV})
-    cloudAuth=cloudApp.auth({persistence:'local'})
-    try{await cloudAuth.anonymousAuthProvider().signIn()}
-    catch(e1){try{await cloudAuth.signInAnonymously()}catch(e2){throw e2}}
-    cloudDb=cloudApp.database()
+    cloudApp=cloudbase.init({env:CLOUD_ENV,region:CLOUD_REGION,accessKey:CLOUD_KEY})
+    cloudRdb=cloudApp.rdb()
     cloudReady=true
     return true
   }catch(e){console.error('云端初始化失败',e);setCloudStatus('连接失败',false);cloudReady=false;return false}
@@ -243,42 +243,16 @@ async function initCloud(){
 async function loadCloud(){
   if(!cloudReady)return null
   try{
-    const res=await cloudDb.collection('study_data').doc(CLOUD_DOC).get()
-    if(res&&res.data&&res.data.length>0&&res.data[0]&&res.data[0].data){return res.data[0].data}
+    const {data,error}=await cloudRdb.from(CLOUD_TABLE).select('*').eq('id',CLOUD_ID).limit(1)
+    if(error){console.error('云端读取失败',error);return null}
+    if(data&&data.length>0&&data[0]&&data[0].data){return data[0].data}
     return null
   }catch(e){console.error('云端读取失败',e);return null}
 }
 async function saveCloud(d){
   if(!cloudReady)return
-  try{await cloudDb.collection('study_data').doc(CLOUD_DOC).set({data:d,updatedAt:Date.now()})}
+  try{await cloudRdb.from(CLOUD_TABLE).upsert({id:CLOUD_ID,data:d,updated_at:new Date().toISOString()})}
   catch(e){console.error('云端写入失败',e)}
-}
-
-function ld(){
-  try{
-    // Try current key first
-    let r=localStorage.getItem(SK)
-    // Fall back to old keys
-    if(!r){r=localStorage.getItem('learning_cockpit_data')}
-    if(!r){r=localStorage.getItem('learning_cockpit_v2')}
-    if(r){
-      const d=JSON.parse(r)
-      const df=defData()
-      for(const k of Object.keys(df)){
-        if(!(k in d))d[k]=df[k]
-        // Migrate old field names
-        if(k==='dailyCheckItems'&&!d.dci&&d.dailyCheckItems)d.dci=d.dailyCheckItems
-      }
-      // 零件结构变更时自动重置为新清单
-      if(d.parts.length!==PT.length){d.parts=JSON.parse(JSON.stringify(PT))}
-      // 打卡项目新增时自动补充
-      if(d.dci&&Array.isArray(d.dci)){const defDci=defData().dci;for(const item of defDci){if(!d.dci.some(function(x){return x.key===item.key})){d.dci.push(item)}}}
-      // Migrate old keys to new key
-      if(!localStorage.getItem(SK))localStorage.setItem(SK,JSON.stringify(d))
-      return d
-    }
-  }catch(e){console.error('Load error:',e)}
-  return defData()
 }
 function sv(d){try{localStorage.setItem(SK,JSON.stringify(d))}catch(e){};if(cloudReady){saveCloud(d)}}
 
