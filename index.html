@@ -296,7 +296,7 @@ function submitCheck(typeId,subject,img){
   if(!D.checks)D.checks=[]
   D.checks.unshift({id:Date.now(),date:td,type:typeId,typeName:type.name,subject:subject||'',img:img||null,pts:type.pts,status:'pending',ts:Date.now()})
   sv(D);render()
-  ts('📤 已提交，等待家长审核')
+  ts('✅ 照片已上传，已提交等待家长审核')
 }
 function approveCheck(id){
   const c=(D.checks||[]).find(function(x){return x.id===id})
@@ -314,13 +314,15 @@ function rejectCheck(id){
   ts('↩️ 已退回')
 }
 function pickAndSubmit(type,subject){
+  ts('📷 请拍照或选择图片上传证明')
   const inp=document.createElement('input')
   inp.type='file';inp.accept='image/*'
   inp.onchange=function(e){
     const f=e.target.files[0]
-    if(!f){ts('⚠️ 需要拍照');return}
+    if(!f){ts('已取消上传');return}
+    ts('⏳ 正在上传...')
     compressImage(f,function(b64){
-      if(!b64){ts('⚠️ 照片处理失败');return}
+      if(!b64){ts('⚠️ 照片处理失败，请重试');return}
       submitCheck(type.id,subject,b64)
     })
   }
@@ -450,9 +452,6 @@ function rd(){
   const hero=h('div',{className:'hero'})
   hero.appendChild(h('div',{className:'hero-item blue'},h('div',{className:'hl'},'最近考试总分'),h('div',{className:'hn'},lt?(si.total+' 分'):'未录成绩'),h('div',{className:'hs'},lt?('得分率 '+ps(si.pct)+' · 满分 '+si.fullTotal):'去「成绩追踪」录第一次考试')))
   hero.appendChild(h('div',{className:'hero-item green'},h('div',{className:'hl'},'距三中 625 线'),h('div',{className:'hn'},lt?(si.total/si.fullTotal*800>=625?'✅ 已达标':'差 '+(625-Math.round(si.total/si.fullTotal*800))+' 分'):'—'),h('div',{className:'hs'},'目标：中考 ≥625 分')))
-  const tcc=(D.checks||[]).filter(function(c){return c.date===td}).length
-  const tac=(D.checks||[]).filter(function(c){return c.date===td&&c.status==='approved'}).length
-  hero.appendChild(h('div',{className:'hero-item '+(tcc>0?'green':'orange')},h('div',{className:'hl'},'今日打卡'),h('div',{className:'hn'},tcc+' 次'),h('div',{className:'hs'},tac+' 已通过 · '+tcc+' 提交')))
   $c.appendChild(hero)
 
   // 今日寄语（每天固定一句，孩子也能看到）
