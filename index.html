@@ -1007,7 +1007,7 @@ render()
   if(ok){
     setCloudStatus('同步中...',true)
     const cd=await loadCloud()
-    if(cd){D=normalize(cd);sv(D);render();setCloudStatus('云端已同步',true)}
+    if(cd){D=normalize(cd);if(!D.dailyChecks[td]){const ds={};for(const it of (D.dci||defData().dci))ds[it.key]=false;D.dailyChecks[td]=ds}sv(D);render();setCloudStatus('云端已同步',true)}
     else{await saveCloud(D);setCloudStatus('云端已连接',true)}
   }else{
     setCloudStatus('本地模式',false)
