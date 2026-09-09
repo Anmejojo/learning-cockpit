@@ -202,7 +202,7 @@ const PT=[{id:1,icon:'🖱️',name:'鼠标垫',value:30,cond:'初二上期中',
 
 function defData(){
   return {
-    exams:[],parts:JSON.parse(JSON.stringify(PT)),dailyChecks:{},points:[],sem:'初二上',
+    exams:[],parts:JSON.parse(JSON.stringify(PT)),dailyChecks:{},checkImgs:{},points:[],sem:'初二上',
     rate:10,
     bl:{chinese:99,math:115,english:70,geo:67,history:81,dao:63,bio:58,physics:null,pe:null,chem:null},
     phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,examDate:null,mistakes:[],tasks:[],ritualTime:'20:00',smallGoals:[],mistakeMilestones:[],mistakeLog:{},
@@ -281,6 +281,63 @@ if(VW){document.body.classList.add('view-only');const b=document.getElementById(
 function ts(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2000)}
 const PRAISE={check:['今天又进步了一点！','坚持就是胜利！','好习惯正在养成！','认真完成，真棒！'],score:['这次有进步，继续保持！','努力有回报了！','成绩稳步上升，加油！'],part:['攒下奖励，离目标更近一步！','一分耕耘一分收获！'],task:['任务完成，说到做到！','又完成一件，真棒！'],goal:['小目标达成，一步步变强！'],unlock:['太棒了，解锁新奖励！','努力开花结果了！'],week:['这周的努力看得见！','下周继续加油！'],default:['继续加油！','每天都有进步！']}
 function praise(cat){const a=PRAISE[cat]||PRAISE.default;return a[Math.floor(Math.random()*a.length)]}
+function compressImage(file,cb){
+  try{
+    const reader=new FileReader()
+    reader.onload=function(e){
+      const img=new Image()
+      img.onload=function(){
+        const maxW=700
+        const scale=Math.min(1,maxW/img.width)
+        const cv=document.createElement('canvas')
+        cv.width=Math.round(img.width*scale)
+        cv.height=Math.round(img.height*scale)
+        cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height)
+        cb(cv.toDataURL('image/jpeg',0.6))
+      }
+      img.onerror=function(){cb(null)}
+      img.src=e.target.result
+    }
+    reader.readAsDataURL(file)
+  }catch(e){cb(null)}
+}
+function toggleCheck(item,img){
+  const nv=!D.dailyChecks[td][item.key]
+  D.dailyChecks[td][item.key]=nv
+  if(nv){
+    if(img){
+      if(!D.checkImgs)D.checkImgs={}
+      if(!D.checkImgs[td])D.checkImgs[td]={}
+      D.checkImgs[td][item.key]=img
+    }
+    D.points.push({date:td,source:item.label,points:item.pts,type:'earn'})
+    sv(D);render()
+    ts('✅ '+item.label+' +'+item.pts+'分'+(img?' · 已上传照片':''))
+  }else{
+    if(D.checkImgs&&D.checkImgs[td]){delete D.checkImgs[td][item.key]}
+    D.points=D.points.filter(function(p){return !(p.date===td&&p.source===item.label&&p.type==='earn')})
+    sv(D);render()
+    ts('已取消 '+item.label)
+  }
+}
+function viewImg(b64){if(!b64)return;const w=window.open('','_blank');w.document.write('<html><head><title>照片</title></head><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="'+b64+'" style="max-width:100%;max-height:100vh"></body></html>')}
+function pickImageThenCheck(item){
+  const done=!!D.dailyChecks[td][item.key]
+  const hasImg=D.checkImgs&&D.checkImgs[td]&&D.checkImgs[td][item.key]
+  if(done){if(hasImg){viewImg(hasImg);return}toggleCheck(item);return}
+  if(confirm('要上传证明照片吗？\n（点“确定”选照片，点“取消”直接打卡）')){
+    const inp=document.createElement('input')
+    inp.type='file';inp.accept='image/*'
+    inp.onchange=function(e){
+      const f=e.target.files[0]
+      if(f){compressImage(f,function(b64){toggleCheck(item,b64)})}
+      else{toggleCheck(item)}
+    }
+    inp.click()
+  }else{
+    toggleCheck(item)
+  }
+}
 function gs(sem){return SUB[sem]||SUB['初二上']}
 function ct(sc,sem){const subs=gs(sem);let t=0,f=0;for(const s of subs){f+=s.full*s.rate;if(sc[s.id]!=null)t+=sc[s.id]*s.rate}return{total:Math.round(t*10)/10,fullTotal:Math.round(f*10)/10,pct:f>0?Math.round(t/f*1000)/10:0}}
 function fd(d){if(!d)return'—';const p=d.split('-');return p[0]+'年'+parseInt(p[1])+'月'+parseInt(p[2])+'日'}
@@ -360,8 +417,8 @@ function rd(){
   const cqRow=h('div',{className:'check-quick'})
   for(const item of dci){
     const done=tchk[item.key]||false
-    const qb=h('button',{className:'q-btn '+(done?'done':''),onClick:function(){const nv=!D.dailyChecks[td][item.key];D.dailyChecks[td][item.key]=nv;if(nv){D.points.push({date:td,source:item.label,points:item.pts,type:'earn'})}else{D.points=D.points.filter(function(p){return !(p.date===td&&p.source===item.label&&p.type==='earn')})}sv(D);render();ts(nv?'✅ '+item.label+' +'+item.pts+'分 · '+praise('check'):'已取消 '+item.label)}})
-    qb.innerHTML=(done?'✅ ':'')+item.icon+' '+item.label+' +'+item.pts
+    const qb=h('button',{className:'q-btn '+(done?'done':''),onClick:function(){pickImageThenCheck(item)}})
+    qb.innerHTML=(done?'✅ ':'')+item.icon+' '+item.label+' +'+item.pts+(D.checkImgs&&D.checkImgs[td]&&D.checkImgs[td][item.key]?' 📷':'')
     cqRow.appendChild(qb)
   }
   cq.appendChild(cqRow)
@@ -704,8 +761,8 @@ function rdl(){
   const grid=h('div',{className:'check-grid'})
   for(const item of ci){
     const done=tchk[item.key]||false
-    const cii=h('div',{className:'check-item '+(done?'done':''),onClick:()=>{const nv=!D.dailyChecks[td][item.key];D.dailyChecks[td][item.key]=nv;if(nv){D.points.push({date:td,source:item.label,points:item.pts,type:'earn'})}else{D.points=D.points.filter(p=>!(p.date===td&&p.source===item.label&&p.type==='earn'))}sv(D);render();ts(nv?'✅ '+item.label+' +'+item.pts+'分 · '+praise('check'):'已取消 '+item.label)}})
-    cii.innerHTML='<div class="ci">'+(done?'✅':item.icon)+'</div><div class="cl">'+item.label+'</div><div class="cs">+'+item.pts+' 积分</div>'
+    const cii=h('div',{className:'check-item '+(done?'done':''),onClick:()=>{pickImageThenCheck(item)}})
+    cii.innerHTML='<div class="ci">'+(done?'✅':item.icon)+'</div><div class="cl">'+item.label+(D.checkImgs&&D.checkImgs[td]&&D.checkImgs[td][item.key]?' 📷':'')+'</div><div class="cs">+'+item.pts+' 积分</div>'
     grid.appendChild(cii)
   }
   cc.appendChild(grid)
