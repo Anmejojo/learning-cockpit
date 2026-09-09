@@ -200,9 +200,18 @@ SUB['初三下']=SUB['初三上']
 const PLANS=[{name:'基础套餐',data:'5GB+100分钟',cost:30},{name:'视频加成',data:'+5GB',cost:10},{name:'达标奖励',data:'+10GB',cost:20},{name:'优异奖励',data:'+20GB',cost:40}]
 const PT=[{id:1,icon:'🖱️',name:'鼠标垫',value:30,cond:'初二上期中',det:'主科均分≥100',st:1},{id:2,icon:'🐭',name:'鼠标',value:200,cond:'初二上期中',det:'主科均分≥100',st:2},{id:3,icon:'🔌',name:'排插',value:100,cond:'初二上期中',det:'主科均分≥100',st:3},{id:4,icon:'⌨️',name:'键盘',value:400,cond:'初二上期末',det:'总分≥508',st:4},{id:5,icon:'🎧',name:'耳机',value:350,cond:'初二上期末',det:'总分≥508',st:5},{id:6,icon:'🎥',name:'摄像头',value:200,cond:'初二上期末',det:'总分≥508',st:6},{id:7,icon:'🔊',name:'音响',value:400,cond:'初二下期中',det:'总分≥517',st:7},{id:8,icon:'🎒',name:'机箱',value:350,cond:'初二下期中',det:'总分≥517',st:8},{id:9,icon:'🕹️',name:'游戏手柄',value:350,cond:'初二下期中',det:'总分≥517',st:9},{id:10,icon:'💾',name:'SSD 1TB',value:500,cond:'初二下期末',det:'总分≥538',st:10},{id:11,icon:'❄️',name:'散热器',value:300,cond:'初二下期末',det:'总分≥538',st:11},{id:12,icon:'⚡',name:'电源750W',value:500,cond:'初三上期中',det:'总分≥580',st:12},{id:13,icon:'💽',name:'机械硬盘',value:500,cond:'初三上期中',det:'总分≥580',st:13},{id:14,icon:'🧠',name:'内存32G',value:600,cond:'初三上期末',det:'总分≥610',st:14},{id:15,icon:'🔧',name:'主板',value:1000,cond:'一模≥600',det:'初三下开学',st:15},{id:16,icon:'📺',name:'显示器2K',value:1200,cond:'二模≥610',det:'初三下期中',st:16},{id:17,icon:'🧮',name:'CPU',value:1500,cond:'三模≥615',det:'中考前冲刺',st:17},{id:18,icon:'🎮',name:'显卡',value:2500,cond:'中考≥625',det:'中考达标!',st:18},{id:19,icon:'🎮',name:'Switch游戏机',value:3508,cond:'积分兑换',det:'游戏机大奖',exchange:true,st:19},{id:20,icon:'🗡️',name:'塞尔达游戏',value:287,cond:'积分兑换',det:'Switch游戏卡带',exchange:true,st:20}]
 
+const CHECK_TYPES=[
+  {id:'homework',name:'日常作业拍照',icon:'📖',subject:true,pts:2},
+  {id:'note',name:'课堂笔记拍照',icon:'📝',subject:true,pts:2},
+  {id:'recite',name:'背诵默写签名拍照',icon:'🖊️',subject:false,pts:2},
+  {id:'word',name:'背诵单词书面拍照',icon:'🔤',subject:false,pts:2},
+  {id:'extra',name:'额外学习拍照',icon:'📚',subject:true,pts:5},
+  {id:'assignment',name:'上传当天作业内容',icon:'📋',subject:false,pts:1}
+]
+const SUBJECTS=['语文','数学','英语','物理','化学','地理','生物','历史','道法']
 function defData(){
   return {
-    exams:[],parts:JSON.parse(JSON.stringify(PT)),dailyChecks:{},checkImgs:{},points:[],sem:'初二上',
+    exams:[],parts:JSON.parse(JSON.stringify(PT)),dailyChecks:{},checkImgs:{},checks:[],points:[],sem:'初二上',
     rate:10,
     bl:{chinese:99,math:115,english:70,geo:67,history:81,dao:63,bio:58,physics:null,pe:null,chem:null},
     phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,examDate:null,mistakes:[],tasks:[],ritualTime:'20:00',smallGoals:[],mistakeMilestones:[],mistakeLog:{},
@@ -281,6 +290,52 @@ if(VW){document.body.classList.add('view-only');const b=document.getElementById(
 function ts(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2000)}
 const PRAISE={check:['今天又进步了一点！','坚持就是胜利！','好习惯正在养成！','认真完成，真棒！'],score:['这次有进步，继续保持！','努力有回报了！','成绩稳步上升，加油！'],part:['攒下奖励，离目标更近一步！','一分耕耘一分收获！'],task:['任务完成，说到做到！','又完成一件，真棒！'],goal:['小目标达成，一步步变强！'],unlock:['太棒了，解锁新奖励！','努力开花结果了！'],week:['这周的努力看得见！','下周继续加油！'],default:['继续加油！','每天都有进步！']}
 function praise(cat){const a=PRAISE[cat]||PRAISE.default;return a[Math.floor(Math.random()*a.length)]}
+function submitCheck(typeId,subject,img){
+  const type=CHECK_TYPES.find(function(t){return t.id===typeId})
+  if(!type)return
+  if(!D.checks)D.checks=[]
+  D.checks.unshift({id:Date.now(),date:td,type:typeId,typeName:type.name,subject:subject||'',img:img||null,pts:type.pts,status:'pending',ts:Date.now()})
+  sv(D);render()
+  ts('📤 已提交，等待家长审核')
+}
+function approveCheck(id){
+  const c=(D.checks||[]).find(function(x){return x.id===id})
+  if(!c||c.status!=='pending')return
+  c.status='approved'
+  D.points.push({date:td,source:(c.subject?c.subject+'·':'')+c.typeName,points:c.pts,type:'earn'})
+  sv(D);render()
+  ts('✅ 已通过 +'+c.pts+'分')
+}
+function rejectCheck(id){
+  const c=(D.checks||[]).find(function(x){return x.id===id})
+  if(!c||c.status!=='pending')return
+  c.status='rejected'
+  sv(D);render()
+  ts('↩️ 已退回')
+}
+function pickAndSubmit(type,subject){
+  const inp=document.createElement('input')
+  inp.type='file';inp.accept='image/*';inp.capture='environment'
+  inp.onchange=function(e){
+    const f=e.target.files[0]
+    if(!f){ts('⚠️ 需要拍照');return}
+    compressImage(f,function(b64){
+      if(!b64){ts('⚠️ 照片处理失败');return}
+      submitCheck(type.id,subject,b64)
+    })
+  }
+  inp.click()
+}
+function startCheck(type){
+  if(type.subject){
+    const subj=prompt('选择科目：\n'+SUBJECTS.join('/'),'数学')
+    if(!subj)return
+    if(SUBJECTS.indexOf(subj)<0){ts('⚠️ 科目无效');return}
+    pickAndSubmit(type,subj)
+  }else{
+    pickAndSubmit(type,'')
+  }
+}
 function compressImage(file,cb){
   try{
     const reader=new FileReader()
@@ -402,7 +457,9 @@ function rd(){
   const hero=h('div',{className:'hero'})
   hero.appendChild(h('div',{className:'hero-item blue'},h('div',{className:'hl'},'最近考试总分'),h('div',{className:'hn'},lt?(si.total+' 分'):'未录成绩'),h('div',{className:'hs'},lt?('得分率 '+ps(si.pct)+' · 满分 '+si.fullTotal):'去「成绩追踪」录第一次考试')))
   hero.appendChild(h('div',{className:'hero-item green'},h('div',{className:'hl'},'距三中 625 线'),h('div',{className:'hn'},lt?(si.total/si.fullTotal*800>=625?'✅ 已达标':'差 '+(625-Math.round(si.total/si.fullTotal*800))+' 分'):'—'),h('div',{className:'hs'},'目标：中考 ≥625 分')))
-  hero.appendChild(h('div',{className:'hero-item '+(doneCount===dci.length?'green':'orange')},h('div',{className:'hl'},'今日打卡'),h('div',{className:'hn'},doneCount+' / '+dci.length),h('div',{className:'hs'},doneCount===dci.length?'✅ 全部完成，真棒':('还有 '+(dci.length-doneCount)+' 项未完成'))))
+  const tcc=(D.checks||[]).filter(function(c){return c.date===td}).length
+  const tac=(D.checks||[]).filter(function(c){return c.date===td&&c.status==='approved'}).length
+  hero.appendChild(h('div',{className:'hero-item '+(tcc>0?'green':'orange')},h('div',{className:'hl'},'今日打卡'),h('div',{className:'hn'},tcc+' 次'),h('div',{className:'hs'},tac+' 已通过 · '+tcc+' 提交')))
   $c.appendChild(hero)
 
   // 今日寄语（每天固定一句，孩子也能看到）
@@ -411,18 +468,47 @@ function rd(){
   const dp=h('div',{className:'daily-praise'},'💬 今日寄语：'+dailyP)
   $c.appendChild(dp)
 
-  // 今日打卡快捷区
+  // 按科目打卡
   const cq=h('div',{className:'card'})
-  cq.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'✅'}),'今日打卡'))
+  cq.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'✅'}),'今日打卡（拍照证明，家长审核）'))
   const cqRow=h('div',{className:'check-quick'})
-  for(const item of dci){
-    const done=tchk[item.key]||false
-    const qb=h('button',{className:'q-btn '+(done?'done':''),onClick:function(){pickImageThenCheck(item)}})
-    qb.innerHTML=(done?'✅ ':'')+item.icon+' '+item.label+' +'+item.pts+(D.checkImgs&&D.checkImgs[td]&&D.checkImgs[td][item.key]?' 📷':'')
-    cqRow.appendChild(qb)
+  for(const type of CHECK_TYPES){
+    const tb=h('button',{className:'q-btn',onClick:function(){startCheck(type)}})
+    tb.innerHTML=type.icon+' '+type.name+' +'+type.pts
+    cqRow.appendChild(tb)
   }
   cq.appendChild(cqRow)
+  const tcs=(D.checks||[]).filter(function(c){return c.date===td})
+  if(tcs.length){
+    const cl=h('div',{style:'margin-top:12px'})
+    for(const c of tcs){
+      const st=c.status==='pending'?'⏳ 待审核':c.status==='approved'?'✅ 已通过':'↩️ 已退回'
+      const sc=c.status==='pending'?'var(--warning)':c.status==='approved'?'var(--success)':'var(--muted)'
+      cl.appendChild(h('div',{className:'mistake-item'},h('div',{innerHTML:'<strong>'+(c.subject?c.subject+'·':'')+c.typeName+'</strong> <span style="color:'+sc+'">'+st+'</span> +'+c.pts+'分'})))
+    }
+    cq.appendChild(cl)
+  }
   $c.appendChild(cq)
+
+  // 家长审核
+  if(!VW){
+    const pending=(D.checks||[]).filter(function(c){return c.status==='pending'})
+    if(pending.length){
+      const ap=h('div',{className:'card'})
+      ap.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'👩‍👩‍👧'}),'待审核打卡（'+pending.length+'条）'))
+      for(const c of pending){
+        const row=h('div',{className:'mistake-item'})
+        row.innerHTML='<div><strong>'+(c.subject?c.subject+'·':'')+c.typeName+'</strong> <span style="color:var(--muted);font-size:12px">'+c.date+'</span></div>'
+        if(c.img){row.innerHTML+='<img src="'+c.img+'" style="max-width:90px;max-height:90px;border-radius:6px;margin-top:6px;cursor:pointer" onclick="viewImg(this.src)">'}
+        const br=h('div',{style:'margin-top:6px'})
+        br.appendChild(h('button',{className:'btn btn-success btn-sm',onClick:function(){approveCheck(c.id)}},'✅ 通过'))
+        br.appendChild(h('button',{className:'btn btn-danger btn-sm',style:'margin-left:6px',onClick:function(){rejectCheck(c.id)}},'↩️ 退回'))
+        row.appendChild(br)
+        ap.appendChild(row)
+      }
+      $c.appendChild(ap)
+    }
+  }
 
   // 预警区
   const al=[]
