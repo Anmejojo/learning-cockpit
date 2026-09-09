@@ -491,7 +491,7 @@ function rd(){
     for(const c of tcs){
       const st=c.status==='pending'?'⏳ 待审核':c.status==='approved'?'✅ 已通过':'↩️ 已退回'
       const sc=c.status==='pending'?'var(--warning)':c.status==='approved'?'var(--success)':'var(--muted)'
-      cl.appendChild(h('div',{className:'mistake-item'},h('div',{innerHTML:'<strong>'+(c.subject?c.subject+'·':'')+c.typeName+'</strong> <span style="color:'+sc+'">'+st+'</span> +'+c.pts+'分'})))
+      const citem=h('div',{className:'mistake-item'});citem.appendChild(h('div',{innerHTML:'<strong>'+(c.subject?c.subject+'·':'')+c.typeName+'</strong> <span style="color:'+sc+'">'+st+'</span> +'+c.pts+'分'}));if(c.img){citem.appendChild(h('div',{style:'margin-top:6px'},h('img',{src:c.img,style:'max-width:120px;max-height:120px;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(c.img)}})));}cl.appendChild(citem)
     }
     cq.appendChild(cl)
   }
@@ -506,7 +506,7 @@ function rd(){
       for(const c of pending){
         const row=h('div',{className:'mistake-item'})
         row.innerHTML='<div><strong>'+(c.subject?c.subject+'·':'')+c.typeName+'</strong> <span style="color:var(--muted);font-size:12px">'+c.date+'</span></div>'
-        if(c.img){row.innerHTML+='<img src="'+c.img+'" style="max-width:90px;max-height:90px;border-radius:6px;margin-top:6px;cursor:pointer" onclick="viewImg(this.src)">'}
+        if(c.img){row.innerHTML+='<div style="margin-top:8px"><img src="'+c.img+'" style="max-width:200px;max-height:200px;border-radius:8px;cursor:pointer;border:1px solid var(--border)" onclick="viewImg(this.src)"><div style="font-size:11px;color:var(--muted);margin-top:4px">📷 点击查看大图</div></div>'}
         const br=h('div',{style:'margin-top:6px'})
         br.appendChild(h('button',{className:'btn btn-success btn-sm',onClick:function(){approveCheck(c.id)}},'✅ 通过'))
         br.appendChild(h('button',{className:'btn btn-danger btn-sm',style:'margin-left:6px',onClick:function(){rejectCheck(c.id)}},'↩️ 退回'))
