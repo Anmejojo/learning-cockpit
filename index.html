@@ -360,7 +360,7 @@ function rd(){
   const cqRow=h('div',{className:'check-quick'})
   for(const item of dci){
     const done=tchk[item.key]||false
-    const qb=h('button',{className:'q-btn '+(done?'done':''),onClick:function(){if(VW)return;const nv=!D.dailyChecks[td][item.key];D.dailyChecks[td][item.key]=nv;if(nv){D.points.push({date:td,source:item.label,points:item.pts,type:'earn'})}else{D.points=D.points.filter(function(p){return !(p.date===td&&p.source===item.label&&p.type==='earn')})}sv(D);render();ts(nv?'✅ '+item.label+' +'+item.pts+'分 · '+praise('check'):'已取消 '+item.label)}})
+    const qb=h('button',{className:'q-btn '+(done?'done':''),onClick:function(){const nv=!D.dailyChecks[td][item.key];D.dailyChecks[td][item.key]=nv;if(nv){D.points.push({date:td,source:item.label,points:item.pts,type:'earn'})}else{D.points=D.points.filter(function(p){return !(p.date===td&&p.source===item.label&&p.type==='earn')})}sv(D);render();ts(nv?'✅ '+item.label+' +'+item.pts+'分 · '+praise('check'):'已取消 '+item.label)}})
     qb.innerHTML=(done?'✅ ':'')+item.icon+' '+item.label+' +'+item.pts
     cqRow.appendChild(qb)
   }
@@ -704,7 +704,7 @@ function rdl(){
   const grid=h('div',{className:'check-grid'})
   for(const item of ci){
     const done=tchk[item.key]||false
-    const cii=h('div',{className:'check-item '+(done?'done':''),onClick:()=>{if(VW)return;const nv=!D.dailyChecks[td][item.key];D.dailyChecks[td][item.key]=nv;if(nv){D.points.push({date:td,source:item.label,points:item.pts,type:'earn'})}else{D.points=D.points.filter(p=>!(p.date===td&&p.source===item.label&&p.type==='earn'))}sv(D);render();ts(nv?'✅ '+item.label+' +'+item.pts+'分 · '+praise('check'):'已取消 '+item.label)}})
+    const cii=h('div',{className:'check-item '+(done?'done':''),onClick:()=>{const nv=!D.dailyChecks[td][item.key];D.dailyChecks[td][item.key]=nv;if(nv){D.points.push({date:td,source:item.label,points:item.pts,type:'earn'})}else{D.points=D.points.filter(p=>!(p.date===td&&p.source===item.label&&p.type==='earn'))}sv(D);render();ts(nv?'✅ '+item.label+' +'+item.pts+'分 · '+praise('check'):'已取消 '+item.label)}})
     cii.innerHTML='<div class="ci">'+(done?'✅':item.icon)+'</div><div class="cl">'+item.label+'</div><div class="cs">+'+item.pts+' 积分</div>'
     grid.appendChild(cii)
   }
@@ -718,7 +718,7 @@ function rdl(){
   const tt=h('div',null)
   for(const task of todayTasks){
     const item=h('div',{className:'task-item'})
-    const chk=h('button',{className:'q-btn '+(task.done?'done':''),onClick:function(){if(VW)return;task.done=!task.done;sv(D);render();ts(task.done?'✅ 任务完成 · '+praise('task'):'已取消')}})
+    const chk=h('button',{className:'q-btn '+(task.done?'done':''),onClick:function(){task.done=!task.done;sv(D);render();ts(task.done?'✅ 任务完成 · '+praise('task'):'已取消')}})
     chk.innerHTML=(task.done?'✅ ':'⬜ ')+task.text
     item.appendChild(chk)
     if(!VW){const del=h('button',{className:'btn btn-danger btn-sm',style:'margin-left:6px',onClick:function(){D.tasks=D.tasks.filter(function(x){return x.id!==task.id});sv(D);render()}});del.innerHTML='✕';item.appendChild(del)}
@@ -875,7 +875,6 @@ function rmk(){
   if(!nextTip)nextTip='🌟 已经连续 '+curStreak+' 天，太棒了，继续保持！'
 
   function addSubj(sid,sname){
-    if(VW)return
     const before=dayTotal(D.mistakeLog[td])
     if(!D.mistakeLog[td])D.mistakeLog[td]={}
     D.mistakeLog[td][sid]=(D.mistakeLog[td][sid]||0)+1
@@ -893,7 +892,6 @@ function rmk(){
     }
   }
   function subSubj(sid){
-    if(VW)return
     const cur=(D.mistakeLog[td]||{})[sid]||0
     if(cur<=0)return
     D.mistakeLog[td][sid]=cur-1
@@ -923,10 +921,8 @@ function rmk(){
     const item=h('div',{className:'subject-item'+(cnt>0?' active':'')})
     item.innerHTML='<div class="subj-icon">'+s.icon+'</div><div class="subj-name">'+s.name+'</div><div class="subj-cnt">'+cnt+' 道</div>'
     const btnRow=h('div',{style:'display:flex;gap:4px;justify-content:center;margin-top:4px'})
-    if(!VW){
-      btnRow.appendChild(h('button',{className:'btn btn-success btn-sm',onClick:function(){addSubj(s.id,s.name)}},'+1'))
-      btnRow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){subSubj(s.id)}},'−1'))
-    }
+    btnRow.appendChild(h('button',{className:'btn btn-success btn-sm',onClick:function(){addSubj(s.id,s.name)}},'+1'))
+    btnRow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){subSubj(s.id)}},'−1'))
     item.appendChild(btnRow)
     subGrid.appendChild(item)
   }
