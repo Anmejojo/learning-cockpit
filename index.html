@@ -292,6 +292,7 @@ if(VW){document.body.classList.add('view-only');const b=document.getElementById(
 function ts(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2000)}
 const PRAISE={check:['今天又进步了一点！','坚持就是胜利！','好习惯正在养成！','认真完成，真棒！'],score:['这次有进步，继续保持！','努力有回报了！','成绩稳步上升，加油！'],part:['攒下奖励，离目标更近一步！','一分耕耘一分收获！'],task:['任务完成，说到做到！','又完成一件，真棒！'],goal:['小目标达成，一步步变强！'],unlock:['太棒了，解锁新奖励！','努力开花结果了！'],week:['这周的努力看得见！','下周继续加油！'],default:['继续加油！','每天都有进步！']}
 function praise(cat){const a=PRAISE[cat]||PRAISE.default;return a[Math.floor(Math.random()*a.length)]}
+function setExamDate(daysAgo){const d=new Date(Date.now()-(daysAgo||0)*86400000);const el=document.getElementById('ed');if(el)el.value=d.toISOString().slice(0,10)}
 function checkImgs(c){
   if(!c)return []
   if(c.imgs&&c.imgs.length)return c.imgs
@@ -750,7 +751,7 @@ function rs(){
   const fc=h('div',{className:'card'})
   fc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📝'}),editing?'编辑考试成绩':'录入考试成绩（分数+试卷照片放一起）'))
   const sel=function(v,c){return v===c?' selected':''}
-  fc.innerHTML+='<div class="form-row"><div><label>日期</label><input type="date" id="ed" value="'+(editing&&orig?orig.date:td)+'"></div><div><label>学期</label><select id="es">'+['初二上','初二下','初三上','初三下'].map(function(s){return '<option value="'+s+'"'+(editing&&orig?sel(orig.sem,s):(D.sem===s?' selected':''))+'>'+s+'</option>'}).join('')+'</select></div><div><label>考试类型</label><select id="et">'+['小测试','期中','期末','月考','模拟考','中考'].map(function(s){return '<option value="'+s+'"'+(editing&&orig?sel(orig.examType,s):'')+'>'+s+'</option>'}).join('')+'</select></div></div>'
+  fc.innerHTML+='<div class="form-row"><div><label>日期</label><input type="date" id="ed" value="'+(editing&&orig?orig.date:td)+'"><div style="margin-top:4px;display:flex;gap:6px"><button type="button" class="btn btn-outline btn-sm" onclick="setExamDate(0)">今天</button><button type="button" class="btn btn-warning btn-sm" onclick="setExamDate(1)">昨天</button></div></div><div><label>学期</label><select id="es">'+['初二上','初二下','初三上','初三下'].map(function(s){return '<option value="'+s+'"'+(editing&&orig?sel(orig.sem,s):(D.sem===s?' selected':''))+'>'+s+'</option>'}).join('')+'</select></div><div><label>考试类型</label><select id="et">'+['小测试','期中','期末','月考','模拟考','中考'].map(function(s){return '<option value="'+s+'"'+(editing&&orig?sel(orig.examType,s):'')+'>'+s+'</option>'}).join('')+'</select></div></div>'
   fc.innerHTML+='<div id="ei"></div>'
   fc.innerHTML+='<div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-primary" id="bae">💾 '+(editing?'保存修改':'提交成绩')+'</button>'+(editing?'<button class="btn btn-outline" id="btnCancelEdit">取消编辑</button>':'')+'</div>'
 
