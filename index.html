@@ -708,6 +708,22 @@ function rs(){
     })
   }
 
+  function pasteImageTo(subId){
+    ts('📋 请按 Ctrl+V 粘贴图片')
+    function onPaste(e){
+      const items=(e.clipboardData&&e.clipboardData.items)||[]
+      let found=false
+      for(const item of items){
+        if(item.type&&item.type.indexOf('image')===0){
+          const file=item.getAsFile()
+          if(file){found=true;compressImage(file,function(b64){if(b64){if(!subjImgs[subId])subjImgs[subId]=[];subjImgs[subId].push(b64);renderSubjImgs(subId);ts('✅ 已粘贴')}})}
+        }
+      }
+      document.removeEventListener('paste',onPaste)
+      if(!found){ts('⚠️ 剪贴板里没有图片')}
+    }
+    document.addEventListener('paste',onPaste)
+  }
   function ui(){
     const sem=fc.querySelector('#es').value
     const subs=gs(sem)
@@ -739,6 +755,9 @@ function rs(){
       }})
       upBtn.innerHTML='📷 照片'
       r2.appendChild(upBtn)
+      const pasteBtn=h('button',{className:'btn btn-outline btn-sm',onClick:function(){pasteImageTo(s.id)}})
+      pasteBtn.innerHTML='📋 粘贴'
+      r2.appendChild(pasteBtn)
       row.appendChild(r2)
       row.appendChild(h('div',{className:'subj-imgs','data-sub':s.id,style:'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px'}))
       box.appendChild(row)
