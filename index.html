@@ -480,11 +480,13 @@ function rd(){
   const ckd=_checkDate||td
   const cq=h('div',{className:'card'})
   cq.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'✅'}),'打卡（拍照证明，家长审核）'))
+  const minD=(function(){var d=new Date();d.setDate(d.getDate()-2);return d.toISOString().slice(0,10)})()
   const dateRow=h('div',{style:'display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap'})
-  dateRow.innerHTML='<span style="font-size:13px">日期：</span><input type="date" id="checkDateInput" value="'+ckd+'" style="width:150px">'+(ckd!==td?'<span style="font-size:12px;color:var(--warning)">（补卡 '+ckd+'）</span>':'')
-  dateRow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_checkDate=document.getElementById('checkDateInput').value||td;render()}},'切换'))
+  dateRow.innerHTML='<span style="font-size:13px">日期：</span><input type="date" id="checkDateInput" value="'+ckd+'" min="'+minD+'" max="'+td+'" style="width:150px">'+(ckd!==td?'<span style="font-size:12px;color:var(--warning)">（补卡 '+ckd+'）</span>':'')
+  dateRow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){var v=document.getElementById('checkDateInput').value||td;if(v<minD){ts('⚠️ 只能补最近 2 天（'+minD+'之后）');return}if(v>td){ts('⚠️ 不能选未来日期');return}_checkDate=v;render()}},'切换'))
   dateRow.appendChild(h('button',{className:'btn btn-warning btn-sm',onClick:function(){var d=new Date();d.setDate(d.getDate()-1);_checkDate=d.toISOString().slice(0,10);render()}},'⏰ 补昨天'))
   if(ckd!==td){dateRow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_checkDate=null;render()}},'回到今天'))}
+  dateRow.appendChild(h('span',{style:'font-size:11px;color:var(--faint)'},'仅支持补最近 2 天'))
   cq.appendChild(dateRow)
   function findRec(subj,typeId){return (D.checks||[]).find(function(c){return c.date===ckd&&c.subject===subj&&c.type===typeId})}
   function makeCheckCard(type,subj){
