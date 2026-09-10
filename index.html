@@ -440,12 +440,10 @@ function rd(){
   const cd=h('div',{className:'card countdown'})
   cd.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'⏰'}),'考试倒计时'))
   cd.appendChild(h('div',{style:'font-size:20px;font-weight:700',innerHTML:cdTxt}))
-  if(!VW){
-    const cdRow=h('div',{style:'display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap'})
-    cdRow.innerHTML='<input type="date" id="examDateInput" value="'+(D.examDate||'')+'" style="width:160px">'
-    cdRow.appendChild(h('button',{className:'btn btn-primary btn-sm edit-only',onClick:function(){var v=document.getElementById('examDateInput').value;D.examDate=v||null;sv(D);render();ts('✅ 考试日期已设置')}},'💾 保存日期'))
-    cd.appendChild(cdRow)
-  }
+  const cdRow=h('div',{style:'display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap'})
+  cdRow.innerHTML='<input type="date" id="examDateInput" value="'+(D.examDate||'')+'" style="width:160px">'
+  cdRow.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){var v=document.getElementById('examDateInput').value;D.examDate=v||null;sv(D);render();ts('✅ 考试日期已设置')}},'💾 保存日期'))
+  cd.appendChild(cdRow)
   $c.appendChild(cd)
 
   // 今日概览 Hero
