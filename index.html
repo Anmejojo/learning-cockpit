@@ -450,7 +450,7 @@ function pickImageThenCheck(item){
   }
 }
 function gs(sem){return SUB[sem]||SUB['初二上']}
-function ct(sc,sem){const subs=gs(sem);let t=0,f=0;for(const s of subs){f+=s.full*s.rate;if(sc[s.id]!=null)t+=sc[s.id]*s.rate}return{total:Math.round(t*10)/10,fullTotal:Math.round(f*10)/10,pct:f>0?Math.round(t/f*1000)/10:0}}
+function ct(sc,sem){const subs=gs(sem);let t=0,f=0;for(const s of subs){f+=s.full*s.rate;const v=sc[s.id];if(v!=null&&typeof v==='number')t+=v*s.rate}return{total:Math.round(t*10)/10,fullTotal:Math.round(f*10)/10,pct:f>0?Math.round(t/f*1000)/10:0}}
 function fd(d){if(!d)return'—';const p=d.split('-');return p[0]+'年'+parseInt(p[1])+'月'+parseInt(p[2])+'日'}
 function ps(v){return v.toFixed(1)+'%'}
 
@@ -793,7 +793,7 @@ function rs(){
       const row=h('div',{className:'subj-line'})
       row.appendChild(h('label',{style:'font-size:12px;color:var(--muted);font-weight:600;display:block;margin-bottom:4px'},s.name+'（满分'+s.full+'，×'+(s.rate*100).toFixed(0)+'%）'))
       const r2=h('div',{style:'display:flex;align-items:center;gap:8px;flex-wrap:wrap'})
-      r2.appendChild(h('input',{type:'number',step:'0.5',min:'0',max:String(s.full),placeholder:'卷面分',value:String(oldVal),'data-sub':s.id,style:'width:110px'}))
+      r2.appendChild(h('input',{type:'text',placeholder:'数字或ABC',value:String(oldVal),'data-sub':s.id,style:'width:110px'}))
       const upBtn=h('button',{className:'btn btn-outline btn-sm',onClick:function(){
         const inp=document.createElement('input')
         inp.type='file';inp.accept='image/*';inp.multiple=true
@@ -831,8 +831,8 @@ function rs(){
   }
 
   fc.querySelector('#bae').addEventListener('click',function(){
-    const scores={};const inputs=fc.querySelectorAll('#ei input[type="number"]');let has=false
-    for(const inp of inputs){const v=parseFloat(inp.value);if(!isNaN(v)){scores[inp.getAttribute('data-sub')]=v;has=true}}
+    const scores={};const inputs=fc.querySelectorAll('#ei input');let has=false
+    for(const inp of inputs){const raw=inp.value.trim();if(!raw)continue;const v=parseFloat(raw);if(!isNaN(v)){scores[inp.getAttribute('data-sub')]=v;has=true}else{scores[inp.getAttribute('data-sub')]=raw.toUpperCase();has=true}}
     if(!has){ts('⚠️ 请至少输入一科成绩');return}
     const newDate=fc.querySelector('#ed').value
     const newSem=fc.querySelector('#es').value
