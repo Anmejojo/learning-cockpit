@@ -293,6 +293,7 @@ function ts(msg){const t=document.getElementById('toast');t.textContent=msg;t.cl
 const PRAISE={check:['今天又进步了一点！','坚持就是胜利！','好习惯正在养成！','认真完成，真棒！'],score:['这次有进步，继续保持！','努力有回报了！','成绩稳步上升，加油！'],part:['攒下奖励，离目标更近一步！','一分耕耘一分收获！'],task:['任务完成，说到做到！','又完成一件，真棒！'],goal:['小目标达成，一步步变强！'],unlock:['太棒了，解锁新奖励！','努力开花结果了！'],week:['这周的努力看得见！','下周继续加油！'],default:['继续加油！','每天都有进步！']}
 function praise(cat){const a=PRAISE[cat]||PRAISE.default;return a[Math.floor(Math.random()*a.length)]}
 function checkImgs(c){
+  if(!c)return []
   if(c.imgs&&c.imgs.length)return c.imgs
   if(c.img)return [c.img]
   return []
