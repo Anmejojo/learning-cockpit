@@ -216,7 +216,7 @@ function defData(){
     exams:[],parts:JSON.parse(JSON.stringify(PT)),dailyChecks:{},checkImgs:{},checks:[],points:[],sem:'初二上',
     rate:10,
     bl:{chinese:99,math:115,english:70,geo:67,history:81,dao:63,bio:58,physics:null,pe:null,chem:null},
-    phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,examDate:null,mistakes:[],tasks:[],ritualTime:'20:00',smallGoals:[],mistakeMilestones:[],mistakeLog:{},
+    phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,examDate:null,examTopic:'',mistakes:[],tasks:[],ritualTime:'20:00',smallGoals:[],mistakeMilestones:[],mistakeLog:{},
     dci:[{key:'englishVocab',icon:'📖',label:'英语单词',pts:2},{key:'homeworkPhoto',icon:'📸',label:'作业拍照',pts:2},{key:'videoCall',icon:'📞',label:'视频通话',pts:2},{key:'extraStudy',icon:'📚',label:'额外学习1h',pts:5},{key:'askTeacher',icon:'🙋',label:'主动问老师',pts:3},{key:'classNote',icon:'📝',label:'课堂笔记拍照',pts:2},{key:'mistakeBook',icon:'📓',label:'整理错题本',pts:2},{key:'noSkipStep',icon:'✅',label:'解题不跳步',pts:2},{key:'reciteMethod',icon:'🧠',label:'背英语用方法',pts:2},{key:'onTimeStudy',icon:'⏰',label:'按时开始学习',pts:2}]
   }
 }
@@ -457,9 +457,10 @@ function rd(){
   const cd=h('div',{className:'card countdown'})
   cd.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'⏰'}),'考试倒计时'))
   cd.appendChild(h('div',{style:'font-size:20px;font-weight:700',innerHTML:cdTxt}))
+  if(D.examTopic){cd.appendChild(h('div',{style:'margin-top:6px;padding:8px 12px;background:var(--bg-elev);border-radius:6px;font-size:14px',innerHTML:'📌 考试内容：<strong>'+D.examTopic+'</strong>'}))}
   const cdRow=h('div',{style:'display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap'})
-  cdRow.innerHTML='<input type="date" id="examDateInput" value="'+(D.examDate||'')+'" style="width:160px">'
-  cdRow.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){var v=document.getElementById('examDateInput').value;D.examDate=v||null;sv(D);render();ts('✅ 考试日期已设置')}},'💾 保存日期'))
+  cdRow.innerHTML='<input type="date" id="examDateInput" value="'+(D.examDate||'')+'" style="width:150px"><input type="text" id="examTopicInput" placeholder="考什么（如：英语 Unit5-6、数学一次函数）" value="'+(D.examTopic||'')+'" style="flex:1;min-width:180px">'
+  cdRow.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){var v=document.getElementById('examDateInput').value;var t=document.getElementById('examTopicInput').value.trim();D.examDate=v||null;D.examTopic=t;sv(D);render();ts('✅ 考试信息已保存')}},'💾 保存'))
   cd.appendChild(cdRow)
   $c.appendChild(cd)
 
