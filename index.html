@@ -677,16 +677,27 @@ function rd(){
     $c.appendChild(ec)
   }
 }
+let _editExamId=null,_editOrig=null
 function rs(){
   $c.appendChild(h('div',{className:'daily-praise'},'📈 每一次记录，都是进步的足迹！'))
 
-  // 录入成绩（孩子和家长都可以）
-  let imgs=[]
-  const fc=h('div',{className:'card'})
-  fc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📝'}),'录入考试成绩（拍照上传试卷）'))
-  fc.innerHTML+='<div class="form-row"><div><label>日期</label><input type="date" id="ed" value="'+td+'"></div><div><label>学期</label><select id="es">'+['初二上','初二下','初三上','初三下'].map(function(s){return '<option value="'+s+'"'+(D.sem===s?' selected':'')+'>'+s+'</option>'}).join('')+'</select></div><div><label>考试类型</label><select id="et"><option value="小测试">小测试</option><option value="期中">期中（大考）</option><option value="期末">期末（大考）</option><option value="月考">月考</option><option value="模拟考">模拟考</option><option value="中考">中考</option></select></div></div><div class="form-row" id="ei"></div><div style="margin-bottom:10px"><label style="font-size:12px;color:var(--muted);font-weight:600;display:block;margin-bottom:3px">试卷照片（可多张）</label><div id="examImgs" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px"></div><button class="btn btn-outline btn-sm" id="btnAddImg">📷 添加照片</button></div><button class="btn btn-primary" id="bae">💾 提交成绩</button>'
+  const editing=_editExamId?true:false
+  const orig=_editOrig
+  let imgs=editing&&orig&&orig.imgs?orig.imgs.slice():[]
 
-  function ui(){const sem=fc.querySelector('#es').value;const subs=gs(sem);fc.querySelector('#ei').innerHTML=subs.map(function(s){return '<div><label>'+s.name+'（满分'+s.full+'，×'+(s.rate*100).toFixed(0)+'%）</label><input type="number" step="0.5" min="0" max="'+s.full+'" placeholder="卷面分" data-sub="'+s.id+'" data-full="'+s.full+'" data-rate="'+s.rate+'"></div>'}).join('')}
+  const fc=h('div',{className:'card'})
+  fc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📝'}),editing?'编辑考试成绩':'录入考试成绩（拍照上传试卷）'))
+  const sel=function(v,c){return v===c?' selected':''}
+  fc.innerHTML+='<div class="form-row"><div><label>日期</label><input type="date" id="ed" value="'+(editing&&orig?orig.date:td)+'"></div><div><label>学期</label><select id="es">'+['初二上','初二下','初三上','初三下'].map(function(s){return '<option value="'+s+'"'+(editing&&orig?sel(orig.sem,s):(D.sem===s?' selected':''))+'>'+s+'</option>'}).join('')+'</select></div><div><label>考试类型</label><select id="et">'+['小测试','期中','期末','月考','模拟考','中考'].map(function(s){return '<option value="'+s+'"'+(editing&&orig?sel(orig.examType,s):'')+'>'+s+'</option>'}).join('')+'</select></div></div><div class="form-row" id="ei"></div><div style="margin-bottom:10px"><label style="font-size:12px;color:var(--muted);font-weight:600;display:block;margin-bottom:3px">试卷照片（可多张）</label><div id="examImgs" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px"></div><button class="btn btn-outline btn-sm" id="btnAddImg">📷 添加照片</button></div><div style="display:flex;gap:8px"><button class="btn btn-primary" id="bae">💾 '+(editing?'保存修改':'提交成绩')+'</button>'+(editing?'<button class="btn btn-outline" id="btnCancelEdit">取消编辑</button>':'')+'</div>'
+
+  function ui(){
+    const sem=fc.querySelector('#es').value
+    const subs=gs(sem)
+    fc.querySelector('#ei').innerHTML=subs.map(function(s){
+      const oldVal=editing&&orig&&orig.scores&&orig.scores[s.id]!=null?orig.scores[s.id]:''
+      return '<div><label>'+s.name+'（满分'+s.full+'，×'+(s.rate*100).toFixed(0)+'%）</label><input type="number" step="0.5" min="0" max="'+s.full+'" placeholder="卷面分" value="'+oldVal+'" data-sub="'+s.id+'" data-full="'+s.full+'" data-rate="'+s.rate+'"></div>'
+    }).join('')
+  }
   fc.querySelector('#es').addEventListener('change',ui);ui()
 
   function renderImgs(){
@@ -699,6 +710,7 @@ function rs(){
       box.appendChild(wrap)
     })
   }
+  renderImgs()
 
   fc.querySelector('#btnAddImg').addEventListener('click',function(){
     const inp=document.createElement('input')
@@ -719,15 +731,45 @@ function rs(){
     inp.click()
   })
 
+  if(editing){
+    fc.querySelector('#btnCancelEdit').addEventListener('click',function(){_editExamId=null;_editOrig=null;render()})
+  }
+
   fc.querySelector('#bae').addEventListener('click',function(){
     const scores={};const inputs=fc.querySelectorAll('#ei input');let has=false
     for(const inp of inputs){const v=parseFloat(inp.value);if(!isNaN(v)){scores[inp.dataset.sub]=v;has=true}}
     if(!has){ts('⚠️ 请至少输入一科成绩');return}
-    const ex={id:Date.now(),date:fc.querySelector('#ed').value,sem:fc.querySelector('#es').value,examType:fc.querySelector('#et').value,scores:imgs.length?{...scores}:scores,imgs:imgs,status:VW?'pending':'approved',ts:Date.now()}
-    D.exams.push(ex)
-    if(!VW){D.sem=ex.sem;cu(ex)}
-    sv(D);render()
-    ts(VW?'✅ 已提交等待家长审核':'✅ 成绩已保存')
+    const newDate=fc.querySelector('#ed').value
+    const newSem=fc.querySelector('#es').value
+    const newType=fc.querySelector('#et').value
+
+    if(editing&&orig){
+      // 记录日志
+      const changes=[]
+      if(newDate!==orig.date)changes.push('日期 '+orig.date+'→'+newDate)
+      if(newSem!==orig.sem)changes.push('学期 '+orig.sem+'→'+newSem)
+      if(newType!==orig.examType)changes.push('类型 '+orig.examType+'→'+newType)
+      const keys={}
+      Object.keys(orig.scores||{}).forEach(function(k){keys[k]=1})
+      Object.keys(scores).forEach(function(k){keys[k]=1})
+      const subNames={chinese:'语文',math:'数学',english:'英语',physics:'物理',chem:'化学',geo:'地理',bio:'生物',dao:'道法',history:'历史',pe:'体育'}
+      for(const k in keys){const a=orig.scores&&orig.scores[k]!=null?orig.scores[k]:'空';const b=scores[k]!=null?scores[k]:'空';if(a!==b)changes.push((subNames[k]||k)+' '+a+'→'+b)}
+      if(JSON.stringify(orig.imgs||[])!==JSON.stringify(imgs||[]))changes.push('更换了试卷照片')
+      const note=changes.join('，')||'无实质变化'
+      orig.history=orig.history||[]
+      orig.history.push({ts:Date.now(),note:note})
+      // 更新
+      orig.date=newDate;orig.sem=newSem;orig.examType=newType;orig.scores=scores;orig.imgs=imgs;orig.ts=Date.now()
+      if(orig.status==='approved')cu(orig)
+      sv(D);_editExamId=null;_editOrig=null;render()
+      ts('✅ 修改已保存，日志已记录')
+    }else{
+      const ex={id:Date.now(),date:newDate,sem:newSem,examType:newType,scores:scores,imgs:imgs,status:VW?'pending':'approved',ts:Date.now(),history:[]}
+      D.exams.push(ex)
+      if(!VW){D.sem=ex.sem;cu(ex)}
+      sv(D);render()
+      ts(VW?'✅ 已提交等待家长审核':'✅ 成绩已保存')
+    }
   })
   $c.appendChild(fc)
 
@@ -774,6 +816,13 @@ function rs(){
         for(const b of ex.imgs){ir.appendChild(h('img',{src:b,style:'width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b)}}))}
         row.appendChild(ir)
       }
+      // 日志
+      if(ex.history&&ex.history.length){
+        const hd=h('div',{style:'margin-top:6px;font-size:12px;color:var(--faint)'})
+        hd.appendChild(h('div',{style:'font-weight:600;color:var(--muted)'},'📝 更新日志（'+ex.history.length+'条）'))
+        for(const hh of ex.history){hd.appendChild(h('div',{style:'margin-top:2px'},fd(new Date(hh.ts).toISOString().slice(0,10))+': '+hh.note))}
+        row.appendChild(hd)
+      }
       if(!VW&&ex.status!=='approved'){
         const br=h('div',{style:'margin-top:8px'})
         if(ex.status==='pending'){
@@ -786,7 +835,10 @@ function rs(){
         row.appendChild(br)
       }
       if(!VW){
-        const del=h('button',{className:'btn btn-danger btn-sm',style:'margin-top:8px;margin-left:6px',onClick:function(){if(confirm('删除这条成绩？')){D.exams=D.exams.filter(function(e){return e.id!==ex.id});sv(D);render()}}});del.innerHTML='🗑';row.appendChild(del)
+        const br2=h('div',{style:'margin-top:8px'})
+        br2.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_editExamId=ex.id;_editOrig=ex;render()}},'✏️ 编辑'))
+        const delBtn=h('button',{className:'btn btn-danger btn-sm',style:'margin-left:6px',onClick:function(){if(confirm('删除这条成绩？')){D.exams=D.exams.filter(function(e){return e.id!==ex.id});sv(D);render()}}});delBtn.innerHTML='🗑';br2.appendChild(delBtn)
+        row.appendChild(br2)
       }
       lc.appendChild(row)
     }
