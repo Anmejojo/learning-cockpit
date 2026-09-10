@@ -209,6 +209,7 @@ const CHECK_TYPES=[
   {id:'assignment',name:'作业内容',icon:'📋',subject:false,pts:1}
 ]
 const SUBJECTS=['语文','数学','英语','物理','化学','地理','生物','历史','道法']
+const EXAM_TYPES=[{id:'quiz',name:'小测试',big:false},{id:'mid',name:'期中',big:true},{id:'final',name:'期末',big:true},{id:'monthly',name:'月考',big:true},{id:'mock',name:'模拟考',big:true},{id:'zk',name:'中考',big:true}]
 function defData(){
   return {
     exams:[],parts:JSON.parse(JSON.stringify(PT)),dailyChecks:{},checkImgs:{},checks:[],points:[],sem:'初二上',
@@ -330,6 +331,21 @@ function pickAndSubmit(type,subject){
 }
 function startCheck(type,subject){
   pickAndSubmit(type,subject||'')
+}
+function approveExam(id){
+  const ex=(D.exams||[]).find(function(x){return x.id===id})
+  if(!ex||ex.status==='approved')return
+  ex.status='approved'
+  cu(ex)
+  sv(D);render()
+  ts('✅ 成绩已通过')
+}
+function rejectExam(id){
+  const ex=(D.exams||[]).find(function(x){return x.id===id})
+  if(!ex||ex.status==='approved')return
+  ex.status='rejected'
+  sv(D);render()
+  ts('↩️ 成绩已退回')
 }
 function compressImage(file,cb){
   try{
@@ -661,42 +677,117 @@ function rd(){
 }
 function rs(){
   $c.appendChild(h('div',{className:'daily-praise'},'📈 每一次记录，都是进步的足迹！'))
-  if(!VW){
-    const fc=h('div',{className:'card edit-only'})
-    fc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📝'}),'录入考试成绩'))
-    fc.innerHTML+='<div class="form-row"><div><label>日期</label><input type="date" id="ed" value="'+td+'"></div><div><label>学期</label><select id="es">'+['初二上','初二下','初三上','初三下'].map(s=>'<option value="'+s+'"'+(D.sem===s?' selected':'')+'>'+s+'</option>').join('')+'</select></div><div><label>类型</label><select id="et"><option>期中</option><option>期末</option><option>月考</option><option>模拟考</option><option>中考</option></select></div></div><div class="form-row" id="ei"></div><button class="btn btn-primary edit-only" id="bae">💾 保存成绩</button>'
-    function ui(){const sem=fc.querySelector('#es').value;const subs=gs(sem);fc.querySelector('#ei').innerHTML=subs.map(s=>'<div><label>'+s.name+'（满分'+s.full+'，×'+(s.rate*100).toFixed(0)+'%）</label><input type="number" step="0.5" min="0" max="'+s.full+'" placeholder="卷面分" data-sub="'+s.id+'" data-full="'+s.full+'" data-rate="'+s.rate+'"></div>').join('')}
-    fc.querySelector('#es').addEventListener('change',ui);ui()
-    fc.querySelector('#bae').addEventListener('click',()=>{
-      const scores={};const inputs=fc.querySelectorAll('#ei input');let has=false
-      for(const inp of inputs){const v=parseFloat(inp.value);if(!isNaN(v)){scores[inp.dataset.sub]=v;has=true}}
-      if(!has){ts('⚠️ 请至少输入一科');return}
-      const ex={date:fc.querySelector('#ed').value,sem:fc.querySelector('#es').value,examType:fc.querySelector('#et').value,scores}
-      D.exams.push(ex);D.sem=ex.sem;cu(ex);sv(D);ts('✅ 成绩已保存 · '+praise('score'));render()
+
+  // 录入成绩（孩子和家长都可以）
+  let imgs=[]
+  const fc=h('div',{className:'card'})
+  fc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📝'}),'录入考试成绩（拍照上传试卷）'))
+  fc.innerHTML+='<div class="form-row"><div><label>日期</label><input type="date" id="ed" value="'+td+'"></div><div><label>学期</label><select id="es">'+['初二上','初二下','初三上','初三下'].map(function(s){return '<option value="'+s+'"'+(D.sem===s?' selected':'')+'>'+s+'</option>'}).join('')+'</select></div><div><label>考试类型</label><select id="et"><option value="小测试">小测试</option><option value="期中">期中（大考）</option><option value="期末">期末（大考）</option><option value="月考">月考</option><option value="模拟考">模拟考</option><option value="中考">中考</option></select></div></div><div class="form-row" id="ei"></div><div style="margin-bottom:10px"><label style="font-size:12px;color:var(--muted);font-weight:600;display:block;margin-bottom:3px">试卷照片（可多张）</label><div id="examImgs" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px"></div><button class="btn btn-outline btn-sm" id="btnAddImg">📷 添加照片</button></div><button class="btn btn-primary" id="bae">💾 提交成绩</button>'
+
+  function ui(){const sem=fc.querySelector('#es').value;const subs=gs(sem);fc.querySelector('#ei').innerHTML=subs.map(function(s){return '<div><label>'+s.name+'（满分'+s.full+'，×'+(s.rate*100).toFixed(0)+'%）</label><input type="number" step="0.5" min="0" max="'+s.full+'" placeholder="卷面分" data-sub="'+s.id+'" data-full="'+s.full+'" data-rate="'+s.rate+'"></div>'}).join('')}
+  fc.querySelector('#es').addEventListener('change',ui);ui()
+
+  function renderImgs(){
+    const box=fc.querySelector('#examImgs')
+    box.innerHTML=''
+    imgs.forEach(function(b64,idx){
+      const wrap=h('div',{style:'position:relative'})
+      wrap.appendChild(h('img',{src:b64,style:'width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer',onClick:function(){viewImg(b64)}}))
+      wrap.appendChild(h('button',{className:'btn btn-danger btn-sm',style:'position:absolute;top:-6px;right:-6px;padding:0 5px;font-size:10px',onClick:function(){imgs.splice(idx,1);renderImgs()}},'✕'))
+      box.appendChild(wrap)
     })
-    $c.appendChild(fc)
   }
+
+  fc.querySelector('#btnAddImg').addEventListener('click',function(){
+    const inp=document.createElement('input')
+    inp.type='file';inp.accept='image/*';inp.multiple=true
+    inp.onchange=function(e){
+      const files=Array.from(e.target.files||[])
+      if(!files.length)return
+      ts('⏳ 正在处理 '+files.length+'张照片...')
+      let done=0
+      files.forEach(function(f){
+        compressImage(f,function(b64){
+          done++
+          if(b64)imgs.push(b64)
+          if(done===files.length){renderImgs();ts('✅ 已添加 '+imgs.length+'张照片')}
+        })
+      })
+    }
+    inp.click()
+  })
+
+  fc.querySelector('#bae').addEventListener('click',function(){
+    const scores={};const inputs=fc.querySelectorAll('#ei input');let has=false
+    for(const inp of inputs){const v=parseFloat(inp.value);if(!isNaN(v)){scores[inp.dataset.sub]=v;has=true}}
+    if(!has){ts('⚠️ 请至少输入一科成绩');return}
+    const ex={id:Date.now(),date:fc.querySelector('#ed').value,sem:fc.querySelector('#es').value,examType:fc.querySelector('#et').value,scores:imgs.length?{...scores}:scores,imgs:imgs,status:VW?'pending':'approved',ts:Date.now()}
+    D.exams.push(ex)
+    if(!VW){D.sem=ex.sem;cu(ex)}
+    sv(D);render()
+    ts(VW?'✅ 已提交等待家长审核':'✅ 成绩已保存')
+  })
+  $c.appendChild(fc)
+
+  // 家长审核区
+  if(!VW){
+    const pending=(D.exams||[]).filter(function(x){return x.status==='pending'})
+    if(pending.length){
+      const ap=h('div',{className:'card'})
+      ap.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'👩‍👩‍👧'}),'待审核成绩（'+pending.length+'条）'))
+      for(const ex of pending){
+        const row=h('div',{className:'mistake-item'})
+        const info=ct(ex.scores,ex.sem)
+        row.innerHTML='<div><strong>'+fd(ex.date)+' '+ex.sem+' '+ex.examType+'</strong> 总分 '+info.total+'/'+info.fullTotal+'</div>'
+        if(ex.imgs&&ex.imgs.length){
+          const ir=h('div',{style:'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px'})
+          for(const b of ex.imgs){ir.appendChild(h('img',{src:b,style:'width:70px;height:70px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b)}}))}
+          row.appendChild(ir)
+        }
+        const br=h('div',{style:'margin-top:8px'})
+        br.appendChild(h('button',{className:'btn btn-success btn-sm',onClick:function(){approveExam(ex.id)}},'✅ 通过'))
+        br.appendChild(h('button',{className:'btn btn-danger btn-sm',style:'margin-left:6px',onClick:function(){rejectExam(ex.id)}},'↩️ 退回'))
+        row.appendChild(br)
+        ap.appendChild(row)
+      }
+      $c.appendChild(ap)
+    }
+  }
+
+  // 成绩列表
   const lc=h('div',{className:'card'})
   lc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📋'}),'成绩记录（'+D.exams.length+'次）'))
   if(!D.exams.length){lc.appendChild(h('div',{style:'text-align:center;padding:40px;color:var(--muted)'},'📭 暂无记录'))}
   else{
-    const sorted=[...D.exams].sort((a,b)=>b.date.localeCompare(a.date))
-    let rowHtml=''
+    const sorted=[...D.exams].sort(function(a,b){return b.ts-a.ts})
     for(const ex of sorted){
       const info=ct(ex.scores,ex.sem)
       const pctColor=info.pct<65?'var(--danger)':info.pct<75?'var(--warning)':'var(--success)'
-      rowHtml+='<tr><td>'+fd(ex.date)+'</td><td>'+ex.sem+'</td><td>'+ex.examType+'</td>'
-      rowHtml+='<td><strong>'+info.total+'</strong>/'+info.fullTotal+'</td>'
-      rowHtml+='<td style="color:'+pctColor+';font-weight:700">'+ps(info.pct)+'</td>'
+      const st=ex.status==='pending'?'⏳ 待审核':ex.status==='rejected'?'↩️ 已退回':'✅'
+      const stc=ex.status==='pending'?'var(--warning)':ex.status==='rejected'?'var(--muted)':'var(--success)'
+      const row=h('div',{className:'mistake-item'})
+      row.innerHTML='<div><strong>'+fd(ex.date)+' '+ex.sem+' '+ex.examType+'</strong> <span style="color:'+stc+'">'+st+'</span></div><div style="font-size:13px;color:var(--muted);margin-top:2px">总分 <strong style="color:'+pctColor+'">'+info.total+'</strong> / '+info.fullTotal+' （'+ps(info.pct)+'）</div>'
+      if(ex.imgs&&ex.imgs.length){
+        const ir=h('div',{style:'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px'})
+        for(const b of ex.imgs){ir.appendChild(h('img',{src:b,style:'width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b)}}))}
+        row.appendChild(ir)
+      }
+      if(!VW&&ex.status!=='approved'){
+        const br=h('div',{style:'margin-top:8px'})
+        if(ex.status==='pending'){
+          br.appendChild(h('button',{className:'btn btn-success btn-sm',onClick:function(){approveExam(ex.id)}},'✅ 通过'))
+          br.appendChild(h('button',{className:'btn btn-danger btn-sm',style:'margin-left:6px',onClick:function(){rejectExam(ex.id)}},'↩️ 退回'))
+        }
+        if(ex.status==='rejected'){
+          br.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){ex.status='pending';sv(D);render()}},'重新提交'))
+        }
+        row.appendChild(br)
+      }
       if(!VW){
-        rowHtml+='<td><button class="btn btn-danger btn-sm" onclick="D.exams=D.exams.filter(function(e){return e.date!==\''+ex.date+'\'||e.examType!==\''+ex.examType+'\'});sv(D);render()">🗑</button></td>'
-      }else{rowHtml+='<td></td>'}
-      rowHtml+='</tr>'
+        const del=h('button',{className:'btn btn-danger btn-sm',style:'margin-top:8px;margin-left:6px',onClick:function(){if(confirm('删除这条成绩？')){D.exams=D.exams.filter(function(e){return e.id!==ex.id});sv(D);render()}}});del.innerHTML='🗑';row.appendChild(del)
+      }
+      lc.appendChild(row)
     }
-    var th='<table><thead><tr>'
-    th+='<th>日期</th><th>学期</th><th>类型</th><th>总分</th><th>得分率</th><th>操作</th>'
-    th+='</tr></thead><tbody>'+rowHtml+'</tbody></table>'
-    lc.innerHTML+=th
   }
   $c.appendChild(lc)
 }
