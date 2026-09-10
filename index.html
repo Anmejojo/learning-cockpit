@@ -292,11 +292,16 @@ if(VW){document.body.classList.add('view-only');const b=document.getElementById(
 function ts(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2000)}
 const PRAISE={check:['今天又进步了一点！','坚持就是胜利！','好习惯正在养成！','认真完成，真棒！'],score:['这次有进步，继续保持！','努力有回报了！','成绩稳步上升，加油！'],part:['攒下奖励，离目标更近一步！','一分耕耘一分收获！'],task:['任务完成，说到做到！','又完成一件，真棒！'],goal:['小目标达成，一步步变强！'],unlock:['太棒了，解锁新奖励！','努力开花结果了！'],week:['这周的努力看得见！','下周继续加油！'],default:['继续加油！','每天都有进步！']}
 function praise(cat){const a=PRAISE[cat]||PRAISE.default;return a[Math.floor(Math.random()*a.length)]}
-function submitCheck(typeId,subject,img){
+function checkImgs(c){
+  if(c.imgs&&c.imgs.length)return c.imgs
+  if(c.img)return [c.img]
+  return []
+}
+function submitCheck(typeId,subject,imgsArr){
   const type=CHECK_TYPES.find(function(t){return t.id===typeId})
   if(!type)return
   if(!D.checks)D.checks=[]
-  D.checks.unshift({id:Date.now(),date:(_checkDate||td),type:typeId,typeName:type.name,subject:subject||'',img:img||null,pts:type.pts,status:'pending',ts:Date.now()})
+  D.checks.unshift({id:Date.now(),date:(_checkDate||td),type:typeId,typeName:type.name,subject:subject||'',imgs:imgsArr||[],pts:type.pts,status:'pending',ts:Date.now()})
   sv(D);render()
   ts('✅ 照片已上传，已提交等待家长审核')
 }
@@ -316,16 +321,24 @@ function rejectCheck(id){
   ts('↩️ 已退回')
 }
 function pickAndSubmit(type,subject){
-  ts('📷 请拍照或选择图片上传证明')
+  ts('📷 请拍照或选择图片（可多张）')
   const inp=document.createElement('input')
-  inp.type='file';inp.accept='image/*'
+  inp.type='file';inp.accept='image/*';inp.multiple=true
   inp.onchange=function(e){
-    const f=e.target.files[0]
-    if(!f){ts('已取消上传');return}
-    ts('⏳ 正在上传...')
-    compressImage(f,function(b64){
-      if(!b64){ts('⚠️ 照片处理失败，请重试');return}
-      submitCheck(type.id,subject,b64)
+    const files=Array.from(e.target.files||[])
+    if(!files.length){ts('已取消上传');return}
+    ts('⏳ 正在处理 '+files.length+'张照片...')
+    const collected=[]
+    let done=0
+    files.forEach(function(f){
+      compressImage(f,function(b64){
+        done++
+        if(b64)collected.push(b64)
+        if(done===files.length){
+          if(collected.length)submitCheck(type.id,subject,collected)
+          else ts('⚠️ 照片处理失败，请重试')
+        }
+      })
     })
   }
   inp.click()
@@ -493,8 +506,11 @@ function rd(){
     const rec=findRec(subj,type.id)
     const card=h('div',{className:'check-item '+(rec&&rec.status==='approved'?'done':'')})
     card.innerHTML='<div class="ci">'+type.icon+'</div><div class="cl">'+type.name+' <span style="font-size:11px;color:var(--muted)">+'+type.pts+'</span></div>'
-    if(rec&&rec.img){
-      card.appendChild(h('div',{style:'margin-top:6px'},h('img',{src:rec.img,style:'max-width:100%;max-height:110px;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(rec.img)}})))
+    const rImgs=checkImgs(rec)
+    if(rImgs.length){
+      const ir=h('div',{style:'display:flex;flex-wrap:wrap;gap:5px;margin-top:6px'})
+      rImgs.forEach(function(b){ir.appendChild(h('img',{src:b,style:'width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b)}}))})
+      card.appendChild(ir)
     }
     if(rec){
       const st=rec.status==='pending'?'⏳ 待审核':rec.status==='approved'?'✅ 已通过':'↩️ 已退回'
@@ -1258,7 +1274,8 @@ function rcal(){
         const sc2=c.status==='pending'?'var(--warning)':c.status==='approved'?'var(--success)':'var(--muted)'
         const row=h('div',{className:'mistake-item'})
         row.innerHTML='<div><strong>'+type.icon+' '+(c.subject?c.subject+'·':'')+type.name+'</strong> <span style="color:'+sc2+'">'+st+'</span> <span style="color:var(--muted);font-size:12px">+'+c.pts+'分</span></div>'
-        if(c.img){row.appendChild(h('div',{style:'margin-top:6px'},h('img',{src:c.img,style:'max-width:120px;max-height:120px;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(c.img)}})))}
+        const cImgs=checkImgs(c)
+        if(cImgs.length){const cir=h('div',{style:'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px'});cImgs.forEach(function(b){cir.appendChild(h('img',{src:b,style:'width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b)}}))});row.appendChild(cir)}
         dc.appendChild(row)
       }
     }
