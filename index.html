@@ -182,7 +182,7 @@ input:focus,select:focus{outline:none;border-color:var(--primary-border);box-sha
 <button class="tab-btn" data-tab="scores"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg>成绩追踪</button>
 <button class="tab-btn" data-tab="parts"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>零件进度</button>
 <button class="tab-btn" data-tab="daily"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fbbf24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>日常检测</button>
-<button class="tab-btn" data-tab="mistakes"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>错题本</button>
+<button class="tab-btn" data-tab="calendar"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#f472b6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>打卡日历</button>
 <button class="tab-btn" data-tab="points"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#facc15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 7.5 12 12l3.5-4.5"/><path d="M12 12v5.5"/><path d="M9 14.5h6"/><path d="M9 17.5h6"/></svg>积分账本</button>
 <button class="tab-btn" data-tab="weekly"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>学习周报</button>
 </div>
@@ -205,6 +205,7 @@ const CHECK_TYPES=[
   {id:'note',name:'课堂笔记',icon:'📝',subject:true,pts:2},
   {id:'extra',name:'额外学习',icon:'📚',subject:true,pts:5},
   {id:'word',name:'背单词',icon:'🔤',subject:true,englishOnly:true,pts:2},
+  {id:'mistake',name:'错题本拍照',icon:'📓',subject:true,pts:2},
   {id:'recite',name:'背诵默写签名',icon:'🖊️',subject:false,pts:2},
   {id:'assignment',name:'作业内容',icon:'📋',subject:false,pts:1}
 ]
@@ -430,7 +431,7 @@ function render(){
   else if(tb==='parts')rp()
   else if(tb==='daily')rdl()
   else if(tb==='points')rpt()
-  else if(tb==='mistakes')rmk()
+  else if(tb==='calendar')rcal()
   else if(tb==='weekly')rwk()
 }
 
@@ -1074,6 +1075,77 @@ function rpt(){
   erc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🏅'}),'积分规则 — 大考'))
   erc.innerHTML+='<table><thead><tr><th>积分项</th><th>分值</th></tr></thead><tbody><tr><td>🏅 达标基础分</td><td><strong>+150</strong></td></tr><tr><td>🚀 超标加分</td><td><strong>+15/分</strong></td></tr><tr><td>📚 单科达标</td><td><strong>+40/科</strong></td></tr><tr><td>🌟 全科达标</td><td><strong>+80</strong></td></tr><tr><td>📈 进步奖</td><td><strong>+60</strong></td></tr><tr><td>🔥 连续达标</td><td><strong>+80</strong></td></tr></tbody></table><div style="margin-top:10px;font-size:12px;color:var(--muted);padding:8px;background:#fffbeb;border-radius:6px">💡 <strong>示例：</strong>达标150 + 超标45 + 3科120 + 进步60 = <strong>375积分</strong>（按1元=1积分，≈¥375零件预算）</div>'
   $c.appendChild(erc)
+}
+
+let _calY=null,_calM=null,_calSel=null
+function rcal(){
+  $c.innerHTML=''
+  const now=new Date()
+  if(_calY===null){_calY=now.getFullYear();_calM=now.getMonth()}
+  const y=_calY,m=_calM
+  function pad(n){return n<10?'0'+n:''+n}
+  function dateStr(d){return y+'-'+pad(m+1)+'-'+pad(d)}
+  function dayCount(ds){return (D.checks||[]).filter(function(c){return c.date===ds}).length}
+  function dayApproved(ds){return (D.checks||[]).filter(function(c){return c.date===ds&&c.status==='approved'}).length}
+
+  // 头部：月份导航
+  const head=h('div',{className:'card'})
+  const nav=h('div',{style:'display:flex;align-items:center;justify-content:space-between'})
+  nav.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_calM--;if(_calM<0){_calM=11;_calY--}render()}},'← 上月'))
+  nav.appendChild(h('div',{style:'font-size:18px;font-weight:700'},y+'年 '+(m+1)+'月'))
+  nav.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_calM++;if(_calM>11){_calM=0;_calY++}render()}},'下月 →'))
+  head.appendChild(nav)
+  // 图例
+  head.appendChild(h('div',{style:'font-size:12px;color:var(--muted);margin-top:10px;display:flex;gap:14px;flex-wrap:wrap'},'🟢 有打卡 · ⚪ 无打卡 · 数字=当天打卡次数'))
+  $c.appendChild(head)
+
+  // 日历网格
+  const firstDay=new Date(y,m,1).getDay()
+  const offset=(firstDay+6)%7
+  const daysInMonth=new Date(y,m+1,0).getDate()
+  const calCard=h('div',{className:'card'})
+  const wk=['一','二','三','四','五','六','日']
+  const grid=h('div',{style:'display:grid;grid-template-columns:repeat(7,1fr);gap:4px'})
+  for(const w of wk){grid.appendChild(h('div',{style:'text-align:center;font-size:12px;color:var(--faint);padding:6px 0;font-weight:600'},w))}
+  for(let i=0;i<offset;i++){grid.appendChild(h('div',null))}
+  const todayStr=new Date().toISOString().slice(0,10)
+  for(let d=1;d<=daysInMonth;d++){
+    const ds=dateStr(d)
+    const cnt=dayCount(ds)
+    const app=dayApproved(ds)
+    const isToday=ds===todayStr
+    const isSel=ds===_calSel
+    const cell=h('div',{style:'min-height:56px;border-radius:8px;padding:4px;cursor:pointer;border:1px solid '+(isSel?'var(--primary-border)':isToday?'var(--border-strong)':'var(--border)')+';background:'+(cnt>0?(app===cnt&&cnt>0?'var(--success-weak)':'var(--warning-weak)'):'transparent'),onClick:function(){_calSel=(_calSel===ds)?null:ds;render()}})
+    cell.appendChild(h('div',{style:'font-size:13px;font-weight:'+(isToday?'700':'500')+';color:'+(isToday?'var(--primary)':'var(--text)')},d))
+    if(cnt>0){
+      cell.appendChild(h('div',{style:'text-align:center;margin-top:4px'},h('span',{style:'display:inline-block;min-width:18px;padding:1px 6px;border-radius:10px;font-size:11px;font-weight:700;color:#fff;background:'+(app===cnt?'var(--success)':'var(--warning)')},cnt)))
+    }else{
+      cell.appendChild(h('div',{style:'text-align:center;margin-top:4px;font-size:11px;color:var(--faint)'},'⚪'))
+    }
+    grid.appendChild(cell)
+  }
+  calCard.appendChild(grid)
+  $c.appendChild(calCard)
+
+  // 选中日期详情
+  if(_calSel){
+    const selChecks=(D.checks||[]).filter(function(c){return c.date===_calSel})
+    const dc=h('div',{className:'card'})
+    dc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📅'}),_calSel+' 打卡详情（'+selChecks.length+'条）'))
+    if(!selChecks.length){dc.appendChild(h('div',{style:'color:var(--muted);font-size:13px'},'这天没有打卡记录'))}
+    else{
+      for(const c of selChecks){
+        const type=CHECK_TYPES.find(function(t){return t.id===c.type})||{name:c.typeName,icon:''}
+        const st=c.status==='pending'?'⏳ 待审核':c.status==='approved'?'✅ 已通过':'↩️ 已退回'
+        const sc2=c.status==='pending'?'var(--warning)':c.status==='approved'?'var(--success)':'var(--muted)'
+        const row=h('div',{className:'mistake-item'})
+        row.innerHTML='<div><strong>'+type.icon+' '+(c.subject?c.subject+'·':'')+type.name+'</strong> <span style="color:'+sc2+'">'+st+'</span> <span style="color:var(--muted);font-size:12px">+'+c.pts+'分</span></div>'
+        if(c.img){row.appendChild(h('div',{style:'margin-top:6px'},h('img',{src:c.img,style:'max-width:120px;max-height:120px;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(c.img)}})))}
+        dc.appendChild(row)
+      }
+    }
+    $c.appendChild(dc)
+  }
 }
 
 function rmk(){
