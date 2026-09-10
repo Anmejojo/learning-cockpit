@@ -1141,6 +1141,22 @@ function rcal(){
   function dayCount(ds){return (D.checks||[]).filter(function(c){return c.date===ds}).length}
   function dayApproved(ds){return (D.checks||[]).filter(function(c){return c.date===ds&&c.status==='approved'}).length}
 
+  // 醒目的鼓励横幅
+  const todayStr0=new Date().toISOString().slice(0,10)
+  function monthDays(){const days={};for(const c of (D.checks||[])){if(c.date&&c.date.indexOf(y+'-'+pad(m+1))===0){days[c.date]=1}}return Object.keys(days).length}
+  const mdays=monthDays()
+  const todayCnt=(D.checks||[]).filter(function(c){return c.date===todayStr0}).length
+  let praiseTxt, praiseEmoji
+  if(mdays>=15){praiseTxt='火焰不停，本月已坚持 '+mdays+' 天，你太棒了！';praiseEmoji='🔥'}
+  else if(mdays>=7){praiseTxt='已坚持 '+mdays+' 天，积少成多，继续加油！';praiseEmoji='🌟'}
+  else if(todayCnt>0){praiseTxt='今天已打卡，给自己点个赞！';praiseEmoji='✨'}
+  else if(mdays>0){praiseTxt='每一步都算数，今天也来打卡吧！';praiseEmoji='💪'}
+  else{praiseTxt='今天还没打卡哦，坚持就是胜利！';praiseEmoji='✨'}
+  const praiseBar=h('div',{style:'margin-bottom:14px;padding:18px 20px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#a855f7);box-shadow:0 6px 24px rgba(99,102,241,0.35);text-align:center'})
+  praiseBar.appendChild(h('div',{style:'font-size:32px;margin-bottom:6px'},praiseEmoji))
+  praiseBar.appendChild(h('div',{style:'font-size:18px;font-weight:800;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,0.25);line-height:1.5'},praiseTxt))
+  $c.appendChild(praiseBar)
+
   // 头部：月份导航
   const head=h('div',{className:'card'})
   const nav=h('div',{style:'display:flex;align-items:center;justify-content:space-between'})
