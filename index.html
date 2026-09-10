@@ -483,6 +483,7 @@ function rd(){
   const dateRow=h('div',{style:'display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap'})
   dateRow.innerHTML='<span style="font-size:13px">日期：</span><input type="date" id="checkDateInput" value="'+ckd+'" style="width:150px">'+(ckd!==td?'<span style="font-size:12px;color:var(--warning)">（补卡 '+ckd+'）</span>':'')
   dateRow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_checkDate=document.getElementById('checkDateInput').value||td;render()}},'切换'))
+  dateRow.appendChild(h('button',{className:'btn btn-warning btn-sm',onClick:function(){var d=new Date();d.setDate(d.getDate()-1);_checkDate=d.toISOString().slice(0,10);render()}},'⏰ 补昨天'))
   if(ckd!==td){dateRow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_checkDate=null;render()}},'回到今天'))}
   cq.appendChild(dateRow)
   function findRec(subj,typeId){return (D.checks||[]).find(function(c){return c.date===ckd&&c.subject===subj&&c.type===typeId})}
@@ -533,6 +534,9 @@ function rd(){
   if(lt&&si.pct<62)al.push({l:'danger',m:'⚠️ 最近成绩偏低：'+ps(si.pct)+'，目标需≥62%'})
   const pr=D.parts.filter(p=>p.received).length
   if(pu>0&&pu>pr)al.push({l:'success',m:'📦 '+(pu-pr)+'个零件已解锁待下单！'})
+  const ystr=(function(){var d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10)})()
+  const yCnt=(D.checks||[]).filter(function(c){return c.date===ystr}).length
+  if(yCnt===0)al.push({l:'warning',m:'⏰ 昨天（'+ystr+'）还没有打卡记录，可点上方「补昨天」补卡'})
   if(al.length){
     const ac=h('div',{className:'card'})
     ac.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🚨'}),'需要关注'))
