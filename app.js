@@ -96,6 +96,7 @@ function loadCloudSDK(){
 }
 async function initCloud(){
   try{
+    if(NOCLOUD){setCloudStatus('📴 本地模式（?local）',false);return false}
     await loadCloudSDK()
     if(typeof window==='undefined'||!window.cloudbase){setCloudStatus('SDK未加载',false);return false}
     cloudApp=cloudbase.init({env:CLOUD_ENV,region:CLOUD_REGION,accessKey:CLOUD_KEY})
@@ -173,6 +174,7 @@ function sv(d){
 
 const up=new URLSearchParams(window.location.search)
 const VW=up.has('view')||up.has('readonly')
+const NOCLOUD=up.has('local')   // 加 ?local 可强制本地模式（排查问题/离线演示用）
 if(VW){document.body.classList.add('view-only');const b=document.getElementById('modeBadge');b.textContent='👀 查看模式';b.className='badge view';b.style.display=''}
 
 function ts(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2000)}
