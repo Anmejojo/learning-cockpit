@@ -40,6 +40,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
 .tab-btn:hover{color:var(--text)}
 .tab-btn.active{color:#fff;border-bottom-color:var(--primary);font-weight:600}
 .tab-btn svg{vertical-align:-4px;margin-right:7px}
+.tab-badge{display:inline-block;min-width:17px;height:17px;line-height:17px;padding:0 5px;margin-left:6px;border-radius:9px;background:#ef4444;color:#fff;font-size:10.5px;font-weight:700;text-align:center;vertical-align:1px;box-shadow:0 0 8px rgba(239,68,68,0.6)}
 .logo svg{vertical-align:-4px;margin-right:8px;color:#a5b4fc}
 .content{max-width:1100px;margin:0 auto;padding:22px}
 
@@ -134,6 +135,17 @@ input:focus,select:focus{outline:none;border-color:var(--primary-border);box-sha
 .q-btn{padding:8px 15px;border-radius:var(--radius-sm);border:1px solid var(--border-strong);background:var(--card-2);cursor:pointer;font-size:13px;font-weight:500;transition:all 0.15s;font-family:inherit;color:var(--text)}
 .q-btn:hover{border-color:var(--primary-border);background:var(--primary-weak)}
 .q-btn.done{border-color:var(--success-border);background:var(--success-weak);color:var(--success)}
+.q-btn.pending{border-color:var(--warning-border);background:var(--warning-weak);color:var(--warning)}
+
+/* 科目折叠头 */
+.subj-head{display:flex;align-items:center;gap:9px;padding:11px 13px;margin-bottom:8px;background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;user-select:none;transition:all 0.15s}
+.subj-head:hover{border-color:var(--primary-border);background:var(--primary-weak)}
+.subj-head.open{border-color:var(--primary-border)}
+.subj-head .sh-name{font-weight:700;font-size:14px;min-width:46px}
+.subj-head .sh-stat{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.subj-head .sh-arrow{margin-left:auto;color:var(--faint);font-size:11px;transition:transform 0.15s;display:inline-block}
+.subj-head.open .sh-arrow{transform:rotate(90deg)}
+.todo-card .q-btn{font-size:12.5px}
 
 /* 积分汇总 */
 .ps{display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap}
@@ -150,13 +162,52 @@ input:focus,select:focus{outline:none;border-color:var(--primary-border);box-sha
 @media(max-width:768px){
   .hero{grid-template-columns:1fr}
   .hero-item .hn{font-size:26px}
-  .stat-grid{grid-template-columns:repeat(2,1fr)}
-  .parts-grid{grid-template-columns:repeat(2,1fr)}
+  .stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .parts-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .check-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .subject-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
   .form-row{grid-template-columns:1fr}
-  .content{padding:12px}
-  .tabs{padding:0 8px;overflow-x:auto}
-  .tab-btn{padding:13px 13px;font-size:13px}
-  .q-btn{padding:8px 13px;font-size:12px}
+  .content{padding:12px 10px;max-width:100%}
+  .tabs{padding:0 8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab-btn{padding:12px 11px;font-size:12.5px;flex:0 0 auto}
+  .q-btn{padding:10px 14px;font-size:12.5px}
+  .btn{padding:9px 14px;font-size:13.5px}
+  .btn-sm{padding:7px 11px;font-size:12.5px}
+  input,select{font-size:16px;padding:9px 11px}
+  .check-item{padding:11px 6px}
+  .check-item .ci{font-size:26px}
+  .check-item .cl{font-size:12px}
+  th,td{padding:8px 9px}
+  table{font-size:12.5px}
+  .card{padding:14px}
+  .card-header{font-size:13.5px}
+  .hero-item{padding:15px 16px}
+  .topbar{padding:0 12px;gap:8px}
+  .topbar .logo{font-size:14px;min-width:0;flex:1 1 auto;overflow:hidden}
+  .topbar .logo .lt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .topbar .badge{font-size:10px;padding:3px 9px;flex:0 0 auto}
+  #cloudBadge{font-size:10px!important;flex:0 0 auto;white-space:nowrap}
+  .mistake-item{padding:10px}
+}
+@media(max-width:430px){
+  .stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .hero-item .hn{font-size:23px}
+  .streak-big{font-size:32px}
+  .tab-btn{padding:11px 9px;font-size:12px}
+  .btn{padding:9px 12px;font-size:13px}
+  .btn-sm{padding:7px 10px;font-size:12px}
+  .content{padding:10px 8px}
+  .card{padding:12px}
+  .check-grid{gap:7px}
+  .check-item .cl{font-size:11.5px}
+}
+.mini-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:430px){
+  .topbar{gap:6px}
+  .topbar .logo{font-size:13px}
+  .topbar .badge{font-size:9.5px;padding:2px 7px}
+  #cloudBadge{max-width:78px;overflow:hidden;text-overflow:ellipsis}
 }
 .countdown{background:linear-gradient(135deg,rgba(99,102,241,0.18),rgba(124,58,237,0.12));border:1px solid var(--primary-border)}
 .mistake-item{padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--bg-elev)}
@@ -176,7 +227,7 @@ input:focus,select:focus{outline:none;border-color:var(--primary-border);box-sha
 <script src="https://static.cloudbase.net/cloudbase-js-sdk/latest/cloudbase.full.js"></script>
 </head>
 <body>
-<div class="topbar"><div class="logo"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>阿勒学习驾驶舱</div><div class="badge edit edit-only" id="modeBadge">✏️ 家长模式</div><span id="cloudBadge" style="font-size:11px;margin-left:8px;color:#8b93a5">🔌 连接中...</span></div>
+<div class="topbar"><div class="logo"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg><span class="lt">阿勒学习驾驶舱</span></div><div class="badge edit edit-only" id="modeBadge">✏️ 家长模式</div><span id="cloudBadge" style="font-size:11px;margin-left:8px;color:#8b93a5">🔌 连接中...</span></div>
 <div class="tabs" id="tabNav">
 <button class="tab-btn active" data-tab="dashboard"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#818cf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.6 2.7a10 10 0 1 0 5.7 5.7"/><circle cx="12" cy="12" r="2.2" fill="#818cf8"/><path d="M13.4 10.6 19 5"/></svg>驾驶舱</button>
 <button class="tab-btn" data-tab="scores"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg>成绩追踪</button>
@@ -228,9 +279,40 @@ const CLOUD_KEY='eyJhbGciOiJSUzI1NiIsImtpZCI6IjNhNjk3Y2I2LWRjMDMtNGFkMi04ZGQ2LTF
 const CLOUD_TABLE='study_data'
 const CLOUD_ID=1
 let cloudApp=null,cloudRdb=null,cloudReady=false
+let _syncT=0,_cloudTs=0,_dirty=false,_retryTimer=null,_offline=false,_failNotified=false,_lastVisCheck=Date.now(),_cloudReadOk=false
+function fmtHM(t){const d=new Date(t||Date.now());return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)}
 function setCloudStatus(txt,ok){
   const el=document.getElementById('cloudBadge')
   if(el){el.innerHTML=txt;el.style.color=ok?'#6ee7b7':'#fbbf24'}
+}
+function markSynced(t){_syncT=t||Date.now();_dirty=false;_failNotified=false;if(_retryTimer){clearTimeout(_retryTimer);_retryTimer=null}setCloudStatus('☁️ 已同步 '+fmtHM(_syncT),true)}
+function markDirty(){_dirty=true;setCloudStatus('⏳ 待上传（点此重试）',false);scheduleRetry()}
+function scheduleRetry(){
+  if(_retryTimer||!cloudReady)return
+  _retryTimer=setTimeout(function(){
+    _retryTimer=null
+    if(!cloudReady)return
+    if(!_cloudReadOk){retryRead();return}
+    if(_dirty)saveCloud(D)
+  },15000)
+}
+async function retryRead(){
+  if(!cloudReady||_offline)return
+  const cd=await loadCloud()
+  if(!_cloudReadOk)return
+  const localT=parseInt(localStorage.getItem(SK+'_t')||'0',10)
+  if(cd&&!(localT>_cloudTs+5000)){
+    D=normalize(cd);render();markSynced(_cloudTs||Date.now());ts('🔄 已连接云端，载入最新数据')
+  }else{
+    if(_dirty)saveCloud(D)
+  }
+}
+async function syncNow(){
+  if(!cloudReady){ts('⚠️ 云端未连接，数据已存在本机');return}
+  if(_offline){ts('📴 当前离线，联网后会自动上传');return}
+  setCloudStatus('🔄 同步中...',true)
+  const ok=await saveCloud(D)
+  ts(ok?'☁️ 已同步到云端':'⚠️ 同步失败，稍后自动重试')
 }
 function normalize(d){
   const df=defData()
@@ -256,18 +338,31 @@ async function loadCloud(){
   try{
     const {data,error}=await cloudRdb.from(CLOUD_TABLE).select('*').eq('id',CLOUD_ID).limit(1)
     if(error){console.error('云端读取失败',JSON.stringify(error));return null}
-    if(data&&data.length>0&&data[0]&&data[0].data){return data[0].data}
+    _cloudReadOk=true
+    if(data&&data.length>0&&data[0]&&data[0].data){
+      if(data[0].updated_at){const t=Date.parse(data[0].updated_at);if(!isNaN(t))_cloudTs=t}
+      return data[0].data
+    }
     return null
   }catch(e){console.error('云端读取失败',e);return null}
 }
 async function saveCloud(d){
-  if(!cloudReady)return false
+  if(!cloudReady){markDirty();return false}
+  if(_offline){markDirty();return false}
+  if(!_cloudReadOk){_dirty=true;setCloudStatus('⏳ 等待云端确认（本机已存）',false);scheduleRetry();return false}
   try{
-    const r=await cloudRdb.from(CLOUD_TABLE).upsert({id:CLOUD_ID,data:d,updated_at:new Date().toISOString()})
-    if(r&&r.error){console.error('云端写入失败',JSON.stringify(r.error));return false}
+    const ts=Date.now()
+    const r=await cloudRdb.from(CLOUD_TABLE).upsert({id:CLOUD_ID,data:d,updated_at:new Date(ts).toISOString()})
+    if(r&&r.error)throw new Error(JSON.stringify(r.error))
+    _cloudTs=ts
+    markSynced(ts)
     return true
+  }catch(e){
+    console.error('云端写入失败',JSON.stringify(e))
+    markDirty()
+    if(!_failNotified){_failNotified=true;ts('⚠️ 云端保存失败，数据已存本机，会自动重试')}
+    return false
   }
-  catch(e){console.error('云端写入失败',JSON.stringify(e));return false}
 }
 function ld(){
   try{
@@ -283,7 +378,7 @@ function ld(){
   return defData()
 }
 
-function sv(d){try{localStorage.setItem(SK,JSON.stringify(d))}catch(e){};if(cloudReady){saveCloud(d)}}
+function sv(d){try{localStorage.setItem(SK,JSON.stringify(d));localStorage.setItem(SK+'_t',String(Date.now()))}catch(e){};if(!cloudReady)return;if(_offline){markDirty();return}saveCloud(d)}
 
 const up=new URLSearchParams(window.location.search)
 const VW=up.has('view')||up.has('readonly')
@@ -321,6 +416,43 @@ function rejectCheck(id){
   c.status='rejected'
   sv(D);render()
   ts('↩️ 已退回')
+}
+function exportBackup(){
+  try{
+    D._lastBackup=Date.now();sv(D)
+    const b=new Blob([JSON.stringify(D,null,2)],{type:'application/json'})
+    const u=URL.createObjectURL(b);const a=document.createElement('a')
+    a.href=u;a.download='阿勒驾驶舱备份_'+td+'.json';a.click();URL.revokeObjectURL(u)
+    ts('📥 备份已导出到「下载」文件夹')
+  }catch(e){ts('⚠️ 导出失败')}
+}
+function approveChecks(list){
+  let n=0,pts=0
+  for(const c of list){
+    if(!c||c.status!=='pending')continue
+    c.status='approved'
+    D.points.push({date:(c.date||td),source:(c.subject?c.subject+'·':'')+c.typeName,points:c.pts,type:'earn'})
+    n++;pts+=c.pts
+  }
+  if(n){sv(D);render();ts('✅ 已通过 '+n+' 条打卡，+'+pts+'分')}
+  else ts('没有待审核的打卡')
+}
+function approveExams(list){
+  let n=0
+  for(const ex of list){if(!ex||ex.status!=='pending')continue;ex.status='approved';cu(ex);n++}
+  if(n){sv(D);render();ts('✅ 已通过 '+n+' 条成绩')}
+}
+function updateTabBadges(){
+  const pendChecks=(D.checks||[]).filter(function(c){return c.status==='pending'}).length
+  const pendExams=(D.exams||[]).filter(function(e){return e.status==='pending'}).length
+  const map={dashboard:pendChecks+pendExams,calendar:pendChecks,scores:pendExams}
+  document.querySelectorAll('.tab-btn').forEach(function(b){
+    const n=map[b.dataset.tab]||0
+    let sp=b.querySelector('.tab-badge')
+    if(!n){if(sp)sp.remove();return}
+    if(!sp){sp=document.createElement('span');sp.className='tab-badge';b.appendChild(sp)}
+    sp.textContent=n>99?'99+':String(n)
+  })
 }
 function pickAndSubmit(type,subject){
   ts('📷 请拍照或选择图片（可多张）')
@@ -402,26 +534,53 @@ function toggleCheck(item,img){
     ts('已取消 '+item.label)
   }
 }
-let _lbScale=1,_lbImg=null
+let _lbScale=1,_lbImg=null,_lbList=[],_lbIdx=0
 function closeLightbox(){const lb=document.getElementById('lightbox');if(lb)lb.remove();_lbScale=1;_lbImg=null}
 function lbZoom(d){_lbScale=Math.max(0.3,Math.min(5,_lbScale+d));if(_lbImg)_lbImg.style.transform='scale('+_lbScale+')'}
-function viewImg(b64){
+function viewImg(b64,list){
   if(!b64)return
+  _lbList=(list&&list.length)?list.filter(function(x){return !!x}):[b64]
+  let idx=_lbList.indexOf(b64)
+  _lbIdx=idx<0?0:idx
+  renderLb()
+}
+function lbStep(d){
+  if(_lbList.length<2)return
+  _lbIdx=(_lbIdx+d+_lbList.length)%_lbList.length
+  _lbScale=1
+  renderLb()
+}
+function renderLb(){
+  const b64=_lbList[_lbIdx]
   closeLightbox()
+  if(!b64)return
+  const keep=_lbList.slice()
+  const keepIdx=_lbIdx
   const ov=document.createElement('div')
   ov.id='lightbox'
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px'
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px'
   const img=document.createElement('img')
   img.src=b64
-  img.style.cssText='max-width:92%;max-height:76vh;border-radius:10px;box-shadow:0 10px 50px rgba(0,0,0,0.6);transition:transform 0.15s;transform-origin:center center;cursor:zoom-in'
+  img.style.cssText='max-width:92%;max-height:72vh;border-radius:10px;box-shadow:0 10px 50px rgba(0,0,0,0.6);transition:transform 0.15s;transform-origin:center center;cursor:zoom-in;position:relative;z-index:2'
   _lbImg=img
   img.addEventListener('wheel',function(e){e.preventDefault();lbZoom(e.deltaY<0?0.15:-0.15)},{passive:false})
   img.addEventListener('dblclick',function(){_lbScale=1;img.style.transform='scale(1)'})
   const close=h('button',null,'✕')
-  close.style.cssText='position:absolute;top:16px;right:16px;width:40px;height:40px;border:none;border-radius:50%;background:rgba(255,255,255,0.2);color:#fff;font-size:20px;cursor:pointer'
+  close.style.cssText='position:absolute;top:16px;right:16px;width:40px;height:40px;border:none;border-radius:50%;background:rgba(255,255,255,0.2);color:#fff;font-size:20px;cursor:pointer;z-index:4'
   close.onclick=closeLightbox
+  if(keep.length>1){
+    const prev=h('button',null,'‹')
+    prev.style.cssText='position:absolute;left:12px;top:50%;transform:translateY(-50%);width:46px;height:46px;border:none;border-radius:50%;background:rgba(255,255,255,0.2);color:#fff;font-size:30px;line-height:1;cursor:pointer;z-index:4'
+    prev.onclick=function(e){e.stopPropagation();_lbList=keep;_lbIdx=keepIdx;lbStep(-1)}
+    const next=h('button',null,'›')
+    next.style.cssText='position:absolute;right:12px;top:50%;transform:translateY(-50%);width:46px;height:46px;border:none;border-radius:50%;background:rgba(255,255,255,0.2);color:#fff;font-size:30px;line-height:1;cursor:pointer;z-index:4'
+    next.onclick=function(e){e.stopPropagation();_lbList=keep;_lbIdx=keepIdx;lbStep(1)}
+    const cnt=h('div',null,(keepIdx+1)+' / '+keep.length)
+    cnt.style.cssText='position:absolute;top:20px;left:50%;transform:translateX(-50%);color:#fff;font-size:13px;background:rgba(0,0,0,0.55);padding:4px 13px;border-radius:12px;z-index:4'
+    ov.appendChild(prev);ov.appendChild(next);ov.appendChild(cnt)
+  }
   const bar=h('div',null)
-  bar.style.cssText='margin-top:16px;display:flex;gap:12px'
+  bar.style.cssText='margin-top:16px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center;position:relative;z-index:3'
   function mk(txt,fn,bg){const b=h('button',null,txt);b.style.cssText='padding:9px 18px;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;color:#fff;background:'+bg;b.onclick=fn;return b}
   bar.appendChild(mk('＋ 放大',function(){lbZoom(0.25)},'#4b5563'))
   bar.appendChild(mk('－ 缩小',function(){lbZoom(-0.25)},'#4b5563'))
@@ -433,6 +592,12 @@ function viewImg(b64){
   ov.addEventListener('click',function(e){if(e.target===ov)closeLightbox()})
   document.body.appendChild(ov)
 }
+document.addEventListener('keydown',function(e){
+  if(!document.getElementById('lightbox'))return
+  if(e.key==='ArrowLeft'){lbStep(-1)}
+  else if(e.key==='ArrowRight'){lbStep(1)}
+  else if(e.key==='Escape'){closeLightbox()}
+})
 function pickImageThenCheck(item){
   const done=!!D.dailyChecks[td][item.key]
   const hasImg=D.checkImgs&&D.checkImgs[td]&&D.checkImgs[td][item.key]
@@ -453,6 +618,71 @@ function pickImageThenCheck(item){
 function gs(sem){return SUB[sem]||SUB['初二上']}
 function ct(sc,sem){const subs=gs(sem);let t=0,f=0;for(const s of subs){f+=s.full*s.rate;const v=sc[s.id];if(v!=null&&typeof v==='number')t+=v*s.rate}return{total:Math.round(t*10)/10,fullTotal:Math.round(f*10)/10,pct:f>0?Math.round(t/f*1000)/10:0}}
 function fd(d){if(!d)return'—';const p=d.split('-');return p[0]+'年'+parseInt(p[1])+'月'+parseInt(p[2])+'日'}
+function buildTrendSvg(list){
+  const W=660,H=220,padL=46,padR=16,padT=18,padB=34
+  const pts=list.map(function(e){const info=ct(e.scores,e.sem);return {label:(e.date||'').slice(5)+' '+(e.examType||''),pct:info.pct}})
+  const n=pts.length
+  const x=function(i){return padL+(W-padL-padR)*(n<=1?0.5:i/(n-1))}
+  const y=function(v){return padT+(H-padT-padB)*(1-v/100)}
+  let path='',dots='',labels=''
+  for(let i=0;i<n;i++){
+    const px=x(i),py=y(pts[i].pct)
+    path+=(i?' L':'M')+px.toFixed(1)+' '+py.toFixed(1)
+    dots+='<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="4" fill="#818cf8" stroke="#0b0d12" stroke-width="2"/>'
+    dots+='<text x="'+px.toFixed(1)+'" y="'+(py-10).toFixed(1)+'" fill="#e6e8ee" font-size="11" text-anchor="middle">'+pts[i].pct.toFixed(0)+'%</text>'
+    if(n<=8||i%2===0||i===n-1)labels+='<text x="'+px.toFixed(1)+'" y="'+(H-12)+'" fill="#8b93a5" font-size="10" text-anchor="middle">'+pts[i].label.slice(0,9)+'</text>'
+  }
+  const ty=y(78.1)
+  const svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="'+H+'" preserveAspectRatio="xMidYMid meet" role="img" aria-label="成绩趋势">'+
+    '<line x1="'+padL+'" y1="'+padT+'" x2="'+padL+'" y2="'+(H-padB)+'" stroke="rgba(255,255,255,0.12)"/>'+
+    '<line x1="'+padL+'" y1="'+(H-padB)+'" x2="'+(W-padR)+'" y2="'+(H-padB)+'" stroke="rgba(255,255,255,0.12)"/>'+
+    '<line x1="'+padL+'" y1="'+ty.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+ty.toFixed(1)+'" stroke="#34d399" stroke-width="1.5" stroke-dasharray="6 5" opacity="0.9"/>'+
+    '<text x="'+(W-padR)+'" y="'+(ty-6).toFixed(1)+'" fill="#34d399" font-size="10" text-anchor="end">三中线 78%</text>'+
+    '<text x="8" y="'+(padT+4)+'" fill="#8b93a5" font-size="10">100%</text>'+
+    '<text x="14" y="'+(H-padB)+'" fill="#8b93a5" font-size="10">0%</text>'+
+    '<path d="'+path+'" fill="none" stroke="#818cf8" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>'+dots+labels+'</svg>'
+  const box=h('div',{style:'width:100%;overflow:hidden'})
+  box.innerHTML=svg
+  return box
+}
+function roundRect(g,x,y,w,hh,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+hh,r);g.arcTo(x+w,y+hh,x,y+hh,r);g.arcTo(x,y+hh,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath()}
+function wrapText(g,text,x,y,maxW,lh){
+  let line=''
+  for(const ch of String(text)){
+    if(g.measureText(line+ch).width>maxW){g.fillText(line,x,y);line=ch;y+=lh}
+    else line+=ch
+  }
+  if(line)g.fillText(line,x,y)
+  return y
+}
+function exportWeekly(data){
+  try{
+    const W=760,H=540,pad=44
+    const cv=document.createElement('canvas');cv.width=W*2;cv.height=H*2
+    const g=cv.getContext('2d');g.scale(2,2)
+    const grad=g.createLinearGradient(0,0,W,H);grad.addColorStop(0,'#151826');grad.addColorStop(1,'#0b0d12')
+    g.fillStyle=grad;g.fillRect(0,0,W,H)
+    g.fillStyle='#6366f1';g.fillRect(0,0,W,6)
+    g.fillStyle='#e6e8ee';g.font='bold 27px "Microsoft YaHei",sans-serif'
+    g.fillText('阿勒学习周报',pad,76)
+    g.fillStyle='#8b93a5';g.font='15px "Microsoft YaHei",sans-serif'
+    g.fillText(data.range,pad,106)
+    let y=170
+    for(const it of data.items){
+      g.font='17px "Microsoft YaHei",sans-serif';g.fillStyle='#8b93a5';g.fillText(it.label,pad,y)
+      g.font='bold 18px "Microsoft YaHei",sans-serif';g.fillStyle='#a5b4fc';g.fillText(String(it.val),pad+160,y)
+      y+=46
+    }
+    g.fillStyle='#1b1f29';roundRect(g,pad-12,y-10,W-pad*2+24,96,10);g.fill()
+    g.fillStyle='#c7d2fe';g.font='16px "Microsoft YaHei",sans-serif'
+    wrapText(g,'下周建议：'+data.advice,pad,y+22,W-pad*2-8,26)
+    const a=document.createElement('a')
+    a.href=cv.toDataURL('image/png')
+    a.download='阿勒学习周报_'+String(data.range).replace(/[^\d]/g,'').slice(0,8)+'.png'
+    a.click()
+    ts('📥 周报图片已保存到「下载」')
+  }catch(e){ts('⚠️ 图片生成失败')}
+}
 function ps(v){return v.toFixed(1)+'%'}
 
 let D=ld()
@@ -478,6 +708,7 @@ function render(){
   else if(tb==='points')rpt()
   else if(tb==='calendar')rcal()
   else if(tb==='weekly')rwk()
+  updateTabBadges()
 }
 
 function rd(){
@@ -521,7 +752,51 @@ function rd(){
   const dp=h('div',{className:'daily-praise'},'💬 今日寄语：'+dailyP)
   $c.appendChild(dp)
 
-  // 按科目铺开的打卡（卡片含照片+状态+审核）
+  // ===== 孩子端专属概览（?view 只读链接打开时显示）=====
+  if(VW){
+    const _kds=td
+    const _chkOf=function(sb,tid){return (D.checks||[]).find(function(c){return c.date===_kds&&c.subject===sb&&c.type===tid})}
+    let kd=0,kt=0
+    for(const sb of SUBJECTS){for(const t of subjTypes(sb)){kt++;const r=_chkOf(sb,t.id);if(r&&r.status==='approved')kd++}}
+    for(const t of CHECK_TYPES.filter(function(x){return !x.subject})){kt++;const r=_chkOf('',t.id);if(r&&r.status==='approved')kd++}
+    const _earn=(D.points||[]).filter(function(pp){return pp.type==='earn'}).reduce(function(a,pp){return a+pp.points},0)
+    const _spend=(D.points||[]).filter(function(pp){return pp.type==='spend'}).reduce(function(a,pp){return a+pp.points},0)
+    const avail=_earn-_spend
+    const krate=D.rate||1
+    let nx=null
+    for(const pp of D.parts){if(pp.unlocked)continue;const cost=Math.round(pp.value*krate);if(!nx||cost<nx.cost)nx={icon:pp.icon,name:pp.name,cost:cost}}
+    let sd=0
+    ;(function(){
+      const has=function(ds){return (D.checks||[]).some(function(c){return c.date===ds&&c.status==='approved'})}
+      const dd=new Date()
+      if(!has(dd.toISOString().slice(0,10)))dd.setDate(dd.getDate()-1)
+      for(let i=0;i<400;i++){const ds=dd.toISOString().slice(0,10);if(has(ds)){sd++;dd.setDate(dd.getDate()-1)}else break}
+    })()
+    const kc=h('div',{className:'card'})
+    kc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🌟'}),'我的今日'))
+    const kg=h('div',{className:'stat-grid mini-grid'})
+    kg.appendChild(h('div',{className:'stat-card primary'},h('div',{className:'sv',style:'font-size:24px'},kd+'/'+kt),h('div',{className:'sl'},'今日打卡')))
+    kg.appendChild(h('div',{className:'stat-card success'},h('div',{className:'sv',style:'font-size:24px'},'⭐ '+avail),h('div',{className:'sl'},'我的积分')))
+    kg.appendChild(h('div',{className:'stat-card warning'},h('div',{className:'sv',style:'font-size:24px'},'🔥 '+sd),h('div',{className:'sl'},'连续打卡')))
+    kc.appendChild(kg)
+    const kpb=h('div',{className:'progress-bar'})
+    const kpf=h('div',{className:'fill '+(kd>=kt?'success':kd*2>=kt?'primary':'warning')})
+    kpf.style.width=(kt?Math.round(kd/kt*100):0)+'%'
+    kpb.appendChild(kpf);kc.appendChild(kpb)
+    if(kd>=kt&&kt>0){
+      kc.appendChild(h('div',{className:'alert success'},'🎉 今天的打卡全部完成，你真棒！'))
+    }else{
+      kc.appendChild(h('div',{style:'font-size:13px;margin-top:8px'},'今天还剩 '+(kt-kd)+' 项没打卡，完成就有积分～'))
+    }
+    if(nx){
+      const need=Math.max(0,nx.cost-avail)
+      kc.appendChild(h('div',{style:'margin-top:10px;padding:10px 12px;background:var(--primary-weak);border:1px solid var(--primary-border);border-radius:8px;font-size:13px'},'🎁 再攒 '+need+' 积分，就能解锁 '+nx.icon+' '+nx.name+'（需要 ⭐'+nx.cost+'）'))
+    }
+    kc.appendChild(h('div',{style:'margin-top:8px;font-size:12px;color:var(--muted)'},'打卡后等家长审核，通过就自动加积分'))
+    $c.appendChild(kc)
+  }
+
+  // 按科目铺开的打卡（折叠式，卡片含照片+状态+审核）
   const ckd=_checkDate||td
   const cq=h('div',{className:'card'})
   cq.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'✅'}),'打卡（拍照证明，家长审核）'))
@@ -533,7 +808,27 @@ function rd(){
   if(ckd!==td){dateRow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_checkDate=null;render()}},'回到今天'))}
   dateRow.appendChild(h('span',{style:'font-size:11px;color:var(--faint)'},'仅支持补最近 2 天'))
   cq.appendChild(dateRow)
+  const ctrlRow=h('div',{style:'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px'})
+  ctrlRow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){for(const sb of SUBJECTS)_openSubj[sb]=true;render()}},'全部展开'))
+  ctrlRow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_openSubj={};render()}},'全部收起'))
+  const onlyBtn=h('button',{className:'btn btn-sm '+(_onlyTodo?'btn-primary':'btn-outline'),onClick:function(){_onlyTodo=!_onlyTodo;render()}})
+  onlyBtn.innerHTML=_onlyTodo?'☑ 只看未完成':'☐ 只看未完成'
+  ctrlRow.appendChild(onlyBtn)
+  cq.appendChild(ctrlRow)
+  const pendDay=(D.checks||[]).filter(function(c){return c.date===ckd&&c.status==='pending'})
+  if(!VW&&pendDay.length){
+    const pbar=h('div',{className:'alert warning',style:'margin-bottom:10px;flex-wrap:wrap;gap:10px'})
+    pbar.appendChild(h('span',null,'⏳ 这天有 '+pendDay.length+' 条待审核'))
+    pbar.appendChild(h('button',{className:'btn btn-success btn-sm',onClick:function(){approveChecks(pendDay)}},'✅ 一键全部通过（+'+pendDay.reduce(function(s,c){return s+c.pts},0)+'分）'))
+    cq.appendChild(pbar)
+  }
   function findRec(subj,typeId){return (D.checks||[]).find(function(c){return c.date===ckd&&c.subject===subj&&c.type===typeId})}
+  function subjTypes(subj){return CHECK_TYPES.filter(function(t){return t.subject&&(!t.englishOnly||subj==='英语')})}
+  function subjStats(subj){
+    const sts=subjTypes(subj);let done=0,pending=0
+    for(const t of sts){const r=findRec(subj,t.id);if(r&&r.status==='approved')done++;else if(r&&r.status==='pending')pending++}
+    return {sts:sts,total:sts.length,done:done,pending:pending}
+  }
   function makeCheckCard(type,subj){
     const rec=findRec(subj,type.id)
     const card=h('div',{className:'check-item '+(rec&&rec.status==='approved'?'done':'')})
@@ -541,7 +836,7 @@ function rd(){
     const rImgs=checkImgs(rec)
     if(rImgs.length){
       const ir=h('div',{style:'display:flex;flex-wrap:wrap;gap:5px;margin-top:6px'})
-      rImgs.forEach(function(b){ir.appendChild(h('img',{src:b,style:'width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b)}}))})
+      rImgs.forEach(function(b){ir.appendChild(h('img',{src:b,style:'width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b,rImgs)}}))})
       card.appendChild(ir)
     }
     if(rec){
@@ -563,18 +858,49 @@ function rd(){
     return card
   }
   for(const subj of SUBJECTS){
-    const sc=h('div',{style:'margin-bottom:14px'})
-    sc.appendChild(h('div',{style:'font-weight:700;font-size:14px;margin-bottom:8px'},subj))
-    const grid=h('div',{className:'check-grid'})
-    const sts=CHECK_TYPES.filter(function(t){return t.subject && (!t.englishOnly || subj==='英语')})
-    for(const type of sts){grid.appendChild(makeCheckCard(type,subj))}
-    sc.appendChild(grid)
-    cq.appendChild(sc)
+    const st=subjStats(subj)
+    if(_onlyTodo&&st.total>0&&st.done===st.total)continue
+    const open=!!_openSubj[subj]
+    const head=h('div',{id:'subj_'+subj,className:'subj-head'+(open?' open':''),onClick:function(){_openSubj[subj]=!_openSubj[subj];render()}})
+    head.appendChild(h('span',{className:'sh-name'},subj))
+    head.appendChild(h('span',{className:'sh-stat'},st.done+'/'+st.total+' 完成'+(st.pending?' · ⏳'+st.pending+' 待审核':'')))
+    head.appendChild(h('span',{className:'sh-arrow'},'▶'))
+    cq.appendChild(head)
+    if(open){
+      const grid=h('div',{className:'check-grid'})
+      for(const type of st.sts){
+        if(_onlyTodo){const r=findRec(subj,type.id);if(r&&r.status==='approved')continue}
+        grid.appendChild(makeCheckCard(type,subj))
+      }
+      grid.style.marginBottom='14px'
+      cq.appendChild(grid)
+    }
   }
   cq.appendChild(h('div',{style:'font-weight:700;font-size:14px;margin-bottom:8px'},'其他'))
   const ggrid=h('div',{className:'check-grid'})
   for(const type of CHECK_TYPES.filter(function(t){return !t.subject})){ggrid.appendChild(makeCheckCard(type,''))}
   cq.appendChild(ggrid)
+  // 今日打卡进度（紧凑版：进度条 + 科目快捷入口）
+  const _sstats={};let _allDone=0,_allTotal=0,_allPending=0
+  for(const subj of SUBJECTS){const st=subjStats(subj);_sstats[subj]=st;_allDone+=st.done;_allTotal+=st.total;_allPending+=st.pending}
+  for(const x of CHECK_TYPES.filter(function(y){return !y.subject})){_allTotal++;const r=findRec('',x.id);if(r&&r.status==='approved')_allDone++;else if(r&&r.status==='pending')_allPending++}
+  const tcard=h('div',{className:'card todo-card'})
+  tcard.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🎯'}),'今日打卡进度 '+_allDone+'/'+_allTotal+(ckd!==td?'（'+ckd.slice(5)+'）':'')))
+  const pb=h('div',{className:'progress-bar'})
+  const pf=h('div',{className:'fill '+(_allDone>=_allTotal?'success':_allDone*2>=_allTotal?'primary':'warning')})
+  pf.style.width=(_allTotal?Math.round(_allDone/_allTotal*100):0)+'%'
+  pb.appendChild(pf);tcard.appendChild(pb)
+  tcard.appendChild(h('div',{style:'font-size:12px;color:var(--muted);margin:6px 0 10px'},(_allPending?'⏳ '+_allPending+' 项待家长审核 · ':'')+'点科目名直接展开该科打卡项'))
+  const qrow=h('div',{style:'display:flex;flex-wrap:wrap;gap:8px'})
+  for(const subj of SUBJECTS){
+    const st=_sstats[subj]
+    const full=st.total>0&&st.done===st.total
+    const b=h('button',{className:'q-btn'+(full?' done':(st.pending?' pending':'')),onClick:function(){_openSubj={};_openSubj[subj]=true;render();setTimeout(function(){var el=document.getElementById('subj_'+subj);if(el)el.scrollIntoView({behavior:'smooth',block:'center'})},80)}})
+    b.innerHTML=subj+' '+st.done+'/'+st.total+(st.pending?' ⏳':'')
+    qrow.appendChild(b)
+  }
+  tcard.appendChild(qrow)
+  $c.appendChild(tcard)
   $c.appendChild(cq)
 
 // 预警区
@@ -587,10 +913,17 @@ function rd(){
   const ystr=(function(){var d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10)})()
   const yCnt=(D.checks||[]).filter(function(c){return c.date===ystr}).length
   if(yCnt===0)al.push({l:'warning',m:'⏰ 昨天（'+ystr+'）还没有打卡记录，可点上方「补昨天」补卡'})
+  const _lastBk=D._lastBackup||0
+  const _daysBk=_lastBk?Math.floor((Date.now()-_lastBk)/86400000):999
+  if(!VW&&_daysBk>=7)al.push({l:'warning',m:'💾 '+(_lastBk?('已经 '+_daysBk+' 天'):'还没有')+'导出过备份，建议现在导出一份',_bk:true})
   if(al.length){
     const ac=h('div',{className:'card'})
     ac.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🚨'}),'需要关注'))
-    for(const a of al)ac.appendChild(h('div',{className:'alert '+a.l},a.m))
+    for(const a of al){
+      const row=h('div',{className:'alert '+a.l,style:a._bk?'flex-wrap:wrap;gap:10px':''},a.m)
+      if(a._bk)row.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:exportBackup},'📥 立即导出'))
+      ac.appendChild(row)
+    }
     $c.appendChild(ac)
   }
 
@@ -613,7 +946,7 @@ function rd(){
   bc.innerHTML+=btb
   const bpct=bkf>0?(bkt/bkf*100):0
   const bfull=bsubs.reduce((s,sub)=>s+sub.full*sub.rate,0)
-  bc.appendChild(h('div',{style:'margin-top:10px;padding:8px;background:#f7fafc;border-radius:6px;font-size:13px',innerHTML:'📊 已出分：<strong>'+bkt.toFixed(1)+'/'+bkf.toFixed(0)+'</strong>（'+bpct.toFixed(1)+'%）| 满分：'+bfull+' | 🎯 目标：二上期末≥508'}))
+  bc.appendChild(h('div',{style:'margin-top:10px;padding:8px;background:var(--bg-elev);border-radius:6px;font-size:13px',innerHTML:'📊 已出分：<strong>'+bkt.toFixed(1)+'/'+bkf.toFixed(0)+'</strong>（'+bpct.toFixed(1)+'%）| 满分：'+bfull+' | 🎯 目标：二上期末≥508'}))
   if(!VW)bc.appendChild(h('button',{className:'btn btn-primary btn-sm edit-only',style:'margin-top:8px',onClick:()=>{tb='scores';sw('scores')}},'✏️ 到成绩页录入考试'))
   $c.appendChild(bc)
 
@@ -683,7 +1016,7 @@ function rd(){
   $c.appendChild(h('div',{className:'section-title'},'🎁 奖励与设备'))
 
   // 小数据条
-  const mini=h('div',{className:'stat-grid',style:'grid-template-columns:repeat(3,1fr)'})
+  const mini=h('div',{className:'stat-grid mini-grid'})
   mini.appendChild(h('div',{className:'stat-card primary'},h('div',{className:'sv',style:'font-size:22px'},'💻 '+pu+'/'+D.parts.length),h('div',{className:'sl'},'零件已解锁')))
   mini.appendChild(h('div',{className:'stat-card success'},h('div',{className:'sv',style:'font-size:22px'},'⭐ '+(te-ts_)),h('div',{className:'sl'},'可用积分')))
   const md=(D.phone?1:0)
@@ -702,7 +1035,7 @@ function rd(){
   const plc=D.pl||0
   const pc=h('div',{className:'card'})
   pc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📞'}),'话费管理'))
-  pc.innerHTML+='<table><thead><tr><th>套餐</th><th>内容</th><th>月费</th><th>当前</th></tr></thead><tbody>'+PLANS.map((p,i)=>'<tr><td>'+p.name+'</td><td>'+p.data+'</td><td>¥'+p.cost+'</td><td>'+(i<=plc?'✅':'⬜')+'</td></tr>').join('')+'</tbody></table>'
+  pc.innerHTML+='<div class="table-scroll"><table><thead><tr><th>套餐</th><th>内容</th><th>月费</th><th>当前</th></tr></thead><tbody>'+PLANS.map((p,i)=>'<tr><td>'+p.name+'</td><td>'+p.data+'</td><td>¥'+p.cost+'</td><td>'+(i<=plc?'✅':'⬜')+'</td></tr>').join('')+'</tbody></table></div>'
   const pcost=PLANS.slice(0,Math.min(plc+1,PLANS.length)).reduce((s,p)=>s+p.cost,0)
   pc.appendChild(h('div',{style:'margin-top:10px;font-size:13px',innerHTML:'💰 月费：<strong>¥'+pcost+'</strong> | 📱：'+(D.phone?'✅ '+(D.phDate?'已发放('+D.phDate+')':'待发放'):'⬜ 待达标')}))
   if(!VW){
@@ -731,9 +1064,10 @@ function rd(){
     const ec=h('div',{className:'card edit-only'})
     ec.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔧'}),'数据管理'))
     const ebr=h('div',{style:'display:flex;gap:8px;flex-wrap:wrap'})
-    ebr.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:()=>{const b=new Blob([JSON.stringify(D,null,2)],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='备份_'+td+'.json';a.click();URL.revokeObjectURL(u);ts('📥 已导出')}},'📥 导出备份'))
+    ebr.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:exportBackup},'📥 导出备份'))
     ebr.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:()=>{const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(confirm('将覆盖当前所有数据？')){const df=defData();for(const k of Object.keys(df)){if(!(k in d))d[k]=df[k];}D=d;sv(D);render();ts('✅ 已导入')}}catch(err){ts('⚠️ 格式错误')}};r.readAsText(f)};inp.click()}},'📤 导入备份'))
     ec.appendChild(ebr)
+    ec.appendChild(h('div',{style:'font-size:12px;color:var(--muted);margin-top:8px'},'上次备份：'+((D._lastBackup)?fd(new Date(D._lastBackup).toISOString().slice(0,10)):'从未导出')+'（建议每周导出一次，存微信收藏或网盘）'))
     $c.appendChild(ec)
   }
 }
@@ -762,7 +1096,7 @@ function rs(){
     const arr=subjImgs[subId]||[]
     arr.forEach(function(b64,idx){
       const wrap=h('div',{style:'position:relative;display:inline-block'})
-      wrap.appendChild(h('img',{src:b64,style:'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer',onClick:function(){viewImg(b64)}}))
+      wrap.appendChild(h('img',{src:b64,style:'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer',onClick:function(){viewImg(b64,arr)}}))
       wrap.appendChild(h('button',{className:'btn btn-danger btn-sm',style:'position:absolute;top:-6px;right:-6px;padding:0 4px;font-size:10px;line-height:1',onClick:function(){subjImgs[subId].splice(idx,1);renderSubjImgs(subId)}},'✕'))
       box.appendChild(wrap)
     })
@@ -876,13 +1210,14 @@ function rs(){
     if(pending.length){
       const ap=h('div',{className:'card'})
       ap.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'👩‍👩‍👧'}),'待审核成绩（'+pending.length+'条）'))
+      ap.appendChild(h('button',{className:'btn btn-success btn-sm',style:'margin-bottom:10px',onClick:function(){approveExams(pending)}},'✅ 全部通过（'+pending.length+'条）'))
       for(const ex of pending){
         const row=h('div',{className:'mistake-item'})
         const info=ct(ex.scores,ex.sem)
         row.innerHTML='<div><strong>'+fd(ex.date)+' '+ex.sem+' '+ex.examType+'</strong> 总分 '+info.total+'/'+info.fullTotal+'</div>'
         if(ex.imgs&&ex.imgs.length){
           const ir=h('div',{style:'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px'})
-          for(const b of ex.imgs){ir.appendChild(h('img',{src:b,style:'width:70px;height:70px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b)}}))}
+          for(const b of ex.imgs){ir.appendChild(h('img',{src:b,style:'width:70px;height:70px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b,ex.imgs)}}))}
           row.appendChild(ir)
         }
         const br=h('div',{style:'margin-top:8px'})
@@ -893,6 +1228,17 @@ function rs(){
       }
       $c.appendChild(ap)
     }
+  }
+
+  // 成绩趋势图
+  const _exs=(D.exams||[]).filter(function(e){return e.status!=='rejected'})
+  if(_exs.length>=2){
+    const _sorted=[..._exs].sort(function(a,b){return (a.date||'').localeCompare(b.date||'')}).slice(-12)
+    const tcc=h('div',{className:'card'})
+    tcc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📈'}),'成绩趋势（'+(D.sem||'')+' 得分率）'))
+    tcc.appendChild(buildTrendSvg(_sorted))
+    tcc.appendChild(h('div',{style:'font-size:12px;color:var(--muted);margin-top:4px'},'绿色虚线是「三中 625 线」对应得分率 78.1%，点越往上越好'))
+    $c.appendChild(tcc)
   }
 
   // 成绩列表
@@ -910,7 +1256,7 @@ function rs(){
       row.innerHTML='<div><strong>'+fd(ex.date)+' '+ex.sem+' '+ex.examType+'</strong> <span style="color:'+stc+'">'+st+'</span></div><div style="font-size:13px;color:var(--muted);margin-top:2px">总分 <strong style="color:'+pctColor+'">'+info.total+'</strong> / '+info.fullTotal+' （'+ps(info.pct)+'）</div>'
       if(ex.imgs&&ex.imgs.length){
         const ir=h('div',{style:'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px'})
-        for(const b of ex.imgs){ir.appendChild(h('img',{src:b,style:'width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b)}}))}
+        for(const b of ex.imgs){ir.appendChild(h('img',{src:b,style:'width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b,ex.imgs)}}))}
         row.appendChild(ir)
       }
       if(ex.history&&ex.history.length){
@@ -998,7 +1344,7 @@ function rp(){
   pc.appendChild(grid)
   const av=D.parts.reduce((s,p)=>s+p.value,0)
   const ap=D.parts.reduce((s,p)=>s+Math.round(p.value*rate),0)
-  pc.appendChild(h('div',{style:'margin-top:14px;padding:10px;background:#f7fafc;border-radius:6px;font-size:13px;text-align:center',innerHTML:'💰 全部总价：<strong>¥'+av.toLocaleString()+'</strong> | 共需积分：<strong>⭐'+ap.toLocaleString()+'</strong>（1元='+rate+'分）'}))
+  pc.appendChild(h('div',{style:'margin-top:14px;padding:10px;background:var(--bg-elev);border-radius:6px;font-size:13px;text-align:center',innerHTML:'💰 全部总价：<strong>¥'+av.toLocaleString()+'</strong> | 共需积分：<strong>⭐'+ap.toLocaleString()+'</strong>（1元='+rate+'分）'}))
   $c.appendChild(pc)
 
   // Parts edit UI (only for parent)
@@ -1170,7 +1516,7 @@ function rdl(){
   const sc=h('div',{className:'card'})
   sc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔥'}),'连续打卡'))
   function cs_(key){let s=0;const d=new Date();for(let i=0;i<30;i++){const ds=d.toISOString().slice(0,10);const chk=D.dailyChecks[ds];if(chk&&chk[key]){s++;d.setDate(d.getDate()-1)}else break}return s}
-  sc.innerHTML+='<table><thead><tr><th>项目</th><th>连续天数</th><th>状态</th></tr></thead><tbody>'+ci.map(item=>{const s=cs_(item.key);const st=s>=7?'🟢 优秀':s>=3?'🟡 良好':s>0?'🟠 一般':'🔴 未打卡';return'<tr><td>'+item.icon+' '+item.label+'</td><td><strong>'+s+'</strong> 天</td><td>'+st+'</td></tr>'}).join('')+'</tbody></table>'
+  sc.innerHTML+='<div class="table-scroll"><table><thead><tr><th>项目</th><th>连续天数</th><th>状态</th></tr></thead><tbody>'+ci.map(item=>{const s=cs_(item.key);const st=s>=7?'🟢 优秀':s>=3?'🟡 良好':s>0?'🟠 一般':'🔴 未打卡';return'<tr><td>'+item.icon+' '+item.label+'</td><td><strong>'+s+'</strong> 天</td><td>'+st+'</td></tr>'}).join('')+'</tbody></table></div>'
   $c.appendChild(sc)
 }
 
@@ -1209,7 +1555,7 @@ function rpt(){
       }else{rows2+='<td></td>'}
       rows2+='</tr>'
     }
-    dc.innerHTML+='<table><thead><tr><th>日期</th><th>来源</th><th>类型</th><th>分值</th><th>操作</th></tr></thead><tbody>'+rows2+'</tbody></table>'
+    dc.innerHTML+='<div class="table-scroll"><table><thead><tr><th>日期</th><th>来源</th><th>类型</th><th>分值</th><th>操作</th></tr></thead><tbody>'+rows2+'</tbody></table></div>'
     if(!VW){for(var pi2=0;pi2<sorted.length;pi2++){(function(p2){var el=dc.querySelector('#btn_'+pi2);if(el)el.onclick=function(){D.points=D.points.filter(function(x){return x.date!==p2.date||x.source!==p2.source});sv(D);render()}})(sorted[pi2])}}
     if(D.points.length>50)dc.appendChild(h('div',{style:'text-align:center;color:var(--muted);margin-top:8px;font-size:12px'},'仅显示最近50条'))
   }
@@ -1217,16 +1563,17 @@ function rpt(){
 
   const rc=h('div',{className:'card'})
   rc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📖'}),'积分规则 — 日常'))
-  rc.innerHTML+='<table><thead><tr><th>来源</th><th>积分</th></tr></thead><tbody><tr><td>每日打卡</td><td>+2~5/次（可调）</td></tr><tr><td>单元测试达标</td><td>+15/次</td></tr></tbody></table>'
+  rc.innerHTML+='<div class="table-scroll"><table><thead><tr><th>来源</th><th>积分</th></tr></thead><tbody><tr><td>每日打卡</td><td>+2~5/次（可调）</td></tr><tr><td>单元测试达标</td><td>+15/次</td></tr></tbody></table></div>'
   $c.appendChild(rc)
 
   const erc=h('div',{className:'card'})
   erc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🏅'}),'积分规则 — 大考'))
-  erc.innerHTML+='<table><thead><tr><th>积分项</th><th>分值</th></tr></thead><tbody><tr><td>🏅 达标基础分</td><td><strong>+150</strong></td></tr><tr><td>🚀 超标加分</td><td><strong>+15/分</strong></td></tr><tr><td>📚 单科达标</td><td><strong>+40/科</strong></td></tr><tr><td>🌟 全科达标</td><td><strong>+80</strong></td></tr><tr><td>📈 进步奖</td><td><strong>+60</strong></td></tr><tr><td>🔥 连续达标</td><td><strong>+80</strong></td></tr></tbody></table><div style="margin-top:10px;font-size:12px;color:var(--muted);padding:8px;background:#fffbeb;border-radius:6px">💡 <strong>示例：</strong>达标150 + 超标45 + 3科120 + 进步60 = <strong>375积分</strong>（按1元=1积分，≈¥375零件预算）</div>'
+  erc.innerHTML+='<div class="table-scroll"><table><thead><tr><th>积分项</th><th>分值</th></tr></thead><tbody><tr><td>🏅 达标基础分</td><td><strong>+150</strong></td></tr><tr><td>🚀 超标加分</td><td><strong>+15/分</strong></td></tr><tr><td>📚 单科达标</td><td><strong>+40/科</strong></td></tr><tr><td>🌟 全科达标</td><td><strong>+80</strong></td></tr><tr><td>📈 进步奖</td><td><strong>+60</strong></td></tr><tr><td>🔥 连续达标</td><td><strong>+80</strong></td></tr></tbody></table><div style="margin-top:10px;font-size:12px;color:var(--muted);padding:8px;background:var(--warning-weak);border-radius:6px">💡 <strong>示例：</strong>达标150 + 超标45 + 3科120 + 进步60 = <strong>375积分</strong>（按1元=1积分，≈¥375零件预算）</div></div>'
   $c.appendChild(erc)
 }
 
 let _checkDate=null
+let _openSubj={},_onlyTodo=false
 let _calY=null,_calM=null,_calSel=null
 function rcal(){
   $c.innerHTML=''
@@ -1307,7 +1654,7 @@ function rcal(){
         const row=h('div',{className:'mistake-item'})
         row.innerHTML='<div><strong>'+type.icon+' '+(c.subject?c.subject+'·':'')+type.name+'</strong> <span style="color:'+sc2+'">'+st+'</span> <span style="color:var(--muted);font-size:12px">+'+c.pts+'分</span></div>'
         const cImgs=checkImgs(c)
-        if(cImgs.length){const cir=h('div',{style:'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px'});cImgs.forEach(function(b){cir.appendChild(h('img',{src:b,style:'width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b)}}))});row.appendChild(cir)}
+        if(cImgs.length){const cir=h('div',{style:'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px'});cImgs.forEach(function(b){cir.appendChild(h('img',{src:b,style:'width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b,cImgs)}}))});row.appendChild(cir)}
         dc.appendChild(row)
       }
     }
@@ -1399,7 +1746,7 @@ function rmk(){
   prog.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔥'}),'连续进度'))
   prog.appendChild(h('div',{className:'streak-line'},h('span',{className:'streak-big'},String(curStreak)),h('span',null,' 天连续整理错题本')))
   prog.appendChild(h('div',{className:'streak-line2'},'📚 累计整理 '+total+' 天'))
-  prog.appendChild(h('div',{style:'margin-top:10px;font-size:14px;color:var(--warning)'},nextTip))
+  prog.appendChild(h('div',{style:'margin-top:10px;font-size:14px;color:var(--warning)',innerHTML:nextTip}))
   $c.appendChild(prog)
 
   // 4. 奖励规则
@@ -1416,7 +1763,7 @@ function rmk(){
     '<tr><td>第 22-29 天</td><td><strong>+3 分</strong></td><td></td></tr>'+
     '<tr style="background:var(--warning-weak)"><td>第 30 天</td><td><strong>+50 分</strong></td><td>🎊 月度里程碑</td></tr>'+
     '</tbody></table>'
-  rule.appendChild(h('div',{style:'margin-top:12px;font-size:13px'},'💡 <strong>累计里程碑：</strong>累计 21 天 +50 分 | 累计 50 天 +100 分 | 累计 100 天 +200 分'))
+  rule.appendChild(h('div',{style:'margin-top:12px;font-size:13px',innerHTML:'💡 <strong>累计里程碑：</strong>累计 21 天 +50 分 | 累计 50 天 +100 分 | 累计 100 天 +200 分'}))
   $c.appendChild(rule)
 
   // 5. 最近14天记录
@@ -1444,7 +1791,8 @@ function rwk(){
   let weekChecks=0
   for(let i=0;i<7;i++){const d=new Date(weekStart);d.setDate(weekStart.getDate()+i);const ds=d.toISOString().slice(0,10);const chk=D.dailyChecks[ds];if(chk){for(const k in chk){if(chk[k])weekChecks++}}}
   const weekPoints=D.points.filter(function(p){return p.date>=weekStartStr}).reduce(function(s,p){return s+(p.type==='earn'?p.points:-p.points)},0)
-  const weekMistakes=D.mistakes.filter(function(m){return m.date>=weekStartStr}).length
+  let weekMistakes=0
+  for(const _ds in (D.mistakeLog||{})){if(_ds>=weekStartStr){for(const _k in D.mistakeLog[_ds])weekMistakes+=(D.mistakeLog[_ds][_k]||0)}}
   const weak=[]
   const bl=D.bl||{};const bsubs=gs(D.sem)
   for(const s of bsubs){const raw=bl[s.id];if(raw!=null){const p=raw/s.full*100;if(p<60)weak.push(s.name+'('+p.toFixed(0)+'%)')}}
@@ -1453,29 +1801,65 @@ function rwk(){
   rp.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-bottom:12px'},'本周：'+fd(weekStartStr)+' ~ '+fd(now.toISOString().slice(0,10))))
   const items=[{icon:'✅',label:'本周打卡',val:weekChecks+' 次'},{icon:'⭐',label:'本周积分',val:(weekPoints>0?'+':'')+weekPoints+' 分'},{icon:'📕',label:'本周新增错题',val:weekMistakes+' 道'},{icon:'🎯',label:'薄弱科目',val:weak.length?weak.join('、'):'暂无'}]
   for(const it of items){rp.appendChild(h('div',{style:'display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:14px'},h('span',null,it.icon+' '+it.label),h('strong',null,it.val)))}
-  rp.appendChild(h('div',{style:'margin-top:14px;padding:12px;background:var(--primary-weak);border-radius:8px;font-size:13px'},'💡 <strong>下周建议：</strong>'+(weak.length?'重点突破 '+weak[0]+'，每天15分钟专项练习':'保持当前节奏，巩固已学知识')))
+  rp.appendChild(h('div',{style:'margin-top:14px;padding:12px;background:var(--primary-weak);border-radius:8px;font-size:13px',innerHTML:'💡 <strong>下周建议：</strong>'+(weak.length?'重点突破 '+weak[0]+'，每天15分钟专项练习':'保持当前节奏，巩固已学知识')}))
   rp.appendChild(h('div',{className:'daily-praise',style:'margin-top:12px'},'💬 一周的坚持看得见，下周继续加油！'))
   if(!VW){
     rp.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-top:12px',onClick:function(){
       let txt='【阿勒学习周报】\n'+fd(weekStartStr)+' ~ '+fd(now.toISOString().slice(0,10))+'\n本周打卡：'+weekChecks+'次\n本周积分：'+(weekPoints>0?'+':'')+weekPoints+'分\n新增错题：'+weekMistakes+'道\n薄弱科目：'+(weak.length?weak.join('、'):'暂无')+'\n下周建议：'+(weak.length?'重点突破 '+weak[0]:'保持节奏')+'\n'
       navigator.clipboard.writeText(txt).then(function(){ts('✅ 周报已复制 · '+praise('week'))}).catch(function(){ts('⚠️ 复制失败')})
     }},'📋 复制周报到家庭群'))
+    rp.appendChild(h('button',{className:'btn btn-success btn-sm edit-only',style:'margin-top:12px;margin-left:8px',onClick:function(){
+      exportWeekly({range:fd(weekStartStr)+' ~ '+fd(now.toISOString().slice(0,10)),items:items.map(function(x){return {label:x.label,val:x.val}}),advice:(weak.length?'重点突破 '+weak[0]+'，每天15分钟专项练习':'保持当前节奏，巩固已学知识')})
+    }},'🖼 存成图片发群'))
   }
   $c.appendChild(rp)
 }
 
-function sw(tab){tb=tab;document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));render();window.scrollTo({top:0,behavior:'smooth'})}
+function sw(tab){tb=tab;document.querySelectorAll('.tab-btn').forEach(b=>{const on=b.dataset.tab===tab;b.classList.toggle('active',on);if(on){try{b.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'})}catch(e){}}});render();window.scrollTo({top:0,behavior:'smooth'})}
 document.getElementById('tabNav').addEventListener('click',(e)=>{const btn=e.target.closest('.tab-btn');if(btn)sw(btn.dataset.tab)})
+var _cb=document.getElementById('cloudBadge')
+if(_cb){_cb.style.cursor='pointer';_cb.addEventListener('click',function(){if(_dirty||!cloudReady){syncNow()}else{ts('☁️ 数据已同步（'+fmtHM(_syncT)+'）')}})}
+async function checkCloudNewer(){
+  if(!cloudReady||_offline)return
+  try{
+    const r=await cloudRdb.from(CLOUD_TABLE).select('updated_at').eq('id',CLOUD_ID).limit(1)
+    const t=(r&&r.data&&r.data[0]&&r.data[0].updated_at)?Date.parse(r.data[0].updated_at):0
+    if(t&&_syncT&&t>_syncT+5000&&!_dirty&&!VW){
+      const cd=await loadCloud()
+      if(cd){D=normalize(cd);render();markSynced(_cloudTs||Date.now());ts('🔄 已同步其他设备的最新数据')}
+    }
+  }catch(e){}
+}
+window.addEventListener('offline',function(){_offline=true;setCloudStatus('📴 离线（已存本机）',false)})
+window.addEventListener('online',function(){_offline=false;setCloudStatus('🔄 网络恢复，同步中...',true);if(_dirty){saveCloud(D)}else{checkCloudNewer()}})
+window.addEventListener('beforeunload',function(e){if(_dirty){e.preventDefault();e.returnValue=''}})
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='visible'&&Date.now()-_lastVisCheck>120000){_lastVisCheck=Date.now();checkCloudNewer()}
+})
 render()
 ;(async function boot(){
   const ok=await initCloud()
   if(ok){
-    setCloudStatus('同步中...',true)
+    setCloudStatus('🔄 同步中...',true)
     const cd=await loadCloud()
-    if(cd){D=normalize(cd);if(!D.dailyChecks[td]){const ds={};for(const it of (D.dci||defData().dci))ds[it.key]=false;D.dailyChecks[td]=ds}sv(D);render();setCloudStatus('云端已同步',true)}
-    else{await saveCloud(D);setCloudStatus('云端已连接',true)}
+    if(!_cloudReadOk){
+      setCloudStatus('⚠️ 云端未确认（本机数据安全）',false)
+      _dirty=true;scheduleRetry()
+    }else if(cd){
+      const localT=parseInt(localStorage.getItem(SK+'_t')||'0',10)
+      const localNewer=localT>_cloudTs+5000
+      if(!localNewer){
+        D=normalize(cd)
+        if(!D.dailyChecks[td]){const ds={};for(const it of (D.dci||defData().dci))ds[it.key]=false;D.dailyChecks[td]=ds}
+        render();markSynced(_cloudTs||Date.now())
+      }else{
+        render();await saveCloud(D)
+      }
+    }else{
+      await saveCloud(D)
+    }
   }else{
-    setCloudStatus('本地模式',false)
+    setCloudStatus('📴 本地模式（未连云端）',false)
   }
 })()
 </script>
