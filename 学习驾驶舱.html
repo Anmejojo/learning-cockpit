@@ -1229,6 +1229,34 @@ function rset(){
   }
   $c.appendChild(pec)
 
+  // 添加到主屏指引（按设备自动识别）
+  const _ua=(navigator.userAgent||'')
+  const _isIOS=/iPad|iPhone|iPod/.test(_ua)
+  const _isAnd=/Android/.test(_ua)
+  const _isWX=/MicroMessenger/i.test(_ua)
+  const gc=h('div',{className:'card edit-only'})
+  gc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📱'}),'装到手机桌面（像 App 一样打开）'))
+  let _title='', _steps=[]
+  if(_isWX){
+    _title='你现在是在微信里打开的，微信里不能添加'
+    _steps=['点右上角的「⋯」','选「在浏览器打开」','到浏览器里再按下面提示操作']
+  }else if(_isIOS){
+    _title='你在 iPhone / iPad（Safari）'
+    _steps=['点屏幕底部中间的「分享」按钮（方框 + 向上箭头 ↑）','在弹出的菜单里往下滑，找到「添加到主屏幕」','点「添加」，桌面就会出现图标']
+  }else if(_isAnd){
+    _title='你在安卓手机'
+    _steps=['点浏览器右上角的「⋮」（三个点）','在下拉菜单里找「添加到主屏幕」或「安装应用」','点「添加」即可']
+  }else{
+    _title='你在电脑上'
+    _steps=['看网址栏右侧有没有一个「安装」小图标（显示器加箭头），点它','或点浏览器右上角「⋮ / ⋯」→ 找「应用 → 安装此站点」','安装后会像独立软件一样打开，没有地址栏']
+  }
+  gc.appendChild(h('div',{style:'font-size:13px;color:var(--primary);font-weight:600;margin-bottom:6px'},'👉 '+_title))
+  const _ol=h('div',{style:'font-size:13px;line-height:1.9;color:var(--muted)'})
+  _steps.forEach(function(t,i){_ol.appendChild(h('div',null,(i+1)+'. '+t))})
+  gc.appendChild(_ol)
+  gc.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:8px'},'装到桌面后：图标是紫色的仪表盘，点开即全屏，不用再找网址'))
+  $c.appendChild(gc)
+
   // 孩子端链接
   const sh=h('div',{className:'card edit-only'})
   sh.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔗'}),'孩子端链接（发给大哥）'))
