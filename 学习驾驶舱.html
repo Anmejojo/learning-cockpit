@@ -1366,7 +1366,9 @@ function rp(){
         '<td><button class="btn btn-danger btn-sm" data-pdel="'+ei+'">✕</button></td>'
       petb.appendChild(etr)
     }
-    pec.appendChild(pet)
+    var petw=h('div',{className:'table-scroll'})
+    petw.appendChild(pet)
+    pec.appendChild(petw)
     
     pec.appendChild(h('button',{className:'btn btn-primary btn-sm',style:'margin-top:8px',onClick:function(){
       var pinputs=pec.querySelectorAll('input[data-pi]')
