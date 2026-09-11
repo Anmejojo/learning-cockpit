@@ -2,13 +2,21 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="学习驾驶舱">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <title>阿勒学习驾驶舱</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#0b0d12;--bg-elev:#12151c;--card:#15181f;--card-2:#1b1f29;
-  --text:#e6e8ee;--muted:#8b93a5;--faint:#5d6472;
+  --text:#e6e8ee;--muted:#98a1b3;--faint:#7d8799;
   --primary:#6366f1;--primary-hover:#818cf8;--primary-weak:rgba(99,102,241,0.14);--primary-border:rgba(99,102,241,0.45);
   --success:#34d399;--success-weak:rgba(52,211,153,0.12);--success-border:rgba(52,211,153,0.4);
   --warning:#fbbf24;--warning-weak:rgba(251,191,36,0.12);--warning-border:rgba(251,191,36,0.4);
@@ -30,7 +38,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
 .topbar .logo svg{filter:drop-shadow(0 0 6px rgba(129,140,248,0.95))}
 .topbar .logo{font-size:16px;font-weight:700;letter-spacing:0.3px;display:flex;align-items:center;gap:9px}
 .topbar .logo .dot{width:9px;height:9px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#a855f7);box-shadow:0 0 12px rgba(139,92,246,0.8)}
-.topbar .badge{font-size:11px;padding:4px 11px;border-radius:999px;font-weight:600}
+.topbar .badge{font-size:12.5px;padding:4px 11px;border-radius:999px;font-weight:600}
 .topbar .badge.edit{background:rgba(52,211,153,0.14);color:#6ee7b7;border:1px solid rgba(52,211,153,0.3)}
 .topbar .badge.view{background:rgba(148,163,184,0.14);color:#cbd5e1;border:1px solid rgba(148,163,184,0.25)}
 
@@ -40,7 +48,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
 .tab-btn:hover{color:var(--text)}
 .tab-btn.active{color:#fff;border-bottom-color:var(--primary);font-weight:600}
 .tab-btn svg{vertical-align:-4px;margin-right:7px}
-.tab-badge{display:inline-block;min-width:17px;height:17px;line-height:17px;padding:0 5px;margin-left:6px;border-radius:9px;background:#ef4444;color:#fff;font-size:10.5px;font-weight:700;text-align:center;vertical-align:1px;box-shadow:0 0 8px rgba(239,68,68,0.6)}
+.tab-badge{display:inline-block;min-width:17px;height:17px;line-height:17px;padding:0 5px;margin-left:6px;border-radius:9px;background:#ef4444;color:#fff;font-size:12px;font-weight:700;text-align:center;vertical-align:1px;box-shadow:0 0 8px rgba(239,68,68,0.6)}
 .logo svg{vertical-align:-4px;margin-right:8px;color:#a5b4fc}
 .content{max-width:1100px;margin:0 auto;padding:22px}
 
@@ -54,7 +62,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
 .stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:15px 17px;border-left:3px solid transparent;transition:border-color 0.2s}
 .stat-card:hover{border-color:var(--border-strong)}
 .stat-card .sv{font-size:26px;font-weight:700;line-height:1.2;font-variant-numeric:tabular-nums;color:var(--text)}
-.stat-card .sl{font-size:12px;color:var(--muted);margin-top:3px}
+.stat-card .sl{font-size:13px;color:var(--muted);margin-top:3px}
 .stat-card.warn{border-left-color:var(--warning)}.stat-card.danger{border-left-color:var(--danger)}
 .stat-card.success{border-left-color:var(--success)}.stat-card.primary{border-left-color:var(--primary)}
 
@@ -65,12 +73,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
 .hero-item.blue{background:linear-gradient(135deg,#6366f1,#7c3aed)}
 .hero-item.green{background:linear-gradient(135deg,#10b981,#047857)}
 .hero-item.orange{background:linear-gradient(135deg,#f59e0b,#c2410c)}
-.hero-item .hl{font-size:12px;opacity:0.85;margin-bottom:5px;font-weight:600;letter-spacing:0.2px}
+.hero-item .hl{font-size:13px;opacity:0.85;margin-bottom:5px;font-weight:600;letter-spacing:0.2px}
 .hero-item .hn{font-size:31px;font-weight:800;line-height:1.15;font-variant-numeric:tabular-nums;text-shadow:0 1px 2px rgba(0,0,0,0.15)}
-.hero-item .hs{font-size:12px;opacity:0.85;margin-top:4px}
+.hero-item .hs{font-size:13px;opacity:0.85;margin-top:4px}
 
 /* 分组标题 */
-.section-title{font-size:12px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:0.8px;margin:20px 0 10px;display:flex;align-items:center;gap:8px}
+.section-title{font-size:13px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:0.8px;margin:20px 0 10px;display:flex;align-items:center;gap:8px}
 .section-title::after{content:'';flex:1;height:1px;background:var(--border);margin-left:8px}
 
 /* 进度条 */
@@ -80,29 +88,29 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Micr
 
 /* 表格 */
 .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
-table{width:100%;border-collapse:collapse;font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
 th,td{padding:10px 13px;text-align:left;border-bottom:1px solid var(--border);vertical-align:middle}
-th{background:rgba(255,255,255,0.02);font-weight:600;color:var(--muted);font-size:12px;letter-spacing:0.3px;white-space:nowrap}
+th{background:rgba(255,255,255,0.02);font-weight:600;color:var(--muted);font-size:13px;letter-spacing:0.3px;white-space:nowrap}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 tr:last-child td{border-bottom:none}
 tr:hover{background:rgba(255,255,255,0.025)}
 
 /* 按钮 */
-.btn{padding:8px 15px;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all 0.15s;font-family:inherit;line-height:1.4}
+.btn{padding:8px 15px;border:none;border-radius:var(--radius-sm);font-size:13.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all 0.15s;font-family:inherit;line-height:1.4}
 .btn:active{transform:translateY(0.5px)}
 .btn-primary{background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff;box-shadow:0 2px 8px rgba(99,102,241,0.3)}.btn-primary:hover{box-shadow:0 4px 14px rgba(99,102,241,0.45)}
 .btn-success{background:linear-gradient(135deg,#10b981,#059669);color:#fff}.btn-success:hover{filter:brightness(1.08)}
 .btn-warning{background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff}
 .btn-danger{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff}
-.btn-sm{padding:5px 11px;font-size:12px;border-radius:5px}
+.btn-sm{padding:5px 11px;font-size:13px;border-radius:5px}
 .btn-outline{background:transparent;border:1px solid var(--border-strong);color:var(--text)}.btn-outline:hover{background:rgba(255,255,255,0.04);border-color:var(--primary-border)}
 
 /* 表单 */
-input,select{padding:8px 12px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);font-size:13px;width:100%;font-family:inherit;background:var(--bg-elev);color:var(--text);transition:border-color 0.15s,box-shadow 0.15s}
+input,select{padding:8px 12px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);font-size:13.5px;width:100%;font-family:inherit;background:var(--bg-elev);color:var(--text);transition:border-color 0.15s,box-shadow 0.15s}
 input::placeholder{color:var(--faint)}
 input:focus,select:focus{outline:none;border-color:var(--primary-border);box-shadow:0 0 0 3px var(--primary-weak)}
 .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:10px}
-.form-row label{font-size:12px;color:var(--muted);font-weight:600;display:block;margin-bottom:3px}
+.form-row label{font-size:13px;color:var(--muted);font-weight:600;display:block;margin-bottom:3px}
 
 /* 零件卡片 */
 .parts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
@@ -111,13 +119,13 @@ input:focus,select:focus{outline:none;border-color:var(--primary-border);box-sha
 .part-card.unlocked{border-color:var(--success-border);background:var(--success-weak)}
 .part-card.locked{opacity:0.5;filter:grayscale(0.6)}
 .part-card .pi{font-size:32px;margin-bottom:5px}
-.part-card .pn{font-weight:600;font-size:13px;margin-bottom:4px;color:var(--text)}
-.part-card .pv{font-size:12px;color:var(--muted);margin-bottom:5px;font-variant-numeric:tabular-nums}
-.part-card .pc{font-size:11px;color:var(--muted);background:rgba(255,255,255,0.04);padding:3px 9px;border-radius:4px;display:inline-block}
+.part-card .pn{font-weight:600;font-size:13.5px;margin-bottom:4px;color:var(--text)}
+.part-card .pv{font-size:13px;color:var(--muted);margin-bottom:5px;font-variant-numeric:tabular-nums}
+.part-card .pc{font-size:12.5px;color:var(--muted);background:rgba(255,255,255,0.04);padding:3px 9px;border-radius:4px;display:inline-block}
 .pb{position:absolute;top:8px;right:8px;font-size:16px}
 
 /* 预警 */
-.alert{padding:11px 15px;border-radius:var(--radius-sm);margin-bottom:8px;font-size:13px;display:flex;align-items:center;gap:8px}
+.alert{padding:11px 15px;border-radius:var(--radius-sm);margin-bottom:8px;font-size:13.5px;display:flex;align-items:center;gap:8px}
 .alert.warning{background:var(--warning-weak);border:1px solid var(--warning-border);color:var(--warning)}
 .alert.danger{background:var(--danger-weak);border:1px solid var(--danger-border);color:var(--danger)}
 .alert.success{background:var(--success-weak);border:1px solid var(--success-border);color:var(--success)}
@@ -127,12 +135,12 @@ input:focus,select:focus{outline:none;border-color:var(--primary-border);box-sha
 .check-item{background:var(--card);border-radius:var(--radius);padding:14px;text-align:center;cursor:pointer;border:1px solid var(--border);transition:all 0.15s;user-select:none}
 .check-item:hover{border-color:var(--primary-border);background:var(--primary-weak)}
 .check-item.done{border-color:var(--success-border);background:var(--success-weak)}
-.check-item .ci{font-size:30px}.check-item .cl{font-size:13px;font-weight:600;margin-top:4px;color:var(--text)}
-.check-item .cs{font-size:11px;color:var(--muted);margin-top:2px}
+.check-item .ci{font-size:30px}.check-item .cl{font-size:13.5px;font-weight:600;margin-top:4px;color:var(--text)}
+.check-item .cs{font-size:12.5px;color:var(--muted);margin-top:2px}
 
 /* 快捷打卡 */
 .check-quick{display:flex;gap:8px;flex-wrap:wrap}
-.q-btn{padding:8px 15px;border-radius:var(--radius-sm);border:1px solid var(--border-strong);background:var(--card-2);cursor:pointer;font-size:13px;font-weight:500;transition:all 0.15s;font-family:inherit;color:var(--text)}
+.q-btn{padding:8px 15px;border-radius:var(--radius-sm);border:1px solid var(--border-strong);background:var(--card-2);cursor:pointer;font-size:13.5px;font-weight:500;transition:all 0.15s;font-family:inherit;color:var(--text)}
 .q-btn:hover{border-color:var(--primary-border);background:var(--primary-weak)}
 .q-btn.done{border-color:var(--success-border);background:var(--success-weak);color:var(--success)}
 .q-btn.pending{border-color:var(--warning-border);background:var(--warning-weak);color:var(--warning)}
@@ -142,18 +150,18 @@ input:focus,select:focus{outline:none;border-color:var(--primary-border);box-sha
 .subj-head:hover{border-color:var(--primary-border);background:var(--primary-weak)}
 .subj-head.open{border-color:var(--primary-border)}
 .subj-head .sh-name{font-weight:700;font-size:14px;min-width:46px}
-.subj-head .sh-stat{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
-.subj-head .sh-arrow{margin-left:auto;color:var(--faint);font-size:11px;transition:transform 0.15s;display:inline-block}
+.subj-head .sh-stat{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.subj-head .sh-arrow{margin-left:auto;color:var(--faint);font-size:12.5px;transition:transform 0.15s;display:inline-block}
 .subj-head.open .sh-arrow{transform:rotate(90deg)}
-.todo-card .q-btn{font-size:12.5px}
+.todo-card .q-btn{font-size:13.5px}
 
 /* 积分汇总 */
 .ps{display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap}
 .ps .psi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:15px 19px;text-align:center;flex:1;min-width:100px}
-.psi .pv{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}.psi .pl{font-size:12px;color:var(--muted)}
+.psi .pv{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}.psi .pl{font-size:13px;color:var(--muted)}
 
 /* Toast */
-.toast{position:fixed;bottom:24px;right:24px;background:var(--card-2);color:var(--text);padding:12px 19px;border-radius:var(--radius-sm);font-size:13px;z-index:999;opacity:0;transform:translateY(16px);transition:all 0.25s;pointer-events:none;box-shadow:var(--shadow-md);border:1px solid var(--border-strong)}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--card-2);color:var(--text);padding:12px 19px;border-radius:var(--radius-sm);font-size:13.5px;z-index:999;opacity:0;transform:translateY(16px);transition:all 0.25s;pointer-events:none;box-shadow:var(--shadow-md);border:1px solid var(--border-strong)}
 .toast.show{opacity:1;transform:translateY(0)}
 
 .view-only .edit-only{display:none!important}
@@ -170,47 +178,47 @@ input:focus,select:focus{outline:none;border-color:var(--primary-border);box-sha
   .content{padding:12px 10px;max-width:100%}
   .tabs{padding:0 8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   .tabs::-webkit-scrollbar{display:none}
-  .tab-btn{padding:12px 11px;font-size:12.5px;flex:0 0 auto}
-  .q-btn{padding:10px 14px;font-size:12.5px}
-  .btn{padding:9px 14px;font-size:13.5px}
-  .btn-sm{padding:7px 11px;font-size:12.5px}
+  .tab-btn{padding:12px 11px;font-size:13.5px;flex:0 0 auto}
+  .q-btn{padding:10px 14px;font-size:13.5px}
+  .btn{padding:9px 14px;font-size:14px}
+  .btn-sm{padding:7px 11px;font-size:13.5px}
   input,select{font-size:16px;padding:9px 11px}
   .check-item{padding:11px 6px}
   .check-item .ci{font-size:26px}
-  .check-item .cl{font-size:12px}
+  .check-item .cl{font-size:13px}
   th,td{padding:8px 9px}
-  table{font-size:12.5px}
+  table{font-size:13.5px}
   .card{padding:14px}
-  .card-header{font-size:13.5px}
+  .card-header{font-size:14px}
   .hero-item{padding:15px 16px}
   .topbar{padding:0 12px;gap:8px}
   .topbar .logo{font-size:14px;min-width:0;flex:1 1 auto;overflow:hidden}
   .topbar .logo .lt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .topbar .badge{font-size:10px;padding:3px 9px;flex:0 0 auto}
-  #cloudBadge{font-size:10px!important;flex:0 0 auto;white-space:nowrap}
+  .topbar .badge{font-size:11.5px;padding:3px 9px;flex:0 0 auto}
+  #cloudBadge{font-size:11.5px!important;flex:0 0 auto;white-space:nowrap}
   .mistake-item{padding:10px}
 }
 @media(max-width:430px){
   .stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
   .hero-item .hn{font-size:23px}
   .streak-big{font-size:32px}
-  .tab-btn{padding:11px 9px;font-size:12px}
-  .btn{padding:9px 12px;font-size:13px}
-  .btn-sm{padding:7px 10px;font-size:12px}
+  .tab-btn{padding:11px 9px;font-size:13px}
+  .btn{padding:9px 12px;font-size:13.5px}
+  .btn-sm{padding:7px 10px;font-size:13px}
   .content{padding:10px 8px}
   .card{padding:12px}
   .check-grid{gap:7px}
-  .check-item .cl{font-size:11.5px}
+  .check-item .cl{font-size:13px}
 }
 .mini-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
 .seg{display:flex;gap:6px;margin-bottom:12px;background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:5px}
-.seg-btn{flex:1;padding:9px 10px;border:none;border-radius:7px;background:transparent;color:var(--muted);font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.15s;white-space:nowrap}
+.seg-btn{flex:1;padding:9px 10px;border:none;border-radius:7px;background:transparent;color:var(--muted);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.15s;white-space:nowrap}
 .seg-btn.on{background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff;box-shadow:0 2px 8px rgba(99,102,241,0.35)}
 .seg-btn:not(.on):hover{color:var(--text);background:rgba(255,255,255,0.04)}
 @media(max-width:430px){
   .topbar{gap:6px}
-  .topbar .logo{font-size:13px}
-  .topbar .badge{font-size:9.5px;padding:2px 7px}
+  .topbar .logo{font-size:13.5px}
+  .topbar .badge{font-size:11px;padding:2px 7px}
   #cloudBadge{max-width:78px;overflow:hidden;text-overflow:ellipsis}
 }
 .countdown{background:linear-gradient(135deg,rgba(99,102,241,0.18),rgba(124,58,237,0.12));border:1px solid var(--primary-border)}
@@ -219,19 +227,30 @@ input:focus,select:focus{outline:none;border-color:var(--primary-border);box-sha
 .praise-box{margin-top:12px;padding:14px 16px;border-radius:10px;font-size:15px;font-weight:600;text-align:center;background:linear-gradient(135deg,var(--primary-weak),rgba(124,58,237,0.12));border:1px solid var(--primary-border);color:#c7d2fe;line-height:1.5}
 .streak-line{display:flex;align-items:baseline;gap:4px;font-size:15px}
 .streak-big{font-size:40px;font-weight:800;color:var(--warning);font-variant-numeric:tabular-nums;line-height:1}
-.streak-line2{font-size:13px;color:var(--muted);margin-top:6px}
+.streak-line2{font-size:13.5px;color:var(--muted);margin-top:6px}
 .daily-praise{margin:0 0 14px;padding:12px 16px;border-radius:10px;font-size:14px;font-weight:600;text-align:center;background:linear-gradient(135deg,rgba(99,102,241,0.14),rgba(139,92,246,0.1));border:1px solid var(--primary-border);color:#c7d2fe;line-height:1.5}
 .subject-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:10px}
 .subject-item{background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius);padding:12px 8px;text-align:center;transition:all 0.15s}
 .subject-item.active{border-color:var(--success-border);background:var(--success-weak)}
 .subject-item .subj-icon{font-size:26px}
-.subject-item .subj-name{font-size:13px;font-weight:600;margin-top:4px}
-.subject-item .subj-cnt{font-size:12px;color:var(--muted);margin-top:3px;font-variant-numeric:tabular-nums}
+.subject-item .subj-name{font-size:13.5px;font-weight:600;margin-top:4px}
+.subject-item .subj-cnt{font-size:13px;color:var(--muted);margin-top:3px;font-variant-numeric:tabular-nums}
+@media print{
+  :root{--bg:#fff;--bg-elev:#f5f5f5;--card:#fff;--card-2:#fff;--text:#111;--muted:#555;--faint:#666;--border:#dddddd;--border-strong:#cccccc}
+  body{background:#fff!important;background-image:none!important}
+  .topbar,.tabs,.seg,.toast,.edit-only,#bootTip,.q-btn,#cloudBadge{display:none!important}
+  .card,.part-card,.check-item,.stat-card{box-shadow:none!important;break-inside:avoid}
+  .content{max-width:100%;padding:0}
+  a{color:#111;text-decoration:none}
+}
+@media(max-width:430px){.col-sm-hide{display:none!important}}
+#bootTip{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(21,24,31,0.96);border:1px solid var(--border-strong);color:var(--text);padding:14px 22px;border-radius:10px;font-size:14px;z-index:9999;box-shadow:0 10px 40px rgba(0,0,0,0.5);white-space:nowrap}
+
 </style>
 <script src="https://static.cloudbase.net/cloudbase-js-sdk/latest/cloudbase.full.js"></script>
 </head>
 <body>
-<div class="topbar"><div class="logo"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg><span class="lt">阿勒学习驾驶舱</span></div><div class="badge edit edit-only" id="modeBadge">✏️ 家长模式</div><span id="cloudBadge" style="font-size:11px;margin-left:8px;color:#8b93a5">🔌 连接中...</span></div>
+<div class="topbar"><div class="logo"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg><span class="lt">阿勒学习驾驶舱</span></div><div class="badge edit edit-only" id="modeBadge">✏️ 家长模式</div><span id="cloudBadge" style="font-size:12.5px;margin-left:8px;color:#8b93a5">🔌 连接中...</span></div>
 <div class="tabs" id="tabNav">
 <button class="tab-btn active" data-tab="today"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#818cf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.6 2.7a10 10 0 1 0 5.7 5.7"/><circle cx="12" cy="12" r="2.2" fill="#818cf8"/><path d="M13.4 10.6 19 5"/></svg>今日</button>
 <button class="tab-btn" data-tab="checkin"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fbbf24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>打卡</button>
@@ -281,7 +300,7 @@ const CLOUD_KEY='eyJhbGciOiJSUzI1NiIsImtpZCI6IjNhNjk3Y2I2LWRjMDMtNGFkMi04ZGQ2LTF
 const CLOUD_TABLE='study_data'
 const CLOUD_ID=1
 let cloudApp=null,cloudRdb=null,cloudReady=false
-let _syncT=0,_cloudTs=0,_dirty=false,_retryTimer=null,_offline=false,_failNotified=false,_lastVisCheck=Date.now(),_cloudReadOk=false
+let _syncT=0,_cloudTs=0,_dirty=false,_retryTimer=null,_offline=false,_failNotified=false,_lastVisCheck=Date.now(),_cloudReadOk=false,_quotaWarned=false
 function fmtHM(t){const d=new Date(t||Date.now());return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)}
 function setCloudStatus(txt,ok){
   const el=document.getElementById('cloudBadge')
@@ -383,7 +402,26 @@ function ld(){
   return defData()
 }
 
-function sv(d){try{localStorage.setItem(SK,JSON.stringify(d));localStorage.setItem(SK+'_t',String(Date.now()))}catch(e){};if(!cloudReady)return;if(_offline){markDirty();return}saveCloud(d)}
+function sv(d){
+  let ok=true
+  try{localStorage.setItem(SK,JSON.stringify(d));localStorage.setItem(SK+'_t',String(Date.now()))}
+  catch(e){
+    ok=false
+    try{
+      const slim=JSON.parse(JSON.stringify(d))
+      if(slim.checks)slim.checks.forEach(function(c){delete c.imgs;delete c.img})
+      if(slim.exams)slim.exams.forEach(function(x){delete x.imgs;delete x.subjImgs})
+      slim.checkImgs={};slim._slim=true
+      localStorage.setItem(SK,JSON.stringify(slim));localStorage.setItem(SK+'_t',String(Date.now()))
+      ok=true
+      if(!_quotaWarned){_quotaWarned=true;ts('⚠️ 本机缓存已满，照片改为只存云端（数据没丢）')}
+    }catch(e2){}
+  }
+  if(!ok&&!_quotaWarned){_quotaWarned=true;ts('⚠️ 本机已无法保存，请到「设置」导出备份')}
+  if(!cloudReady)return
+  if(_offline){markDirty();return}
+  saveCloud(d)
+}
 
 const up=new URLSearchParams(window.location.search)
 const VW=up.has('view')||up.has('readonly')
@@ -392,7 +430,7 @@ if(VW){document.body.classList.add('view-only');const b=document.getElementById(
 function ts(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2000)}
 const PRAISE={check:['今天又进步了一点！','坚持就是胜利！','好习惯正在养成！','认真完成，真棒！'],score:['这次有进步，继续保持！','努力有回报了！','成绩稳步上升，加油！'],part:['攒下奖励，离目标更近一步！','一分耕耘一分收获！'],task:['任务完成，说到做到！','又完成一件，真棒！'],goal:['小目标达成，一步步变强！'],unlock:['太棒了，解锁新奖励！','努力开花结果了！'],week:['这周的努力看得见！','下周继续加油！'],default:['继续加油！','每天都有进步！']}
 function praise(cat){const a=PRAISE[cat]||PRAISE.default;return a[Math.floor(Math.random()*a.length)]}
-function setExamDate(daysAgo){const d=new Date(Date.now()-(daysAgo||0)*86400000);const el=document.getElementById('ed');if(el)el.value=d.toISOString().slice(0,10)}
+function setExamDate(daysAgo){const d=new Date(Date.now()-(daysAgo||0)*86400000);const el=document.getElementById('ed');if(el)el.value=ymd(d)}
 function checkImgs(c){
   if(!c)return []
   if(c.imgs&&c.imgs.length)return c.imgs
@@ -432,6 +470,7 @@ function exportBackup(){
   }catch(e){ts('⚠️ 导出失败')}
 }
 function approveChecks(list){
+  if(!confirm('确定把这 '+list.length+' 条打卡全部通过吗？会立刻加积分，且不能撤销。'))return
   let n=0,pts=0
   for(const c of list){
     if(!c||c.status!=='pending')continue
@@ -443,6 +482,7 @@ function approveChecks(list){
   else ts('没有待审核的打卡')
 }
 function approveExams(list){
+  if(!confirm('确定把这 '+list.length+' 条成绩全部通过吗？'))return
   let n=0
   for(const ex of list){if(!ex||ex.status!=='pending')continue;ex.status='approved';cu(ex);n++}
   if(n){sv(D);render();ts('✅ 已通过 '+n+' 条成绩')}
@@ -581,7 +621,7 @@ function renderLb(){
     next.style.cssText='position:absolute;right:12px;top:50%;transform:translateY(-50%);width:46px;height:46px;border:none;border-radius:50%;background:rgba(255,255,255,0.2);color:#fff;font-size:30px;line-height:1;cursor:pointer;z-index:4'
     next.onclick=function(e){e.stopPropagation();_lbList=keep;_lbIdx=keepIdx;lbStep(1)}
     const cnt=h('div',null,(keepIdx+1)+' / '+keep.length)
-    cnt.style.cssText='position:absolute;top:20px;left:50%;transform:translateX(-50%);color:#fff;font-size:13px;background:rgba(0,0,0,0.55);padding:4px 13px;border-radius:12px;z-index:4'
+    cnt.style.cssText='position:absolute;top:20px;left:50%;transform:translateX(-50%);color:#fff;font-size:13.5px;background:rgba(0,0,0,0.55);padding:4px 13px;border-radius:12px;z-index:4'
     ov.appendChild(prev);ov.appendChild(next);ov.appendChild(cnt)
   }
   const bar=h('div',null)
@@ -646,6 +686,7 @@ function segBar(items){
 }
 function gs(sem){return SUB[sem]||SUB['初二上']}
 function ct(sc,sem){const subs=gs(sem);let t=0,f=0;for(const s of subs){f+=s.full*s.rate;const v=sc[s.id];if(v!=null&&typeof v==='number')t+=v*s.rate}return{total:Math.round(t*10)/10,fullTotal:Math.round(f*10)/10,pct:f>0?Math.round(t/f*1000)/10:0}}
+function ymd(d){d=d||new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)}
 function fd(d){if(!d)return'—';const p=d.split('-');return p[0]+'年'+parseInt(p[1])+'月'+parseInt(p[2])+'日'}
 function buildTrendSvg(list){
   const W=660,H=220,padL=46,padR=16,padT=18,padB=34
@@ -717,7 +758,7 @@ function ps(v){return v.toFixed(1)+'%'}
 let D=ld()
 let tb='today'
 let $c=document.getElementById('appContent')
-const td=new Date().toISOString().slice(0,10)
+const td=ymd()
 const itms=D.dci||defData().dci
 if(!D.dailyChecks[td]){const ds={};for(const it of itms)ds[it.key]=false;D.dailyChecks[td]=ds;sv(D)}
 
@@ -738,7 +779,7 @@ function render(){
   updateTabBadges()
 }
 
-let _examEdit=false,_openExamForm=false,_ckView='list',_scView='list',_pkView='points',_partEdit=false
+let _examEdit=false,_openExamForm=false,_ckView='list',_scView='list',_pkView='points',_partEdit=false,_blEdit=false
 
 /* ============ ① 今日（概览 + 快捷操作） ============ */
 function rtoday(){
@@ -786,8 +827,8 @@ function rtoday(){
     ;(function(){
       const has=function(d){return (D.checks||[]).some(function(c){return c.date===d&&c.status==='approved'})}
       const dd=new Date()
-      if(!has(dd.toISOString().slice(0,10)))dd.setDate(dd.getDate()-1)
-      for(let i=0;i<400;i++){const d=dd.toISOString().slice(0,10);if(has(d)){sd++;dd.setDate(dd.getDate()-1)}else break}
+      if(!has(ymd(dd)))dd.setDate(dd.getDate()-1)
+      for(let i=0;i<400;i++){const d=ymd(dd);if(has(d)){sd++;dd.setDate(dd.getDate()-1)}else break}
     })()
     const kd=ds.done+hs.done,kt=ds.total+hs.total
     const kc=h('div',{className:'card'})
@@ -802,10 +843,10 @@ function rtoday(){
     kpf.style.width=(kt?Math.round(kd/kt*100):0)+'%'
     kpb.appendChild(kpf);kc.appendChild(kpb)
     if(kd>=kt&&kt>0)kc.appendChild(h('div',{className:'alert success'},'🎉 今天的任务全部完成，你真棒！'))
-    else kc.appendChild(h('div',{style:'font-size:13px;margin-top:8px'},'今天还剩 '+(kt-kd)+' 项没完成，加油～'))
+    else kc.appendChild(h('div',{style:'font-size:13.5px;margin-top:8px'},'今天还剩 '+(kt-kd)+' 项没完成，加油～'))
     if(nx){
       const need=Math.max(0,nx.cost-avail)
-      kc.appendChild(h('div',{style:'margin-top:10px;padding:10px 12px;background:var(--primary-weak);border:1px solid var(--primary-border);border-radius:8px;font-size:13px'},'🎁 再攒 '+need+' 积分，就能解锁 '+nx.icon+' '+nx.name+'（需要 ⭐'+nx.cost+'）'))
+      kc.appendChild(h('div',{style:'margin-top:10px;padding:10px 12px;background:var(--primary-weak);border:1px solid var(--primary-border);border-radius:8px;font-size:13.5px'},'🎁 再攒 '+need+' 积分，就能解锁 '+nx.icon+' '+nx.name+'（需要 ⭐'+nx.cost+'）'))
     }
     $c.appendChild(kc)
   }
@@ -815,7 +856,7 @@ function rtoday(){
   tcard.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🎯'}),'今日完成度'))
   function bar(done,total,label,cls){
     const row=h('div',{style:'margin-bottom:10px'})
-    row.appendChild(h('div',{style:'display:flex;justify-content:space-between;font-size:13px;margin-bottom:2px'},h('span',null,label),h('span',{className:'num',style:'color:var(--muted)'},done+' / '+total)))
+    row.appendChild(h('div',{style:'display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:2px'},h('span',null,label),h('span',{className:'num',style:'color:var(--muted)'},done+' / '+total)))
     const pb=h('div',{className:'progress-bar'})
     const pf=h('div',{className:'fill '+cls})
     pf.style.width=(total?Math.round(done/total*100):0)+'%'
@@ -833,7 +874,7 @@ function rtoday(){
     qrow.appendChild(b)
   }
   tcard.appendChild(qrow)
-  tcard.appendChild(h('div',{style:'font-size:12px;color:var(--muted);margin-top:8px'},'点科目名直接跳到「打卡」页并展开该科'))
+  tcard.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-top:8px'},'点科目名直接跳到「打卡」页并展开该科'))
   $c.appendChild(tcard)
 
   // 快捷操作
@@ -864,7 +905,7 @@ function rtoday(){
     const pe=(D.exams||[]).filter(function(e){return e.status==='pending'}).length
     if(pn+pe)al.push({l:'warning',m:'⏳ 有 '+(pn+pe)+' 条待审核（打卡 '+pn+' · 成绩 '+pe+'）'})
   }
-  const ystr=(function(){var d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10)})()
+  const ystr=(function(){var d=new Date();d.setDate(d.getDate()-1);return ymd(d)})()
   const yCnt=(D.checks||[]).filter(function(c){return c.date===ystr}).length
   if(yCnt===0)al.push({l:'warning',m:'⏰ 昨天（'+ystr+'）没有打卡记录，可到「打卡」页补卡'})
   const _lastBk=D._lastBackup||0
@@ -898,11 +939,11 @@ function rckList(){
   const ckd=ckDate()
   const cq=h('div',{className:'card'})
   cq.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📷'}),'拍照打卡（家长审核后加分）'))
-  const minD=(function(){var d=new Date();d.setDate(d.getDate()-2);return d.toISOString().slice(0,10)})()
+  const minD=(function(){var d=new Date();d.setDate(d.getDate()-2);return ymd(d)})()
   const dateRow=h('div',{style:'display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap'})
-  dateRow.innerHTML='<span style="font-size:13px">日期：</span><input type="date" id="checkDateInput" value="'+ckd+'" min="'+minD+'" max="'+td+'" style="width:150px">'+(ckd!==td?'<span style="font-size:12px;color:var(--warning)">（补卡 '+ckd+'）</span>':'')
+  dateRow.innerHTML='<span style="font-size:13.5px">日期：</span><input type="date" id="checkDateInput" value="'+ckd+'" min="'+minD+'" max="'+td+'" style="width:150px">'+(ckd!==td?'<span style="font-size:13px;color:var(--warning)">（补卡 '+ckd+'）</span>':'')
   dateRow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){var v=document.getElementById('checkDateInput').value||td;if(v<minD){ts('⚠️ 只能补最近 2 天（'+minD+'之后）');return}if(v>td){ts('⚠️ 不能选未来日期');return}_checkDate=v;render()}},'切换'))
-  dateRow.appendChild(h('button',{className:'btn btn-warning btn-sm',onClick:function(){var d=new Date();d.setDate(d.getDate()-1);_checkDate=d.toISOString().slice(0,10);render()}},'⏰ 补昨天'))
+  dateRow.appendChild(h('button',{className:'btn btn-warning btn-sm',onClick:function(){var d=new Date();d.setDate(d.getDate()-1);_checkDate=ymd(d);render()}},'⏰ 补昨天'))
   if(ckd!==td)dateRow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_checkDate=null;render()}},'回到今天'))
   cq.appendChild(dateRow)
   const ctrlRow=h('div',{style:'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px'})
@@ -922,17 +963,17 @@ function rckList(){
   function makeCheckCard(type,subj){
     const rec=findRec(subj,type.id,ckd)
     const card=h('div',{className:'check-item '+(rec&&rec.status==='approved'?'done':'')})
-    card.innerHTML='<div class="ci">'+type.icon+'</div><div class="cl">'+type.name+' <span style="font-size:11px;color:var(--muted)">+'+type.pts+'</span></div>'
+    card.innerHTML='<div class="ci">'+type.icon+'</div><div class="cl">'+type.name+' <span style="font-size:12.5px;color:var(--muted)">+'+type.pts+'</span></div>'
     const rImgs=checkImgs(rec)
     if(rImgs.length){
       const ir=h('div',{style:'display:flex;flex-wrap:wrap;gap:5px;margin-top:6px'})
-      rImgs.forEach(function(b){ir.appendChild(h('img',{src:b,style:'width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b,rImgs)}}))})
+      rImgs.forEach(function(b){ir.appendChild(h('img',{alt:'记录照片',loading:'lazy',src:b,style:'width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b,rImgs)}}))})
       card.appendChild(ir)
     }
     if(rec){
       const st=rec.status==='pending'?'⏳ 待审核':rec.status==='approved'?'✅ 已通过':'↩️ 已退回'
       const sc2=rec.status==='pending'?'var(--warning)':rec.status==='approved'?'var(--success)':'var(--muted)'
-      card.appendChild(h('div',{style:'font-size:12px;margin-top:5px;color:'+sc2+';font-weight:600'},st))
+      card.appendChild(h('div',{style:'font-size:13px;margin-top:5px;color:'+sc2+';font-weight:600'},st))
       if(!VW&&rec.status==='pending'){
         const br=h('div',{style:'margin-top:6px;display:flex;gap:5px;justify-content:center'})
         br.appendChild(h('button',{className:'btn btn-success btn-sm',onClick:function(){approveCheck(rec.id)}},'✅ 通过'))
@@ -997,7 +1038,7 @@ function rckList(){
     if(!VW){const del=h('button',{className:'btn btn-danger btn-sm',style:'margin-left:6px',onClick:function(){D.tasks=D.tasks.filter(function(x){return x.id!==task.id});sv(D);render()}});del.innerHTML='✕';item.appendChild(del)}
     tt.appendChild(item)
   }
-  if(todayTasks.length===0)tt.appendChild(h('div',{style:'color:var(--muted);font-size:13px'},'今天还没有任务，可在下方添加'))
+  if(todayTasks.length===0)tt.appendChild(h('div',{style:'color:var(--muted);font-size:13.5px'},'今天还没有任务，可在下方添加'))
   tc.appendChild(tt)
   if(!VW){
     const addRow=h('div',{style:'display:flex;gap:8px;margin-top:10px'})
@@ -1010,8 +1051,8 @@ function rckList(){
   // 连续打卡
   const sc=h('div',{className:'card'})
   sc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔥'}),'习惯连续天数'))
-  function cs_(key){let n=0;const d=new Date();for(let i=0;i<60;i++){const d2=d.toISOString().slice(0,10);const chk=D.dailyChecks[d2];if(chk&&chk[key]){n++;d.setDate(d.getDate()-1)}else break}return n}
-  sc.innerHTML+='<div class="table-scroll"><table><thead><tr><th>项目</th><th>连续天数</th><th>状态</th></tr></thead><tbody>'+hs.ci.map(function(item){const n=cs_(item.key);const st=n>=7?'🟢 优秀':n>=3?'🟡 良好':n>0?'🟠 一般':'🔴 未打卡';return '<tr><td>'+item.icon+' '+item.label+'</td><td><strong>'+n+'</strong> 天</td><td>'+st+'</td></tr>'}).join('')+'</tbody></table></div>'
+  function cs_(key){let n=0;const d=new Date();for(let i=0;i<60;i++){const d2=ymd(d);const chk=D.dailyChecks[d2];if(chk&&chk[key]){n++;d.setDate(d.getDate()-1)}else break}return n}
+  sc.innerHTML+='<div class="table-scroll"><table><thead><tr><th scope="col">项目</th><th scope="col">连续天数</th><th scope="col">状态</th></tr></thead><tbody>'+hs.ci.map(function(item){const n=cs_(item.key);const st=n>=7?'🟢 优秀':n>=3?'🟡 良好':n>0?'🟠 一般':'🔴 未打卡';return '<tr><td>'+item.icon+' '+item.label+'</td><td><strong>'+n+'</strong> 天</td><td>'+st+'</td></tr>'}).join('')+'</tbody></table></div>'
   $c.appendChild(sc)
 }
 
@@ -1056,7 +1097,7 @@ function rset(){
   const rt=D.ritualTime||'20:00'
   const rc=h('div',{className:'card edit-only'})
   rc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🕗'}),'固定学习时间'))
-  rc.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-bottom:8px'},'固定时间比临时起意更省力，孩子不用纠结"要不要学"，到点就做'))
+  rc.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-bottom:8px'},'固定时间比临时起意更省力，孩子不用纠结"要不要学"，到点就做'))
   const rrow=h('div',{style:'display:flex;align-items:center;gap:8px;flex-wrap:wrap'})
   rrow.innerHTML='<input type="time" id="ritualTime" value="'+rt+'" style="width:130px">'
   rrow.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){var v=document.getElementById('ritualTime').value;if(v){D.ritualTime=v;sv(D);render();ts('✅ 学习时间已设为 '+v)}}},'💾 保存'))
@@ -1067,8 +1108,8 @@ function rset(){
   const goals=D.smallGoals||[]
   const gcard=h('div',{className:'card edit-only'})
   gcard.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🎯'}),'小目标阶梯（达成 +10 分）'))
-  gcard.appendChild(h('div',{style:'font-size:12px;color:var(--muted);margin-bottom:8px'},'够得着，别定太高。每次只提一点点（如英语70→75）'))
-  if(!goals.length)gcard.appendChild(h('div',{style:'color:var(--muted);font-size:13px'},'还没有小目标，在下面添加'))
+  gcard.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-bottom:8px'},'够得着，别定太高。每次只提一点点（如英语70→75）'))
+  if(!goals.length)gcard.appendChild(h('div',{style:'color:var(--muted);font-size:13.5px'},'还没有小目标，在下面添加'))
   for(const g of goals){
     const row=h('div',{className:'mistake-item'})
     row.innerHTML='<strong>'+g.subject+'</strong> '+g.from+'→'+g.to+(g.done?' <span style="color:var(--success)">✅ 已达成</span>':'')
@@ -1088,24 +1129,24 @@ function rset(){
   // 平板使用
   const tabCard=h('div',{className:'card edit-only'})
   tabCard.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'💻'}),'平板使用'))
-  tabCard.appendChild(h('div',{style:'font-size:13px',innerHTML:'状态：'+(D.tabUnlock?'✅ 已发放':'⬜ 未发放')+' | 每天限时 <strong>'+(D.tabDailyMinutes||60)+' 分钟</strong>'}))
+  tabCard.appendChild(h('div',{style:'font-size:13.5px',innerHTML:'状态：'+(D.tabUnlock?'✅ 已发放':'⬜ 未发放')+' | 每天限时 <strong>'+(D.tabDailyMinutes||60)+' 分钟</strong>'}))
   const limitRow=h('div',{style:'display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap'})
-  limitRow.innerHTML='<span style="font-size:13px">限时：</span><input type="number" id="tabLimit" value="'+(D.tabDailyMinutes||60)+'" min="10" max="240" step="10" style="width:80px"><span style="font-size:13px">分钟</span>'
+  limitRow.innerHTML='<span style="font-size:13.5px">限时：</span><input type="number" id="tabLimit" value="'+(D.tabDailyMinutes||60)+'" min="10" max="240" step="10" style="width:80px"><span style="font-size:13.5px">分钟</span>'
   limitRow.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){var v=parseInt(document.getElementById('tabLimit').value);if(v>0){D.tabDailyMinutes=v;sv(D);render();ts('✅ 平板限时已设为 '+v+' 分钟')}}},'💾 保存'))
   tabCard.appendChild(limitRow)
   const tgl=h('button',{className:'btn '+(D.tabUnlock?'btn-outline':'btn-success')+' btn-sm',style:'margin-top:8px',onClick:function(){D.tabUnlock=!D.tabUnlock;sv(D);render();ts(D.tabUnlock?'✅ 已标记发放':'已标记未发放')}})
   tgl.innerHTML=D.tabUnlock?'标记为未发放':'✅ 标记为已发放'
   tabCard.appendChild(tgl)
-  tabCard.appendChild(h('div',{style:'font-size:11px;color:var(--muted);margin-top:6px'},'提示：网页只记录规则，实际锁屏请在平板系统的"屏幕使用时间/家长控制"里设置'))
+  tabCard.appendChild(h('div',{style:'font-size:12.5px;color:var(--muted);margin-top:6px'},'提示：网页只记录规则，实际锁屏请在平板系统的"屏幕使用时间/家长控制"里设置'))
   $c.appendChild(tabCard)
 
   // 话费
   const plc=D.pl||0
   const pc=h('div',{className:'card edit-only'})
   pc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📞'}),'话费套餐'))
-  pc.innerHTML+='<div class="table-scroll"><table><thead><tr><th>套餐</th><th>内容</th><th>月费</th><th>当前</th></tr></thead><tbody>'+PLANS.map(function(pp,i){return '<tr><td>'+pp.name+'</td><td>'+pp.data+'</td><td>¥'+pp.cost+'</td><td>'+(i<=plc?'✅':'⬜')+'</td></tr>'}).join('')+'</tbody></table></div>'
+  pc.innerHTML+='<div class="table-scroll"><table><thead><tr><th scope="col">套餐</th><th scope="col">内容</th><th scope="col">月费</th><th scope="col">当前</th></tr></thead><tbody>'+PLANS.map(function(pp,i){return '<tr><td>'+pp.name+'</td><td>'+pp.data+'</td><td>¥'+pp.cost+'</td><td>'+(i<=plc?'✅':'⬜')+'</td></tr>'}).join('')+'</tbody></table></div>'
   const pcost=PLANS.slice(0,Math.min(plc+1,PLANS.length)).reduce(function(a,pp){return a+pp.cost},0)
-  pc.appendChild(h('div',{style:'margin-top:10px;font-size:13px',innerHTML:'💰 月费：<strong>¥'+pcost+'</strong> | 📱：'+(D.phone?'✅ '+(D.phDate?'已发放('+D.phDate+')':'待发放'):'⬜ 待达标')}))
+  pc.appendChild(h('div',{style:'margin-top:10px;font-size:13.5px',innerHTML:'💰 月费：<strong>¥'+pcost+'</strong> | 📱：'+(D.phone?'✅ '+(D.phDate?'已发放('+D.phDate+')':'待发放'):'⬜ 待达标')}))
   const pbr=h('div',{style:'display:flex;gap:8px;margin-top:10px;flex-wrap:wrap'})
   if(plc<PLANS.length-1)pbr.appendChild(h('button',{className:'btn btn-success btn-sm',onClick:function(){D.pl=Math.min(plc+1,PLANS.length-1);sv(D);render();ts('📈 已升级')}},'📈 升级'))
   if(plc>0)pbr.appendChild(h('button',{className:'btn btn-warning btn-sm',onClick:function(){D.pl=Math.max(plc-1,0);sv(D);render();ts('📉 已降级')}},'📉 降级'))
@@ -1120,7 +1161,7 @@ function rset(){
   const rrow2=h('div',{style:'display:flex;align-items:center;gap:10px;flex-wrap:wrap'})
   rrow2.innerHTML='<span>当前：<strong>1元 = '+rate+' 积分</strong></span><input type="number" id="ri" value="'+rate+'" min="0.1" max="100" step="0.1" style="width:90px"><button class="btn btn-primary btn-sm" id="br">更新</button>'
   rt2.appendChild(rrow2)
-  rt2.appendChild(h('div',{style:'font-size:11px;color:var(--muted);margin-top:6px'},'修改后所有零件所需积分自动重算'))
+  rt2.appendChild(h('div',{style:'font-size:12.5px;color:var(--muted);margin-top:6px'},'修改后所有零件所需积分自动重算'))
   rt2.querySelector('#br').addEventListener('click',function(){const nr=parseFloat(rt2.querySelector('#ri').value);if(nr>0){D.rate=nr;sv(D);render();ts('💱 1元='+nr+'积分')}})
   $c.appendChild(rt2)
 
@@ -1129,7 +1170,7 @@ function rset(){
   const hc=h('div',{className:'card edit-only'})
   hc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔁'}),'管理习惯打卡项'))
   const ht=h('table')
-  ht.innerHTML='<thead><tr><th>图标</th><th>名称</th><th>积分</th><th>操作</th></tr></thead><tbody></tbody>'
+  ht.innerHTML='<thead><tr><th scope="col">图标</th><th scope="col">名称</th><th scope="col">积分</th><th scope="col">操作</th></tr></thead><tbody></tbody>'
   const htb=ht.querySelector('tbody')
   for(let i=0;i<ci.length;i++){
     const item=ci[i]
@@ -1161,7 +1202,7 @@ function rset(){
   pec.appendChild(ptgl)
   if(_partEdit){
     const pet=h('table')
-    pet.innerHTML='<thead><tr><th>图标</th><th>名称</th><th>价格¥</th><th>解锁条件</th><th>说明</th><th>操作</th></tr></thead><tbody></tbody>'
+    pet.innerHTML='<thead><tr><th scope="col">图标</th><th scope="col">名称</th><th scope="col">价格¥</th><th scope="col">解锁条件</th><th scope="col">说明</th><th scope="col">操作</th></tr></thead><tbody></tbody>'
     const petb=pet.querySelector('tbody')
     for(let i=0;i<D.parts.length;i++){
       const ep=D.parts[i]
@@ -1188,14 +1229,37 @@ function rset(){
   }
   $c.appendChild(pec)
 
+  // 孩子端链接
+  const sh=h('div',{className:'card edit-only'})
+  sh.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔗'}),'孩子端链接（发给大哥）'))
+  const _kid=((typeof location!=='undefined'&&location.origin&&location.origin!=='null')?location.origin+location.pathname:'index.html')+'?view'
+  sh.appendChild(h('div',{style:'font-size:12.5px;color:var(--muted);margin-bottom:8px;word-break:break-all'},_kid))
+  const sbr=h('div',{style:'display:flex;gap:8px;flex-wrap:wrap'})
+  sbr.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){
+    const done=function(){ts('✅ 已复制，粘贴到微信发给大哥即可')}
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(_kid).then(done).catch(function(){ts('⚠️ 复制失败，请长按上面的链接手动复制')})}
+    else{ts('请长按上面的链接手动复制')}
+  }},'📋 复制孩子端链接'))
+  sbr.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){window.open(_kid,'_blank')}},'🔍 预览孩子端'))
+  sh.appendChild(sbr)
+  sh.appendChild(h('div',{style:'font-size:12px;color:var(--muted);margin-top:8px'},'孩子打开只能看和提交打卡，不能改设置；手机浏览器菜单里选「添加到主屏幕」可以像 App 一样打开'))
+  $c.appendChild(sh)
+
   // 数据备份
   const dm=h('div',{className:'card edit-only'})
   dm.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔧'}),'数据备份'))
   const dbr=h('div',{style:'display:flex;gap:8px;flex-wrap:wrap'})
   dbr.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:exportBackup},'📥 导出备份'))
   dbr.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.onchange=function(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=function(ev){try{const d=JSON.parse(ev.target.result);if(confirm('将覆盖当前所有数据？')){D=normalize(d);sv(D);render();ts('✅ 已导入')}}catch(err){ts('⚠️ 格式错误')}};r.readAsText(f)};inp.click()}},'📤 导入备份'))
+  dbr.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){
+    if(_offline){ts('⚠️ 当前离线，请联网后再清理');return}
+    if(!confirm('只清理这台设备上的本地缓存（照片和记录仍完整保留在云端），然后从云端重新加载。\n\n继续吗？'))return
+    try{localStorage.removeItem(SK);localStorage.removeItem(SK+'_t')}catch(e){}
+    ts('🧹 已清理本机缓存，正在从云端重新加载…')
+    setTimeout(function(){location.reload()},1000)
+  }},'🧹 清理本机缓存'))
   dm.appendChild(dbr)
-  dm.appendChild(h('div',{style:'font-size:12px;color:var(--muted);margin-top:8px'},'上次备份：'+((D._lastBackup)?fd(new Date(D._lastBackup).toISOString().slice(0,10)):'从未导出')+'（建议每周导出一次，存微信收藏或网盘）'))
+  dm.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-top:8px'},'上次备份：'+((D._lastBackup)?fd(ymd(new Date(D._lastBackup))):'从未导出')+'（建议每周导出一次，存微信收藏或网盘）'))
   $c.appendChild(dm)
 }
 
@@ -1214,7 +1278,7 @@ function rs(){
   if(!_showForm){
     const oc=h('div',{className:'card edit-only'})
     oc.appendChild(h('button',{className:'btn btn-primary',onClick:function(){_openExamForm=true;render()}},'＋ 录入考试成绩'))
-    oc.appendChild(h('div',{style:'font-size:12px;color:var(--muted);margin-top:8px'},'点按钮展开录入；录入时可以顺手拍试卷照片，通过后计入'))
+    oc.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-top:8px'},'点按钮展开录入；录入时可以顺手拍试卷照片，通过后计入'))
     $c.appendChild(oc)
   }
   if(_showForm){
@@ -1232,8 +1296,8 @@ function rs(){
     const arr=subjImgs[subId]||[]
     arr.forEach(function(b64,idx){
       const wrap=h('div',{style:'position:relative;display:inline-block'})
-      wrap.appendChild(h('img',{src:b64,style:'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer',onClick:function(){viewImg(b64,arr)}}))
-      wrap.appendChild(h('button',{className:'btn btn-danger btn-sm',style:'position:absolute;top:-6px;right:-6px;padding:0 4px;font-size:10px;line-height:1',onClick:function(){subjImgs[subId].splice(idx,1);renderSubjImgs(subId)}},'✕'))
+      wrap.appendChild(h('img',{alt:'记录照片',loading:'lazy',src:b64,style:'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer',onClick:function(){viewImg(b64,arr)}}))
+      wrap.appendChild(h('button',{className:'btn btn-danger btn-sm',style:'position:absolute;top:-6px;right:-6px;padding:0 4px;font-size:11.5px;line-height:1',onClick:function(){subjImgs[subId].splice(idx,1);renderSubjImgs(subId)}},'✕'))
       box.appendChild(wrap)
     })
   }
@@ -1262,7 +1326,7 @@ function rs(){
     for(const s of subs){
       const oldVal=editing&&orig&&orig.scores&&orig.scores[s.id]!=null?orig.scores[s.id]:''
       const row=h('div',{className:'subj-line'})
-      row.appendChild(h('label',{style:'font-size:12px;color:var(--muted);font-weight:600;display:block;margin-bottom:4px'},s.name+'（满分'+s.full+'，×'+(s.rate*100).toFixed(0)+'%）'))
+      row.appendChild(h('label',{style:'font-size:13px;color:var(--muted);font-weight:600;display:block;margin-bottom:4px'},s.name+'（满分'+s.full+'，×'+(s.rate*100).toFixed(0)+'%）'))
       const r2=h('div',{style:'display:flex;align-items:center;gap:8px;flex-wrap:wrap'})
       r2.appendChild(h('input',{type:'text',placeholder:'数字或ABC',value:String(oldVal),'data-sub':s.id,style:'width:110px'}))
       const upBtn=h('button',{className:'btn btn-outline btn-sm',onClick:function(){
@@ -1354,7 +1418,7 @@ function rs(){
         row.innerHTML='<div><strong>'+fd(ex.date)+' '+ex.sem+' '+ex.examType+'</strong> 总分 '+info.total+'/'+info.fullTotal+'</div>'
         if(ex.imgs&&ex.imgs.length){
           const ir=h('div',{style:'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px'})
-          for(const b of ex.imgs){ir.appendChild(h('img',{src:b,style:'width:70px;height:70px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b,ex.imgs)}}))}
+          for(const b of ex.imgs){ir.appendChild(h('img',{alt:'记录照片',loading:'lazy',src:b,style:'width:70px;height:70px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b,ex.imgs)}}))}
           row.appendChild(ir)
         }
         const br=h('div',{style:'margin-top:8px'})
@@ -1367,6 +1431,59 @@ function rs(){
     }
   }
 
+  // 成绩基准线（起点分）+ 薄弱科目
+  const bsubs=gs(D.sem)
+  const bc=h('div',{className:'card'})
+  const bcHead=h('div',{className:'card-header'},h('span',{innerHTML:'📏'}),'成绩基准线（'+D.sem+' 起点）')
+  if(!VW){const be=h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-left:auto',onClick:function(){_blEdit=!_blEdit;render()}});be.innerHTML=_blEdit?'收起':'✏️ 编辑';bcHead.appendChild(be)}
+  bc.appendChild(bcHead)
+  let btb='<div class="table-scroll"><table><thead><tr><th scope="col">科目</th><th scope="col">卷面</th><th class="col-sm-hide">折算</th><th scope="col">得分率</th><th class="col-sm-hide">状态</th></tr></thead><tbody>'
+  let bkt=0,bkf=0
+  for(const sb of bsubs){
+    const raw=D.bl&&D.bl[sb.id]!=null?D.bl[sb.id]:null
+    const conv=raw!=null?raw*sb.rate:null;const pct=raw!=null?raw/sb.full*100:0
+    if(raw!=null){bkt+=conv;bkf+=sb.full*sb.rate}
+    btb+='<tr><td><strong>'+sb.name+'</strong></td><td>'+(raw!=null?raw+'/'+sb.full:'?/'+sb.full)+'</td><td class="col-sm-hide">'+(conv!=null?conv.toFixed(1)+'/'+(sb.full*sb.rate).toFixed(0):'—')+'</td><td style="color:'+(pct<55?'var(--danger)':pct<70?'var(--warning)':'var(--success)')+';font-weight:600">'+(raw!=null?pct.toFixed(1)+'%':'—')+'</td><td class="col-sm-hide" style="color:'+(raw!=null?'var(--success)':'var(--muted)')+'">'+(raw!=null?'✅ 已有':'⬜ 待填')+'</td></tr>'
+  }
+  btb+='</tbody></table></div>'
+  bc.innerHTML+=btb
+  const bpct=bkf>0?(bkt/bkf*100):0
+  const bfull=bsubs.reduce(function(a,x){return a+x.full*x.rate},0)
+  bc.appendChild(h('div',{style:'margin-top:10px;padding:8px;background:var(--bg-elev);border-radius:6px;font-size:13px',innerHTML:'📊 基准合计：<strong>'+bkt.toFixed(1)+'/'+bkf.toFixed(0)+'</strong>（'+bpct.toFixed(1)+'%）| 满分：'+bfull}))
+  if(!VW&&_blEdit){
+    const beg=h('div',{className:'form-row',style:'margin-top:10px'})
+    for(const sb of bsubs){
+      const v=D.bl&&D.bl[sb.id]!=null?D.bl[sb.id]:''
+      const cell=h('div')
+      cell.appendChild(h('label',null,sb.name+'（满分'+sb.full+'）'))
+      cell.appendChild(h('input',{type:'number',id:'bl_'+sb.id,value:String(v),placeholder:'不填=待考'}))
+      beg.appendChild(cell)
+    }
+    bc.appendChild(beg)
+    bc.appendChild(h('button',{className:'btn btn-primary btn-sm',style:'margin-top:8px',onClick:function(){
+      if(!D.bl)D.bl={}
+      for(const sb of bsubs){const el=document.getElementById('bl_'+sb.id);const val=el.value.trim();D.bl[sb.id]=val===''?null:parseFloat(val)}
+      sv(D);_blEdit=false;render();ts('✅ 基准分已保存')
+    }},'💾 保存基准分'))
+  }
+  $c.appendChild(bc)
+
+  const weakSubs=[]
+  for(const sb of bsubs){const raw=D.bl&&D.bl[sb.id]!=null?D.bl[sb.id]:null;if(raw!=null){const wp=raw/sb.full*100;if(wp<60)weakSubs.push({name:sb.name,pct:wp})}}
+  if(weakSubs.length){
+    const wc=h('div',{className:'card'})
+    wc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🎯'}),'薄弱科目诊断'))
+    for(const w of weakSubs){
+      let adv='回归课本，梳理知识点，多做基础题'
+      if(w.name==='英语')adv='每天背20个单词 + 朗读课文15分钟'
+      else if(w.name==='数学')adv='每天做5道基础计算题，先抓计算准确率'
+      else if(w.name==='语文')adv='每周2篇阅读理解 + 积累作文素材'
+      else if(w.name==='物理')adv='先弄懂每个公式的含义，做课本例题'
+      wc.appendChild(h('div',{className:'alert danger'},'🔴 '+w.name+' 得分率 '+w.pct.toFixed(1)+'% — 建议：'+adv))
+    }
+    $c.appendChild(wc)
+  }
+
   // 成绩趋势图
   const _exs=(D.exams||[]).filter(function(e){return e.status!=='rejected'})
   if(_exs.length>=2){
@@ -1374,7 +1491,7 @@ function rs(){
     const tcc=h('div',{className:'card'})
     tcc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📈'}),'成绩趋势（'+(D.sem||'')+' 得分率）'))
     tcc.appendChild(buildTrendSvg(_sorted))
-    tcc.appendChild(h('div',{style:'font-size:12px;color:var(--muted);margin-top:4px'},'绿色虚线是「三中 625 线」对应得分率 78.1%，点越往上越好'))
+    tcc.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-top:4px'},'绿色虚线是「三中 625 线」对应得分率 78.1%，点越往上越好'))
     $c.appendChild(tcc)
   }
 
@@ -1390,16 +1507,16 @@ function rs(){
       const st=ex.status==='pending'?'⏳ 待审核':ex.status==='rejected'?'↩️ 已退回':'✅'
       const stc=ex.status==='pending'?'var(--warning)':ex.status==='rejected'?'var(--muted)':'var(--success)'
       const row=h('div',{className:'mistake-item'})
-      row.innerHTML='<div><strong>'+fd(ex.date)+' '+ex.sem+' '+ex.examType+'</strong> <span style="color:'+stc+'">'+st+'</span></div><div style="font-size:13px;color:var(--muted);margin-top:2px">总分 <strong style="color:'+pctColor+'">'+info.total+'</strong> / '+info.fullTotal+' （'+ps(info.pct)+'）</div>'
+      row.innerHTML='<div><strong>'+fd(ex.date)+' '+ex.sem+' '+ex.examType+'</strong> <span style="color:'+stc+'">'+st+'</span></div><div style="font-size:13.5px;color:var(--muted);margin-top:2px">总分 <strong style="color:'+pctColor+'">'+info.total+'</strong> / '+info.fullTotal+' （'+ps(info.pct)+'）</div>'
       if(ex.imgs&&ex.imgs.length){
         const ir=h('div',{style:'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px'})
-        for(const b of ex.imgs){ir.appendChild(h('img',{src:b,style:'width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b,ex.imgs)}}))}
+        for(const b of ex.imgs){ir.appendChild(h('img',{alt:'记录照片',loading:'lazy',src:b,style:'width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b,ex.imgs)}}))}
         row.appendChild(ir)
       }
       if(ex.history&&ex.history.length){
-        const hd=h('div',{style:'margin-top:6px;font-size:12px;color:var(--faint)'})
+        const hd=h('div',{style:'margin-top:6px;font-size:13px;color:var(--faint)'})
         hd.appendChild(h('div',{style:'font-weight:600;color:var(--muted)'},'📝 更新日志（'+ex.history.length+'条）'))
-        for(const hh of ex.history){hd.appendChild(h('div',{style:'margin-top:2px'},fd(new Date(hh.ts).toISOString().slice(0,10))+': '+hh.note))}
+        for(const hh of ex.history){hd.appendChild(h('div',{style:'margin-top:2px'},fd(ymd(new Date(hh.ts)))+': '+hh.note))}
         row.appendChild(hd)
       }
       if(!VW&&ex.status!=='approved'){
@@ -1464,19 +1581,19 @@ function rp(){
   for(const part of D.parts){
     const pcost=Math.round(part.value*rate)
     const card=h('div',{className:'part-card '+(part.unlocked?'unlocked':'locked'),onClick:()=>{if(!VW&&part.unlocked&&!part.received){if(confirm('标记 "'+part.name+'" 为已签收？')){part.received=true;sv(D);render();ts('✅ 已标记签收 · '+praise('part'))}}}})
-    card.innerHTML='<div class="pb">'+(part.received?'✅':part.unlocked?'🔓':'🔒')+'</div><div class="pi">'+part.icon+'</div><div class="pn">'+part.name+'</div><div class="pv">¥'+part.value.toLocaleString()+' / ⭐'+pcost.toLocaleString()+'</div><div class="pc">'+part.cond+'</div><div style="font-size:10px;color:var(--muted);margin-top:2px">'+(part.exchange?('需 '+pcost.toLocaleString()+' 积分兑换'):part.det)+'</div>'
+    card.innerHTML='<div class="pb">'+(part.received?'✅':part.unlocked?'🔓':'🔒')+'</div><div class="pi">'+part.icon+'</div><div class="pn">'+part.name+'</div><div class="pv">¥'+part.value.toLocaleString()+' / ⭐'+pcost.toLocaleString()+'</div><div class="pc">'+part.cond+'</div><div style="font-size:11.5px;color:var(--muted);margin-top:2px">'+(part.exchange?('需 '+pcost.toLocaleString()+' 积分兑换'):part.det)+'</div>'
     if(part.exchange&&!part.unlocked&&!VW){
       const need=pcost
       const can=availPts>=need
-      card.appendChild(h('button',{className:'btn btn-sm '+(can?'btn-success':'btn-outline'),style:'margin-top:6px;font-size:11px',onClick:(e)=>{e.stopPropagation();if(availPts<need){ts('⚠️ 积分不足，还差 '+(need-availPts).toLocaleString()+' 分');return}if(confirm('确认用 '+need.toLocaleString()+' 积分兑换 '+part.name+'？')){D.points.push({date:td,source:'兑换 '+part.name,points:need,type:'spend'});part.unlocked=true;sv(D);render();ts('✅ 已兑换 '+part.name+' · '+praise('part'))}}},(can?'💰 兑换 ⭐':'🔒 积分不足')))
+      card.appendChild(h('button',{className:'btn btn-sm '+(can?'btn-success':'btn-outline'),style:'margin-top:6px;font-size:12.5px',onClick:(e)=>{e.stopPropagation();if(availPts<need){ts('⚠️ 积分不足，还差 '+(need-availPts).toLocaleString()+' 分');return}if(confirm('确认用 '+need.toLocaleString()+' 积分兑换 '+part.name+'？')){D.points.push({date:td,source:'兑换 '+part.name,points:need,type:'spend'});part.unlocked=true;sv(D);render();ts('✅ 已兑换 '+part.name+' · '+praise('part'))}}},(can?'💰 兑换 ⭐':'🔒 积分不足')))
     }
-    if(!VW)card.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-top:6px;font-size:10px',onClick:(e)=>{e.stopPropagation();const np=prompt('修改 '+part.name+' 价格（当前：¥'+part.value.toLocaleString()+'）：',part.value);if(np!==null){const v=parseFloat(np);if(!isNaN(v)&&v>0){part.value=v;sv(D);render();ts('✅ 已更新')}}}},'✏️ 改价'))
+    if(!VW)card.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-top:6px;font-size:11.5px',onClick:(e)=>{e.stopPropagation();const np=prompt('修改 '+part.name+' 价格（当前：¥'+part.value.toLocaleString()+'）：',part.value);if(np!==null){const v=parseFloat(np);if(!isNaN(v)&&v>0){part.value=v;sv(D);render();ts('✅ 已更新')}}}},'✏️ 改价'))
     grid.appendChild(card)
   }
   pc.appendChild(grid)
   const av=D.parts.reduce((s,p)=>s+p.value,0)
   const ap=D.parts.reduce((s,p)=>s+Math.round(p.value*rate),0)
-  pc.appendChild(h('div',{style:'margin-top:14px;padding:10px;background:var(--bg-elev);border-radius:6px;font-size:13px;text-align:center',innerHTML:'💰 全部总价：<strong>¥'+av.toLocaleString()+'</strong> | 共需积分：<strong>⭐'+ap.toLocaleString()+'</strong>（1元='+rate+'分）'}))
+  pc.appendChild(h('div',{style:'margin-top:14px;padding:10px;background:var(--bg-elev);border-radius:6px;font-size:13.5px;text-align:center',innerHTML:'💰 全部总价：<strong>¥'+av.toLocaleString()+'</strong> | 共需积分：<strong>⭐'+ap.toLocaleString()+'</strong>（1元='+rate+'分）'}))
   $c.appendChild(pc)
 
   /* 管理零件清单已移到「设置」页 */
@@ -1512,7 +1629,7 @@ function rpt(){
     for(var pi=0;pi<sorted.length;pi++){
       var p=sorted[pi]
       rows2+='<tr><td>'+fd(p.date)+'</td><td>'+p.source+'</td>'
-      rows2+='<td>'+(p.type==='earn'?'🟢 赚取':'🔴 支出')+'</td>'
+      rows2+='<td class="col-sm-hide">'+(p.type==='earn'?'🟢 赚取':'🔴 支出')+'</td>'
       rows2+='<td style="font-weight:700;color:'+(p.type==='earn'?'var(--success)':'var(--danger)')+'">'+(p.type==='earn'?'+':'-')+p.points+'</td>'
       if(!VW){
         var btnId='btn_'+pi
@@ -1520,28 +1637,28 @@ function rpt(){
       }else{rows2+='<td></td>'}
       rows2+='</tr>'
     }
-    dc.innerHTML+='<div class="table-scroll"><table><thead><tr><th>日期</th><th>来源</th><th>类型</th><th>分值</th><th>操作</th></tr></thead><tbody>'+rows2+'</tbody></table></div>'
+    dc.innerHTML+='<div class="table-scroll"><table><thead><tr><th scope="col">日期</th><th scope="col">来源</th><th class="col-sm-hide">类型</th><th scope="col">分值</th><th scope="col">操作</th></tr></thead><tbody>'+rows2+'</tbody></table></div>'
     if(!VW){for(var pi2=0;pi2<sorted.length;pi2++){(function(p2){var el=dc.querySelector('#btn_'+pi2);if(el)el.onclick=function(){D.points=D.points.filter(function(x){return x.date!==p2.date||x.source!==p2.source});sv(D);render()}})(sorted[pi2])}}
-    if(D.points.length>50)dc.appendChild(h('div',{style:'text-align:center;color:var(--muted);margin-top:8px;font-size:12px'},'仅显示最近50条'))
+    if(D.points.length>50)dc.appendChild(h('div',{style:'text-align:center;color:var(--muted);margin-top:8px;font-size:13px'},'仅显示最近50条'))
   }
   $c.appendChild(dc)
 
   const rc=h('div',{className:'card'})
   rc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📖'}),'积分规则（自动发放）'))
   const _ci=D.dci||defData().dci
-  let _rtb='<div class="table-scroll"><table><thead><tr><th>来源</th><th>积分</th></tr></thead><tbody>'
+  let _rtb='<div class="table-scroll"><table><thead><tr><th scope="col">来源</th><th scope="col">积分</th></tr></thead><tbody>'
   _rtb+='<tr><td>📷 拍照打卡（家长审核通过后）</td><td>'+CHECK_TYPES.map(function(t){return t.name+' +'+t.pts}).join('、')+'</td></tr>'
   if(_ci.length)_rtb+='<tr><td>🔁 习惯打卡（打勾即加）</td><td>'+_ci.map(function(it){return it.label+' +'+it.pts}).join('、')+'</td></tr>'
   _rtb+='<tr><td>🎯 小目标达成</td><td>+10 / 个</td></tr>'
   _rtb+='<tr><td>✅ 家长手动添加</td><td>在「积分账本」页录入</td></tr>'
   _rtb+='</tbody></table></div>'
   rc.innerHTML+=_rtb
-  rc.appendChild(h('div',{style:'font-size:12px;color:var(--muted);padding:8px;background:var(--bg-elev);border-radius:6px;margin-top:8px'},'大考奖励分数不会自动加，请参考下表用「手动添加」录入实际达成的项'))
+  rc.appendChild(h('div',{style:'font-size:13px;color:var(--muted);padding:8px;background:var(--bg-elev);border-radius:6px;margin-top:8px'},'大考奖励分数不会自动加，请参考下表用「手动添加」录入实际达成的项'))
   $c.appendChild(rc)
 
   const erc=h('div',{className:'card'})
   erc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🏅'}),'大考积分参考（手动录入）'))
-  erc.innerHTML+='<div class="table-scroll"><table><thead><tr><th>积分项</th><th>参考分值</th></tr></thead><tbody><tr><td>🏅 达标基础分</td><td><strong>+150</strong></td></tr><tr><td>🚀 超标加分</td><td><strong>+15/分</strong></td></tr><tr><td>📚 单科达标</td><td><strong>+40/科</strong></td></tr><tr><td>🌟 全科达标</td><td><strong>+80</strong></td></tr><tr><td>📈 进步奖</td><td><strong>+60</strong></td></tr><tr><td>🔥 连续达标</td><td><strong>+80</strong></td></tr></tbody></table></div><div style="margin-top:10px;font-size:12px;color:var(--muted);padding:8px;background:var(--warning-weak);border-radius:6px">💡 <strong>示例：</strong>达标150 + 超标45 + 3科120 + 进步60 = <strong>375 分</strong></div>'
+  erc.innerHTML+='<div class="table-scroll"><table><thead><tr><th scope="col">积分项</th><th scope="col">参考分值</th></tr></thead><tbody><tr><td>🏅 达标基础分</td><td><strong>+150</strong></td></tr><tr><td>🚀 超标加分</td><td><strong>+15/分</strong></td></tr><tr><td>📚 单科达标</td><td><strong>+40/科</strong></td></tr><tr><td>🌟 全科达标</td><td><strong>+80</strong></td></tr><tr><td>📈 进步奖</td><td><strong>+60</strong></td></tr><tr><td>🔥 连续达标</td><td><strong>+80</strong></td></tr></tbody></table></div><div style="margin-top:10px;font-size:13px;color:var(--muted);padding:8px;background:var(--warning-weak);border-radius:6px">💡 <strong>示例：</strong>达标150 + 超标45 + 3科120 + 进步60 = <strong>375 分</strong></div>'
   $c.appendChild(erc)
 }
 
@@ -1559,7 +1676,7 @@ function rcal(){
   function dayApproved(ds){return (D.checks||[]).filter(function(c){return c.date===ds&&c.status==='approved'}).length}
 
   // 醒目的鼓励横幅
-  const todayStr0=new Date().toISOString().slice(0,10)
+  const todayStr0=ymd()
   function monthDays(){const days={};for(const c of (D.checks||[])){if(c.date&&c.date.indexOf(y+'-'+pad(m+1))===0){days[c.date]=1}}return Object.keys(days).length}
   const mdays=monthDays()
   const todayCnt=(D.checks||[]).filter(function(c){return c.date===todayStr0}).length
@@ -1582,7 +1699,7 @@ function rcal(){
   nav.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_calM++;if(_calM>11){_calM=0;_calY++}render()}},'下月 →'))
   head.appendChild(nav)
   // 图例
-  head.appendChild(h('div',{style:'font-size:12px;color:var(--muted);margin-top:10px;display:flex;gap:14px;flex-wrap:wrap'},'🟢 有打卡 · ⚪ 无打卡 · 数字=当天打卡次数'))
+  head.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-top:10px;display:flex;gap:14px;flex-wrap:wrap'},'🟢 有打卡 · ⚪ 无打卡 · 数字=当天打卡次数'))
   $c.appendChild(head)
 
   // 日历网格
@@ -1592,9 +1709,9 @@ function rcal(){
   const calCard=h('div',{className:'card'})
   const wk=['一','二','三','四','五','六','日']
   const grid=h('div',{style:'display:grid;grid-template-columns:repeat(7,1fr);gap:4px'})
-  for(const w of wk){grid.appendChild(h('div',{style:'text-align:center;font-size:12px;color:var(--faint);padding:6px 0;font-weight:600'},w))}
+  for(const w of wk){grid.appendChild(h('div',{style:'text-align:center;font-size:13px;color:var(--faint);padding:6px 0;font-weight:600'},w))}
   for(let i=0;i<offset;i++){grid.appendChild(h('div',null))}
-  const todayStr=new Date().toISOString().slice(0,10)
+  const todayStr=ymd()
   for(let d=1;d<=daysInMonth;d++){
     const ds=dateStr(d)
     const cnt=dayCount(ds)
@@ -1602,11 +1719,11 @@ function rcal(){
     const isToday=ds===todayStr
     const isSel=ds===_calSel
     const cell=h('div',{style:'min-height:56px;border-radius:8px;padding:4px;cursor:pointer;border:1px solid '+(isSel?'var(--primary-border)':isToday?'var(--border-strong)':'var(--border)')+';background:'+(cnt>0?(app===cnt&&cnt>0?'var(--success-weak)':'var(--warning-weak)'):'transparent'),onClick:function(){_calSel=(_calSel===ds)?null:ds;render()}})
-    cell.appendChild(h('div',{style:'font-size:13px;font-weight:'+(isToday?'700':'500')+';color:'+(isToday?'var(--primary)':'var(--text)')},d))
+    cell.appendChild(h('div',{style:'font-size:13.5px;font-weight:'+(isToday?'700':'500')+';color:'+(isToday?'var(--primary)':'var(--text)')},d))
     if(cnt>0){
-      cell.appendChild(h('div',{style:'text-align:center;margin-top:4px'},h('span',{style:'display:inline-block;min-width:18px;padding:1px 6px;border-radius:10px;font-size:11px;font-weight:700;color:#fff;background:'+(app===cnt?'var(--success)':'var(--warning)')},cnt)))
+      cell.appendChild(h('div',{style:'text-align:center;margin-top:4px'},h('span',{style:'display:inline-block;min-width:18px;padding:1px 6px;border-radius:10px;font-size:12.5px;font-weight:700;color:#fff;background:'+(app===cnt?'var(--success)':'var(--warning)')},cnt)))
     }else{
-      cell.appendChild(h('div',{style:'text-align:center;margin-top:4px;font-size:11px;color:var(--faint)'},'⚪'))
+      cell.appendChild(h('div',{style:'text-align:center;margin-top:4px;font-size:12.5px;color:var(--faint)'},'⚪'))
     }
     grid.appendChild(cell)
   }
@@ -1618,16 +1735,16 @@ function rcal(){
     const selChecks=(D.checks||[]).filter(function(c){return c.date===_calSel})
     const dc=h('div',{className:'card'})
     dc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📅'}),_calSel+' 打卡详情（'+selChecks.length+'条）'))
-    if(!selChecks.length){dc.appendChild(h('div',{style:'color:var(--muted);font-size:13px'},'这天没有打卡记录'))}
+    if(!selChecks.length){dc.appendChild(h('div',{style:'color:var(--muted);font-size:13.5px'},'这天没有打卡记录'))}
     else{
       for(const c of selChecks){
         const type=CHECK_TYPES.find(function(t){return t.id===c.type})||{name:c.typeName,icon:''}
         const st=c.status==='pending'?'⏳ 待审核':c.status==='approved'?'✅ 已通过':'↩️ 已退回'
         const sc2=c.status==='pending'?'var(--warning)':c.status==='approved'?'var(--success)':'var(--muted)'
         const row=h('div',{className:'mistake-item'})
-        row.innerHTML='<div><strong>'+type.icon+' '+(c.subject?c.subject+'·':'')+type.name+'</strong> <span style="color:'+sc2+'">'+st+'</span> <span style="color:var(--muted);font-size:12px">+'+c.pts+'分</span></div>'
+        row.innerHTML='<div><strong>'+type.icon+' '+(c.subject?c.subject+'·':'')+type.name+'</strong> <span style="color:'+sc2+'">'+st+'</span> <span style="color:var(--muted);font-size:13px">+'+c.pts+'分</span></div>'
         const cImgs=checkImgs(c)
-        if(cImgs.length){const cir=h('div',{style:'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px'});cImgs.forEach(function(b){cir.appendChild(h('img',{src:b,style:'width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b,cImgs)}}))});row.appendChild(cir)}
+        if(cImgs.length){const cir=h('div',{style:'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px'});cImgs.forEach(function(b){cir.appendChild(h('img',{alt:'记录照片',loading:'lazy',src:b,style:'width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b,cImgs)}}))});row.appendChild(cir)}
         dc.appendChild(row)
       }
     }
@@ -1641,9 +1758,9 @@ function rwk(){
   $c.innerHTML=''
   const now=new Date();const day=now.getDay()||7
   const weekStart=new Date(now);weekStart.setDate(now.getDate()-day+1)
-  const weekStartStr=weekStart.toISOString().slice(0,10)
+  const weekStartStr=ymd(weekStart)
   let weekChecks=0
-  for(let i=0;i<7;i++){const d=new Date(weekStart);d.setDate(weekStart.getDate()+i);const ds=d.toISOString().slice(0,10);const chk=D.dailyChecks[ds];if(chk){for(const k in chk){if(chk[k])weekChecks++}}}
+  for(let i=0;i<7;i++){const d=new Date(weekStart);d.setDate(weekStart.getDate()+i);const ds=ymd(d);const chk=D.dailyChecks[ds];if(chk){for(const k in chk){if(chk[k])weekChecks++}}}
   const weekPoints=D.points.filter(function(p){return p.date>=weekStartStr}).reduce(function(s,p){return s+(p.type==='earn'?p.points:-p.points)},0)
   let weekMistakes=0
   for(const _c of (D.checks||[])){if(_c.date>=weekStartStr&&_c.type==='mistake'&&_c.status!=='rejected')weekMistakes++}
@@ -1652,18 +1769,18 @@ function rwk(){
   for(const s of bsubs){const raw=bl[s.id];if(raw!=null){const p=raw/s.full*100;if(p<60)weak.push(s.name+'('+p.toFixed(0)+'%)')}}
   const rp=h('div',{className:'card'})
   rp.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📊'}),'学习周报'))
-  rp.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-bottom:12px'},'本周：'+fd(weekStartStr)+' ~ '+fd(now.toISOString().slice(0,10))))
+  rp.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-bottom:12px'},'本周：'+fd(weekStartStr)+' ~ '+fd(ymd(now))))
   const items=[{icon:'✅',label:'本周打卡',val:weekChecks+' 次'},{icon:'⭐',label:'本周积分',val:(weekPoints>0?'+':'')+weekPoints+' 分'},{icon:'📕',label:'本周新增错题',val:weekMistakes+' 道'},{icon:'🎯',label:'薄弱科目',val:weak.length?weak.join('、'):'暂无'}]
   for(const it of items){rp.appendChild(h('div',{style:'display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:14px'},h('span',null,it.icon+' '+it.label),h('strong',null,it.val)))}
-  rp.appendChild(h('div',{style:'margin-top:14px;padding:12px;background:var(--primary-weak);border-radius:8px;font-size:13px',innerHTML:'💡 <strong>下周建议：</strong>'+(weak.length?'重点突破 '+weak[0]+'，每天15分钟专项练习':'保持当前节奏，巩固已学知识')}))
+  rp.appendChild(h('div',{style:'margin-top:14px;padding:12px;background:var(--primary-weak);border-radius:8px;font-size:13.5px',innerHTML:'💡 <strong>下周建议：</strong>'+(weak.length?'重点突破 '+weak[0]+'，每天15分钟专项练习':'保持当前节奏，巩固已学知识')}))
   rp.appendChild(h('div',{className:'daily-praise',style:'margin-top:12px'},'💬 一周的坚持看得见，下周继续加油！'))
   if(!VW){
     rp.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-top:12px',onClick:function(){
-      let txt='【阿勒学习周报】\n'+fd(weekStartStr)+' ~ '+fd(now.toISOString().slice(0,10))+'\n本周打卡：'+weekChecks+'次\n本周积分：'+(weekPoints>0?'+':'')+weekPoints+'分\n新增错题：'+weekMistakes+'道\n薄弱科目：'+(weak.length?weak.join('、'):'暂无')+'\n下周建议：'+(weak.length?'重点突破 '+weak[0]:'保持节奏')+'\n'
+      let txt='【阿勒学习周报】\n'+fd(weekStartStr)+' ~ '+fd(ymd(now))+'\n本周打卡：'+weekChecks+'次\n本周积分：'+(weekPoints>0?'+':'')+weekPoints+'分\n新增错题：'+weekMistakes+'道\n薄弱科目：'+(weak.length?weak.join('、'):'暂无')+'\n下周建议：'+(weak.length?'重点突破 '+weak[0]:'保持节奏')+'\n'
       navigator.clipboard.writeText(txt).then(function(){ts('✅ 周报已复制 · '+praise('week'))}).catch(function(){ts('⚠️ 复制失败')})
     }},'📋 复制周报到家庭群'))
     rp.appendChild(h('button',{className:'btn btn-success btn-sm edit-only',style:'margin-top:12px;margin-left:8px',onClick:function(){
-      exportWeekly({range:fd(weekStartStr)+' ~ '+fd(now.toISOString().slice(0,10)),items:items.map(function(x){return {label:x.label,val:x.val}}),advice:(weak.length?'重点突破 '+weak[0]+'，每天15分钟专项练习':'保持当前节奏，巩固已学知识')})
+      exportWeekly({range:fd(weekStartStr)+' ~ '+fd(ymd(now)),items:items.map(function(x){return {label:x.label,val:x.val}}),advice:(weak.length?'重点突破 '+weak[0]+'，每天15分钟专项练习':'保持当前节奏，巩固已学知识')})
     }},'🖼 存成图片发群'))
   }
   $c.appendChild(rp)
@@ -1692,6 +1809,7 @@ document.addEventListener('visibilitychange',function(){
 })
 render()
 ;(async function boot(){
+  const _tip=document.createElement('div');_tip.id='bootTip';_tip.textContent='☁️ 正在同步云端数据…';document.body.appendChild(_tip)
   const ok=await initCloud()
   if(ok){
     setCloudStatus('🔄 同步中...',true)
@@ -1701,7 +1819,7 @@ render()
       _dirty=true;scheduleRetry()
     }else if(cd){
       const localT=parseInt(localStorage.getItem(SK+'_t')||'0',10)
-      const localNewer=localT>_cloudTs+5000
+      const localNewer=localT>_cloudTs+5000&&!D._slim
       if(!localNewer){
         D=normalize(cd)
         if(!D.dailyChecks[td]){const ds={};for(const it of (D.dci||defData().dci))ds[it.key]=false;D.dailyChecks[td]=ds}
@@ -1715,6 +1833,7 @@ render()
   }else{
     setCloudStatus('📴 本地模式（未连云端）',false)
   }
+  const _t2=document.getElementById('bootTip');if(_t2)_t2.remove()
 })()
 </script>
 </body>
