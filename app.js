@@ -173,9 +173,181 @@ function sv(d){
 }
 
 const up=new URLSearchParams(window.location.search)
-const VW=up.has('view')||up.has('readonly')
+let VW=up.has('view')||up.has('readonly')
 const NOCLOUD=up.has('local')   // 加 ?local 可强制本地模式（排查问题/离线演示用）
 if(VW){document.body.classList.add('view-only');const b=document.getElementById('modeBadge');b.textContent='👀 查看模式';b.className='badge view';b.style.display=''}
+
+/* ================= 访问口令（家长 / 孩子） ================= */
+let _lv=''
+function hsh(s){let h=5381;s=String(s);for(let i=0;i<s.length;i++){h=((h<<5)+h+s.charCodeAt(i))|0}return 'h'+(h>>>0).toString(36)}
+function closeGate(){const g=document.getElementById('gate');if(g)g.remove()}
+function _gateBox(title,desc,fields,btnText,onOk){
+  closeGate()
+  const ov=document.createElement('div');ov.id='gate'
+  const box=document.createElement('div');box.className='gate-box'
+  box.appendChild(h('div',{className:'gate-title'},title))
+  if(desc)box.appendChild(h('div',{className:'gate-desc'},desc))
+  const inputs=fields.map(function(f){
+    box.appendChild(h('div',{className:'gate-label'},f.label))
+    const i=h('input',{type:'password',placeholder:f.ph||'',id:'g_'+f.k})
+    box.appendChild(i);return i
+  })
+  const err=h('div',{className:'gate-err'})
+  const btn=h('button',{className:'btn btn-primary',style:'width:100%;margin-top:12px',onClick:function(){
+    const msg=onOk(inputs.map(function(i){return i.value}))
+    err.textContent=msg||''
+  }},btnText)
+  box.appendChild(btn)
+  box.appendChild(err)
+  ov.appendChild(box)
+  document.body.appendChild(ov)
+  if(inputs[0])inputs[0].focus()
+}
+function showSetup(){
+  _gateBox('设置访问口令','这台设备第一次使用，请设置两个口令：家长口令（全部权限）、孩子口令（只能看和打卡）。以后打开都要输入，可以放心把链接发给家人。',
+    [{k:'p',label:'家长口令',ph:'自己起一个，至少 4 位'},{k:'c',label:'孩子口令',ph:'给孩子用的，至少 3 位'}],
+    '保存并进入',function(v){
+      const p=(v[0]||'').trim(),c=(v[1]||'').trim()
+      if(p.length<4)return '家长口令至少 4 位'
+      if(c.length<3)return '孩子口令至少 3 位'
+      D._auth={p:hsh(p),c:hsh(c)}
+      localStorage.setItem('lc_lv','p');localStorage.setItem('lc_tok',hsh(p))
+      closeGate();applyLv('p');sv(D);render();ts('✅ 口令已设置，本机已记住')
+      return ''
+    })
+}
+function showGate(){
+  _gateBox('请输入口令','',[{k:'x',label:'口令',ph:'家长口令 或 孩子口令'}],'进入',function(v){
+    const pw=(v[0]||'').trim()
+    if(!pw)return '请输入口令'
+    if(D._auth&&hsh(pw)===D._auth.p){localStorage.setItem('lc_lv','p');localStorage.setItem('lc_tok',hsh(pw));closeGate();applyLv('p');render();return ''}
+    if(D._auth&&hsh(pw)===D._auth.c){localStorage.setItem('lc_lv','c');localStorage.setItem('lc_tok',hsh(pw));closeGate();applyLv('c');render();return ''}
+    return '口令不对，再试试'
+  })
+}
+function applyLv(lv){
+  _lv=lv
+  if(lv==='c'){
+    VW=true
+    document.body.classList.add('view-only')
+    const b=document.getElementById('modeBadge')
+    if(b){b.textContent='👀 查看模式';b.className='badge view';b.style.display=''}
+  }
+}
+function initAuth(){
+  const saved=localStorage.getItem('lc_lv')||''
+  if(!(D._auth&&D._auth.p)){showSetup();return}
+  if(saved==='p'||saved==='c'){applyLv(saved);render();return}
+  showGate()
+}
+function logout(){
+  localStorage.removeItem('lc_lv');localStorage.removeItem('lc_tok')
+  location.reload()
+}
+
+/* ================= AI 助手（密钥在云函数里，网页端不存） ================= */
+const AI_FN='leaiai'
+function aiToken(){return localStorage.getItem('lc_tok')||''}
+async function aiCall(prompt){
+  if(!cloudReady||!cloudApp||typeof cloudApp.callFunction!=='function')return {ok:false,err:'未连接云端'}
+  try{
+    const r=await cloudApp.callFunction({name:AI_FN,data:{token:aiToken(),prompt:prompt}})
+    const res=r&&r.result
+    if(res&&res.ok)return {ok:true,text:String(res.text||'')}
+    return {ok:false,err:(res&&res.err)||'AI 函数未部署'}
+  }catch(e){return {ok:false,err:'AI 函数未部署'}}
+}
+function weekStats(){
+  const now=new Date();const day=now.getDay()||7
+  const ws=new Date(now);ws.setDate(now.getDate()-day+1)
+  const wsStr=ymd(ws)
+  let checks=0,habits=0
+  for(let i=0;i<7;i++){const d=new Date(ws);d.setDate(ws.getDate()+i);const ds=ymd(d)
+    const chk=D.dailyChecks[ds];if(chk){for(const k in chk){if(chk[k])habits++}}
+  }
+  checks=(D.checks||[]).filter(function(c){return c.date>=wsStr&&c.status==='approved'}).length
+  const pend=(D.checks||[]).filter(function(c){return c.date>=wsStr&&c.status==='pending'}).length
+  const pts=(D.points||[]).filter(function(p){return p.date>=wsStr}).reduce(function(a,p){return a+(p.type==='earn'?p.points:-p.points)},0)
+  const mis=(D.checks||[]).filter(function(c){return c.date>=wsStr&&c.type==='mistake'&&c.status!=='rejected'}).length
+  const subs=gs(D.sem)
+  const weak=[]
+  for(const s of subs){const raw=D.bl&&D.bl[s.id]!=null?D.bl[s.id]:null;if(raw!=null){const p=raw/s.full*100;if(p<70)weak.push(s.name+' '+p.toFixed(0)+'%')}}
+  const lt=D.exams.length?[...D.exams].sort(function(a,b){return (a.date||'').localeCompare(b.date||'')})[D.exams.length-1]:null
+  let examTxt='本周没有录入考试。'
+  const wk=D.exams.filter(function(e){return (e.date||'')>=wsStr})
+  if(wk.length){examTxt=wk.map(function(e){const i2=ct(e.scores,e.sem);return e.date+' '+e.examType+' 总分'+i2.total+'/'+i2.fullTotal+'（'+i2.pct.toFixed(1)+'%）'}).join('；')}
+  return {wsStr:wsStr,checks:checks,pend:pend,habits:habits,pts:pts,mis:mis,weak:weak,examTxt:examTxt,lt:lt}
+}
+function aiWeekPrompt(){
+  const w=weekStats()
+  const L=[]
+  L.push('你是初二学生的学习教练，也是家长的参谋。根据下面这一周的真实数据，用中文输出三段，总字数不超过 260 字：')
+  L.push('① 一句话肯定（具体到某个行为，不要空泛）')
+  L.push('② 这周最值得注意的 1 个问题（必须引用数据）')
+  L.push('③ 下周具体的 3 件事（每天可完成、可勾选）')
+  L.push('要求：不客套、不喊口号、不鸡汤；如果数据太少就直说数据不足，不要编。')
+  L.push('')
+  L.push('【本周数据】')
+  L.push('· 拍照打卡通过 '+w.checks+' 次，待审核 '+w.pend+' 次')
+  L.push('· 习惯打卡（打勾）'+w.habits+' 次')
+  L.push('· 本周积分变动 '+w.pts)
+  L.push('· 本周整理错题 '+w.mis+' 道')
+  L.push('· 成绩基准偏弱科目：'+(w.weak.length?w.weak.join('、'):'暂无（都在 70% 以上）'))
+  L.push('· 本周考试：'+w.examTxt)
+  return L.join('\n')
+}
+function aiPraisePrompt(){
+  const ds=dayStats(td),hs=habStats(td)
+  const doneNow=[]
+  ;(D.checks||[]).filter(function(c){return c.date===td&&c.status==='approved'}).forEach(function(c){doneNow.push((c.subject?c.subject+'·':'')+c.typeName)})
+  const hk=hs.tchk;for(const it of hs.ci){if(hk[it.key])doneNow.push(it.label)}
+  return '你是初二学生的学习伙伴。请写一句 30 字以内的鼓励，要求：\n· 具体到他今天做的某件事（不要说空泛的"加油""真棒"）\n· 不要超过 1 个感叹号\n· 不要说教\n\n【他今天完成的】\n'+(doneNow.length?doneNow.join('、'):'今天还没有完成打卡')+'\n【今天还没有做的】\n'+(hs.total-hs.done)+' 项习惯打卡待完成'
+}
+function aiCardUI(kind){
+  const isReport=(kind==='report')
+  const store=isReport?(D._aiReport||null):(D._aiPraise||null)
+  const fresh=!isReport||!store||store.date!==td?store:(store.date===td?store:null)
+  const c=h('div',{className:'card'})
+  const head=h('div',{className:'card-header'},h('span',{innerHTML:'🤖'}),isReport?'AI 周报点评':'AI 今日鼓励')
+  if(store&&store.text)head.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-left:auto',onClick:function(){if(isReport)D._aiReport=null;else D._aiPraise=null;sv(D);render()}},'清除'))
+  c.appendChild(head)
+  if(store&&store.text){
+    c.appendChild(h('div',{style:'font-size:13.5px;line-height:1.75;white-space:pre-wrap;background:var(--bg-elev);border-radius:8px;padding:10px 12px;border:1px solid var(--border)'},store.text))
+    c.appendChild(h('div',{style:'font-size:11.5px;color:var(--faint);margin-top:6px'},store.at?('生成于 '+fd(ymd(new Date(store.at)))+' '+fmtHM(store.at)):''))
+  }else{
+    c.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-bottom:8px'},isReport?'还没有点评。点「一键生成」，或复制提示词自己去问，再把结果粘回来。':'还没有今日鼓励。'))
+  }
+  const row=h('div',{style:'display:flex;gap:8px;flex-wrap:wrap',className:'edit-only'})
+  row.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){
+    ts('🤖 正在生成…')
+    const p=isReport?aiWeekPrompt():aiPraisePrompt()
+    aiCall(p).then(function(r){
+      if(r.ok&&r.text){
+        if(isReport)D._aiReport={at:Date.now(),text:r.text};else D._aiPraise={at:Date.now(),date:td,text:r.text}
+        sv(D);render();ts('✅ 生成完成')
+      }else{
+        ts('⚠️ '+(r.err||'AI 不可用')+'：可用「复制提示词」手动生成')
+      }
+    })
+  }},'🤖 一键生成'))
+  row.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){
+    const p=isReport?aiWeekPrompt():aiPraisePrompt()
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(p).then(function(){ts('📋 提示词已复制：粘到 DeepSeek/豆包，再把回复粘回来')}).catch(function(){ts('⚠️ 复制失败')})}
+    else ts('⚠️ 复制失败，请用电脑版')
+  }},'📋 复制提示词'))
+  row.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){
+    const p=isReport?aiWeekPrompt():aiPraisePrompt()
+    const v=prompt('把 AI 的回复粘贴到这里：\n\n（下面是要发给 AI 的提示词，可先复制）\n'+p.slice(0,120)+'…',store&&store.text?store.text:'')
+    if(v==null)return
+    const txt=String(v).trim();if(!txt)return
+    if(isReport)D._aiReport={at:Date.now(),text:txt};else D._aiPraise={at:Date.now(),date:td,text:txt}
+    sv(D);render();ts('✅ 已保存')
+  }},'📥 粘贴 AI 回复'))
+  c.appendChild(row)
+  c.appendChild(h('div',{style:'font-size:11.5px;color:var(--faint);margin-top:6px'},'AI 只给方法不直接给答案；「一键生成」会把上面那份数据发给 AI 服务'))
+  return c
+}
+
 
 function ts(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2000)}
 const PRAISE={check:['今天又进步了一点！','坚持就是胜利！','好习惯正在养成！','认真完成，真棒！'],score:['这次有进步，继续保持！','努力有回报了！','成绩稳步上升，加油！'],part:['攒下奖励，离目标更近一步！','一分耕耘一分收获！'],task:['任务完成，说到做到！','又完成一件，真棒！'],goal:['小目标达成，一步步变强！'],unlock:['太棒了，解锁新奖励！','努力开花结果了！'],week:['这周的努力看得见！','下周继续加油！'],default:['继续加油！','每天都有进步！']}
@@ -648,6 +820,7 @@ function h(tag,attrs,...children){
 }
 
 function render(){
+  if(document.getElementById('gate'))return
   $c.innerHTML=''
   if(tb==='today')rtoday()
   else if(tb==='checkin')rck()
@@ -731,6 +904,9 @@ function rtoday(){
 
   // 留言板
   $c.appendChild(msgCardUI())
+
+  // AI 今日鼓励
+  $c.appendChild(aiCardUI('praise'))
 
   // 大考复习计划
   const _rv=reviewCardUI()
@@ -1160,6 +1336,30 @@ function rset(){
   sh.appendChild(sbr)
   sh.appendChild(h('div',{style:'font-size:12px;color:var(--muted);margin-top:8px'},'孩子打开只能看和提交打卡，不能改设置；手机浏览器菜单里选「添加到主屏幕」可以像 App 一样打开'))
   $c.appendChild(sh)
+
+  // 口令与 AI
+  const sec=h('div',{className:'card edit-only'})
+  sec.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔐'}),'口令与 AI'))
+  sec.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-bottom:8px'},'家长口令=全部权限；孩子口令=只能看和打卡。口令已记在本机，换设备需要重新输入。'))
+  const srow=h('div',{style:'display:flex;gap:8px;flex-wrap:wrap'})
+  srow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){localStorage.removeItem('lc_lv');localStorage.removeItem('lc_tok');ts('已退出，正在刷新…');setTimeout(function(){location.reload()},800)}},'🚪 退出登录'))
+  srow.appendChild(h('button',{className:'btn btn-danger btn-sm',onClick:function(){
+    if(!confirm('重设口令？重设后本机要重新设置家长/孩子口令。'))return
+    D._auth=null;sv(D);localStorage.removeItem('lc_lv');localStorage.removeItem('lc_tok');location.reload()
+  }},'🔄 重设口令'))
+  sec.appendChild(srow)
+  const _tk=aiToken()||'（先设置口令）'
+  const tkRow=h('div',{style:'margin-top:10px;padding:10px 12px;background:var(--bg-elev);border-radius:8px;border:1px solid var(--border)'})
+  tkRow.appendChild(h('div',{style:'font-size:12.5px;color:var(--muted);font-weight:600;margin-bottom:4px'},'云函数需要的 AI_TOKEN（复制到腾讯云云函数的环境变量里）'))
+  tkRow.appendChild(h('div',{style:'font-size:12.5px;word-break:break-all;color:var(--primary)'},_tk))
+  tkRow.appendChild(h('button',{className:'btn btn-outline btn-sm',style:'margin-top:6px',onClick:function(){
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(_tk).then(function(){ts('✅ 令牌已复制')}).catch(function(){ts('⚠️ 复制失败，请手动选中复制')})}
+    else ts('请手动选中上面那串复制')
+  }},'📋 复制令牌'))
+  sec.appendChild(tkRow)
+  sec.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:10px'},'🤖 AI 状态：'+(cloudReady?'云端已连接；云函数部署后「一键生成」即可用':'未连云端，可用「复制提示词」手动生成')))
+  sec.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:4px'},'部署步骤见项目目录里的「AI-部署说明.md」；云函数代码在 cloud-function-ai.js'))
+  $c.appendChild(sec)
 
   // 历史版本
   const hv=h('div',{className:'card edit-only'})
@@ -1756,6 +1956,7 @@ function rwk(){
     }},'🖼 存成图片发群'))
   }
   $c.appendChild(rp)
+  $c.appendChild(aiCardUI('report'))
 }
 
 function sw(tab){tb=tab;document.querySelectorAll('.tab-btn').forEach(b=>{const on=b.dataset.tab===tab;b.classList.toggle('active',on);if(on){try{b.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'})}catch(e){}}});render();window.scrollTo({top:0,behavior:'smooth'})}
@@ -1779,7 +1980,7 @@ window.addEventListener('beforeunload',function(e){if(_dirty){e.preventDefault()
 document.addEventListener('visibilitychange',function(){
   if(document.visibilityState==='visible'&&Date.now()-_lastVisCheck>120000){_lastVisCheck=Date.now();checkCloudNewer()}
 })
-render()
+initAuth()
 ;(async function boot(){
   const _tip=document.createElement('div');_tip.id='bootTip';_tip.textContent='☁️ 正在同步云端数据…';document.body.appendChild(_tip)
   const ok=await initCloud()
