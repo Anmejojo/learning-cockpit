@@ -846,32 +846,54 @@ function chatSend(imgB64){
     sv(D);render()
   })
 }
+function chatTimeLabel(ts,prevTs){
+  const d=new Date(ts)
+  const ds=ymd(d)
+  let pre=''
+  if(ds===td)pre=''
+  else if(ds===ymd(new Date(Date.now()-86400000)))pre='昨天 '
+  else pre=fd(ds)+' '
+  return pre+fmtHM(ts)
+}
 function chatUI(){
-  const list=chatToday().slice(-20)
+  const list=chatToday().slice(-30)
   const c=h('div',{className:'card'})
-  c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🫂'}),'和 '+AI_NAME+' 说话'))
-  if(!list.length)c.appendChild(h('div',{style:'color:var(--muted);font-size:14px;margin-bottom:8px'},'不会的题、不想学的时候，都可以跟他说一句'))
+  const head=h('div',{className:'card-header'},h('span',{innerHTML:'🫂'}),'和 '+AI_NAME+' 说话')
+  if(list.length)head.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-left:auto',onClick:function(){
+    if(confirm('清空今天的对话？（记录会一起清掉）')){D._chat=chatLog().filter(function(m){return m.date!==td});sv(D);render();ts('已清空')}
+  }},'清空'))
+  c.appendChild(head)
+  const wrap=h('div',{className:'chat-wrap'})
+  if(!list.length){
+    wrap.appendChild(h('div',{style:'text-align:center;color:var(--muted);font-size:14px;padding:18px 0'},'不会的题、不想学的时候，都可以跟他说一句'))
+  }
+  let prevTs=0
   list.forEach(function(m){
-    const isMe=(m.role==='u')
-    const row=h('div',{style:'margin-bottom:8px;display:flex;'+(isMe?'justify-content:flex-end':'justify-content:flex-start')})
-    const wrap=h('div',{style:'max-width:82%'})
-    wrap.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-bottom:2px;text-align:'+(isMe?'right':'left')},isMe?'我':AI_NAME+' · '+fmtHM(m.ts)))
-    const bubble=h('div',{style:'padding:9px 12px;border-radius:12px;font-size:14.5px;line-height:1.7;white-space:pre-wrap;word-break:break-word;'+(isMe?'background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff':'background:var(--card-2);border:1px solid var(--border);color:var(--text)')},m.text)
-    if(m.img)bubble.appendChild(h('img',{src:m.img,loading:'lazy',alt:'他发的照片',style:'max-width:100%;max-height:260px;border-radius:8px;margin-top:6px;display:block;border:1px solid var(--border);cursor:pointer',onClick:function(){viewImg(m.img)}}))
-    if(m.imgCleared)bubble.appendChild(h('div',{style:'font-size:12px;opacity:.7;margin-top:4px'},'（图片已清理）'))
-    wrap.appendChild(bubble)
-    row.appendChild(wrap);c.appendChild(row)
+    if(!prevTs||m.ts-prevTs>8*60000){wrap.appendChild(h('div',{className:'chat-time'},chatTimeLabel(m.ts)));}
+    const me=(m.role==='u')
+    const row=h('div',{className:'chat-row'+(me?' me':'')})
+    row.appendChild(h('div',{className:'chat-av '+(me?'u':'a')},me?'我':'搭'))
+    const main=h('div',{className:'chat-main'})
+    if(!me)main.appendChild(h('div',{className:'chat-who'},AI_NAME))
+    const bub=h('div',{className:'chat-bub '+(me?'u':'a')},m.text)
+    if(m.img)bub.appendChild(h('img',{src:m.img,loading:'lazy',alt:'他发的照片',onClick:function(){viewImg(m.img)}}))
+    if(m.imgCleared)bub.appendChild(h('div',{className:'imgtip'},'（图片已清理）'))
+    main.appendChild(bub)
+    row.appendChild(main)
+    wrap.appendChild(row)
+    prevTs=m.ts
   })
+  c.appendChild(wrap)
   if(VW){
     c.appendChild(h('div',{id:'chatOut',style:'display:none'}))
-    const ir=h('div',{style:'display:flex;gap:8px;margin-top:8px'})
-    ir.appendChild(h('input',{id:'chatInput',placeholder:'说点什么，或拍张题图…',style:'flex:1;min-width:160px'}))
-    ir.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){chatPickImage()}},'📷 拍题'))
-    ir.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){chatSend()}},'发送'))
-    c.appendChild(ir)
-    c.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:6px'},'不会的题可以拍照发给他；他只给思路和第一步，不会直接给答案；聊天会记录下来'))
+    const bar=h('div',{className:'chat-bar'})
+    bar.appendChild(h('button',{className:'chat-cam',onClick:function(){chatPickImage()}},'📷'))
+    bar.appendChild(h('input',{id:'chatInput',placeholder:'说点什么…'}))
+    bar.appendChild(h('button',{className:'chat-send',onClick:function(){chatSend()}},'发送'))
+    c.appendChild(bar)
+    c.appendChild(h('div',{className:'chat-tip'},'不会的题可以拍照发给他；他只给思路和第一步'))
   }else{
-    c.appendChild(h('div',{style:'margin-top:10px;padding:10px 12px;background:var(--bg-elev);border-radius:8px;font-size:13px;color:var(--muted);line-height:1.7'},'这是他在手机上看到的界面。这里是他和小搭的私人对话——你可以看、可以看他问了什么，但不建议替他发言；有话想跟他说，用「留言」更合适。'))
+    c.appendChild(h('div',{style:'margin-top:10px;padding:10px 12px;background:var(--bg-elev);border-radius:8px;font-size:13px;color:var(--muted);line-height:1.7'},'这是他在手机上看到的界面（微信式）。这是他和小搭的私人对话——你可以看、可以看他问了什么，但不建议替他发言；有话想跟他说，用「留言」更合适。'))
   }
   return c
 }
