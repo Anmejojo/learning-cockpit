@@ -254,8 +254,11 @@ async function aiCall(prompt){
     const r=await cloudApp.callFunction({name:AI_FN,data:{token:aiToken(),prompt:prompt}})
     const res=r&&r.result
     if(res&&res.ok)return {ok:true,text:String(res.text||'')}
-    return {ok:false,err:(res&&res.err)||'AI 函数未部署'}
-  }catch(e){return {ok:false,err:'AI 函数未部署'}}
+    return {ok:false,err:(res&&res.err)||('返回内容异常：'+JSON.stringify(r).slice(0,120))}
+  }catch(e){
+    console.error('AI 调用失败',e)
+    return {ok:false,err:'调用失败：'+String((e&&(e.message||e.msg||e.errMsg))||e).slice(0,160)}
+  }
 }
 function weekStats(){
   const now=new Date();const day=now.getDay()||7
