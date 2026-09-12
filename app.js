@@ -23,6 +23,7 @@ function defData(){
     exams:[],parts:JSON.parse(JSON.stringify(PT)),dailyChecks:{},checkImgs:{},checks:[],points:[],sem:'初二上',
     rate:10,
     bl:{chinese:99,math:115,english:70,geo:67,history:81,dao:63,bio:58,physics:null,pe:null,chem:null},
+    hw:{due:'21:00',items:[{id:'chinese',name:'语文作业'},{id:'math',name:'数学作业'},{id:'english',name:'英语作业'},{id:'physics',name:'物理作业'},{id:'other',name:'其他作业'}],log:{}},
     phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,examDate:null,examTopic:'',mistakes:[],tasks:[],ritualTime:'20:00',smallGoals:[],mistakeMilestones:[],mistakeLog:{},
     dci:[{key:'videoCall',icon:'📞',label:'视频通话',pts:2},{key:'askTeacher',icon:'🙋',label:'主动问老师',pts:3},{key:'noSkipStep',icon:'✅',label:'解题不跳步',pts:2},{key:'reciteMethod',icon:'🧠',label:'背英语用方法',pts:2},{key:'onTimeStudy',icon:'⏰',label:'按时开始学习',pts:2}]
   }
@@ -298,7 +299,7 @@ function aiWeekPrompt(){
   L.push('要求：不客套、不喊口号、不鸡汤；如果数据太少就直说数据不足，不要编。')
   L.push('')
   L.push('【本周数据】')
-  L.push('· 拍照打卡通过 '+w.checks+' 次，待审核 '+w.pend+' 次')
+  L.push('· 记录通过 '+w.checks+' 次，待审核 '+w.pend+' 次')
   L.push('· 习惯打卡（打勾）'+w.habits+' 次')
   L.push('· 本周积分变动 '+w.pts)
   L.push('· 本周整理错题 '+w.mis+' 道')
@@ -416,6 +417,97 @@ function subjectAdvice(name){
   if(name==='道法')return '背2个知识点，结合1个例子'
   return '复习课本重点，做基础题'
 }
+function weekStatsOf(ws){
+  const wsStr=ymd(ws)
+  let habits=0
+  for(let i=0;i<7;i++){const d=new Date(ws);d.setDate(ws.getDate()+i);const ds=ymd(d);if(ds>td)continue;const chk=D.dailyChecks[ds];if(chk){for(const k in chk){if(chk[k])habits++}}}
+  const checks=(D.checks||[]).filter(function(c){return c.date>=wsStr&&c.date<=td&&c.status==='approved'}).length
+  const pts=(D.points||[]).filter(function(p){return p.date>=wsStr&&p.date<=td}).reduce(function(x,p){return x+(p.type==='earn'?p.points:-p.points)},0)
+  let mis=0;for(const c of (D.checks||[])){if(c.date>=wsStr&&c.date<=td&&c.type==='mistake'&&c.status!=='rejected')mis++}
+  const hw=hwGet();const items=hw.items||[]
+  let hwOn=0,hwTotal=0
+  for(let i=0;i<7;i++){
+    const d=new Date(ws);d.setDate(ws.getDate()+i);const ds=ymd(d);if(ds>td)continue
+    hwTotal+=items.length
+    const log=(hw.log&&hw.log[ds])||{}
+    for(const it of items){const r=log[it.id];if(r&&r.done&&r.onTime)hwOn++}
+  }
+  return {checks:checks,habits:habits,pts:pts,mis:mis,hwOn:hwOn,hwTotal:hwTotal}
+}
+function hwGet(){if(!D.hw||!D.hw.items)D.hw={due:'21:00',items:[],log:{}};if(!D.hw.log)D.hw.log={};return D.hw}
+function hwToggle(itemId){
+  const hw=hwGet()
+  const item=(hw.items||[]).find(function(x){return x.id===itemId})
+  const name=item?item.name:itemId
+  if(!hw.log[td])hw.log[td]={}
+  const cur=hw.log[td][itemId]
+  if(cur&&cur.done){
+    delete hw.log[td][itemId]
+    D.points=D.points.filter(function(p){return !(p.date===td&&p.source==='作业·'+name&&p.type==='earn')})
+    sv(D);render();ts('已撤销：'+name)
+  }else{
+    const at=fmtHM(Date.now())
+    const onTime=at<=(hw.due||'21:00')
+    hw.log[td][itemId]={done:true,at:at,onTime:onTime}
+    D.points.push({date:td,source:'作业·'+name,points:onTime?2:1,type:'earn'})
+    sv(D);render()
+    ts(onTime?('✅ '+name+' 完成，+2分（'+at+'）'):('⚠️ 已过截止时间（'+(hw.due||'21:00')+'），仍然记上 +1分'))
+  }
+}
+function hwStats(date){
+  const ds=date||td;const hw=hwGet();const log=(hw.log&&hw.log[ds])||{}
+  const items=hw.items||[]
+  let done=0,onTime=0,late=0
+  for(const it of items){const r=log[it.id];if(r&&r.done){done++;if(r.onTime)onTime++;else late++}}
+  return {items:items,log:log,total:items.length,done:done,onTime:onTime,late:late,due:hw.due||'21:00'}
+}
+function hwStreak(){
+  const hw=hwGet();const items=hw.items||[]
+  if(!items.length)return 0
+  let n=0;const d=new Date()
+  for(let i=0;i<90;i++){
+    const ds=ymd(d);const log=(hw.log&&hw.log[ds])||{}
+    const all=items.every(function(it){return log[it.id]&&log[it.id].done&&log[it.id].onTime})
+    if(all)n++
+    else if(i>0)break
+    d.setDate(d.getDate()-1)
+  }
+  return n
+}
+function hwCardUI(){
+  const st=hwStats(td)
+  const nowStr=fmtHM(Date.now())
+  const passed=nowStr>st.due
+  const left=st.total-st.done
+  const c=h('div',{className:'card'})
+  const head=h('div',{className:'card-header'},h('span',{innerHTML:'📝'}),'今日作业（'+st.done+'/'+st.total+' 完成）')
+  c.appendChild(head)
+  if(!st.total){
+    c.appendChild(h('div',{style:'color:var(--muted);font-size:13px'},'还没有作业项，去「设置 → 每日作业清单」加几项'))
+    return c
+  }
+  // 状态条
+  const stat=(left===0)?('🎉 今天作业全部完成'+(st.late?('（'+st.late+' 项超时）'):'（全部按时！）'))
+    :(passed?('⚠️ 已过 '+st.due+'，还有 '+left+' 项没完成'):('⏰ 距截止 '+st.due+' 还有时间，还剩 '+left+' 项'))
+  c.appendChild(h('div',{className:'alert '+(left===0?'success':(passed?'danger':'warning')),style:'margin-bottom:8px'},stat))
+  for(const it of st.items){
+    const r=st.log[it.id]
+    const row=h('div',{className:'task-item',style:'margin-bottom:6px'})
+    const b=h('button',{className:'q-btn '+(r&&r.done?'done':''),onClick:function(){hwToggle(it.id)}})
+    b.innerHTML=(r&&r.done?'✅ ':'⬜ ')+it.name+(r&&r.done?(' · '+r.at+(r.onTime?' 按时':' ⚠️超时')):'')
+    row.appendChild(b)
+    c.appendChild(row)
+  }
+  const stk=hwStreak()
+  c.appendChild(h('div',{style:'font-size:12.5px;color:var(--muted);margin-top:8px'},'🔥 连续按时完成 '+stk+' 天 · 截止时间 '+(D.hw.due||'21:00')+' · 按时 +2 分，超时 +1 分'))
+  c.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:4px'},'做完一科点一下就行，不用拍照；妈妈在杭州能看到你几点完成的'))
+  return c
+}
+function msgTemplates(){
+  return ['今天看到你把___做完了，比昨天快',
+          '这次___比上次清楚，进步在___',
+          '明天试试先做___，做完再玩']
+}
 function msgCardUI(){
   const mine=VW?'c':'p'
   const list=(D.msgs||[]).slice(-8)
@@ -436,8 +528,16 @@ function msgCardUI(){
     row.appendChild(wrap)
     c.appendChild(row)
   })
+  if(mine==='p'){
+    const tw=h('div',{style:'display:flex;gap:6px;flex-wrap:wrap;margin-top:8px'})
+    tw.appendChild(h('span',{style:'font-size:12px;color:var(--faint);width:100%'},'不知道写什么？点一个套用：'))
+    msgTemplates().forEach(function(t){
+      tw.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){const el=document.getElementById('msgInput');if(el){el.value=t;el.focus()}}},t.slice(0,14)+'…'))
+    })
+    c.appendChild(tw)
+  }
   const ir=h('div',{style:'display:flex;gap:8px;margin-top:8px'})
-  ir.appendChild(h('input',{id:'msgInput',placeholder:mine==='p'?'写一句给孩子的鼓励…':'回复妈妈…',style:'flex:1'}))
+  ir.appendChild(h('input',{id:'msgInput',placeholder:mine==='p'?'写一件他今天具体做了什么（比"加油"有用得多）…':'回复妈妈…',style:'flex:1'}))
   ir.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){
     const el=document.getElementById('msgInput');const v=(el&&el.value||'').trim()
     if(!v){ts('⚠️ 请先写点什么');return}
@@ -934,7 +1034,9 @@ function rtoday(){
     pb.appendChild(pf);row.appendChild(pb)
     return row
   }
-  tcard.appendChild(bar(ds.done,ds.total,'📷 拍照打卡',ds.done>=ds.total?'success':'primary'))
+  tcard.appendChild(bar(ds.done,ds.total,'📷 今日记录',ds.done>=ds.total?'success':'primary'))
+  const _hw=hwStats(td)
+  if(_hw.total)tcard.appendChild(bar(_hw.done,_hw.total,'📝 作业（'+_hw.onTime+' 按时'+( _hw.late?(' · '+_hw.late+' 超时'):'')+'）',_hw.done>=_hw.total?'success':'warning'))
   tcard.appendChild(bar(hs.done,hs.total,'🔁 习惯打卡',hs.done>=hs.total?'success':'warning'))
   const qrow=h('div',{style:'display:flex;flex-wrap:wrap;gap:8px;margin-top:2px'})
   for(const subj of SUBJECTS){
@@ -976,6 +1078,8 @@ function rtoday(){
     const pe=(D.exams||[]).filter(function(e){return e.status==='pending'}).length
     if(pn+pe)al.push({l:'warning',m:'⏳ 有 '+(pn+pe)+' 条待审核（打卡 '+pn+' · 成绩 '+pe+'）'})
   }
+  const _hwa=hwStats(td)
+  if(_hwa.total&&_hwa.done<_hwa.total&&fmtHM(Date.now())>_hwa.due)al.push({l:'warning',m:'📝 今天作业还有 '+(_hwa.total-_hwa.done)+' 项没完成（截止 '+_hwa.due+'），可到「记录」页看看'})
   const ystr=(function(){var d=new Date();d.setDate(d.getDate()-1);return ymd(d)})()
   const yCnt=(D.checks||[]).filter(function(c){return c.date===ystr}).length
   if(yCnt===0)al.push({l:'warning',m:'⏰ 昨天（'+ystr+'）没有打卡记录，可到「打卡」页补卡'})
@@ -997,8 +1101,8 @@ function rtoday(){
 /* ============ ② 打卡（拍照 + 习惯 + 日历） ============ */
 function rck(){
   $c.appendChild(segBar([
-    {label:'📷 打卡清单',on:_ckView==='list',fn:function(){_ckView='list';render()}},
-    {label:'📅 打卡日历',on:_ckView==='cal',fn:function(){_ckView='cal';render()}}
+    {label:'📷 记录今天',on:_ckView==='list',fn:function(){_ckView='list';render()}},
+    {label:'📅 记录日历',on:_ckView==='cal',fn:function(){_ckView='cal';render()}}
   ]))
   const box=h('div',null)
   $c.appendChild(box)
@@ -1008,8 +1112,9 @@ function rck(){
 
 function rckList(){
   const ckd=ckDate()
+  $c.appendChild(hwCardUI())
   const cq=h('div',{className:'card'})
-  cq.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📷'}),'拍照打卡（家长审核后加分）'))
+  cq.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📷'}),'记录今天（拍张照给妈妈看，通过后加分）'))
   const minD=(function(){var d=new Date();d.setDate(d.getDate()-2);return ymd(d)})()
   const dateRow=h('div',{style:'display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap'})
   dateRow.innerHTML='<span style="font-size:13.5px">日期：</span><input type="date" id="checkDateInput" value="'+ckd+'" min="'+minD+'" max="'+td+'" style="width:150px">'+(ckd!==td?'<span style="font-size:13px;color:var(--warning)">（补卡 '+ckd+'）</span>':'')
@@ -1056,7 +1161,7 @@ function rckList(){
       }
       if(rec.status==='rejected')card.appendChild(h('button',{className:'btn btn-outline btn-sm',style:'margin-top:6px',onClick:function(){startCheck(type,subj)}},'📷 重新打卡'))
     }else{
-      card.appendChild(h('button',{className:'btn btn-primary btn-sm',style:'margin-top:6px',onClick:function(){startCheck(type,subj)}},'📷 拍照打卡'))
+      card.appendChild(h('button',{className:'btn btn-primary btn-sm',style:'margin-top:6px',onClick:function(){startCheck(type,subj)}},'📷 记一笔'))
     }
     return card
   }
@@ -1346,6 +1451,35 @@ function rset(){
   sh.appendChild(sbr)
   sh.appendChild(h('div',{style:'font-size:12px;color:var(--muted);margin-top:8px'},'孩子打开只能看和提交打卡，不能改设置；手机浏览器菜单里选「添加到主屏幕」可以像 App 一样打开'))
   $c.appendChild(sh)
+
+  // 每日作业清单
+  const hws=hwStats(td)
+  const hwCard=h('div',{className:'card edit-only'})
+  hwCard.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📝'}),'每日作业清单（孩子自己勾，你在杭州远程看）'))
+  hwCard.appendChild(h('div',{style:'font-size:12.5px;color:var(--muted);margin-bottom:8px'},'爷爷奶奶不用管，孩子做完一科点一下就行。过了截止时间会自动标红，你只看结果。'))
+  const drow=h('div',{style:'display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px'})
+  drow.innerHTML='<span style="font-size:13px">按时截止：</span><input type="time" id="hwDue" value="'+(D.hw.due||'21:00')+'" style="width:130px">'
+  drow.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){var v=document.getElementById('hwDue').value;if(v){D.hw.due=v;sv(D);render();ts('✅ 截止时间设为 '+v)}}},'💾 保存'))
+  hwCard.appendChild(drow)
+  const hwl=h('div',null)
+  ;(D.hw.items||[]).forEach(function(it,idx){
+    const row=h('div',{className:'task-item',style:'display:flex;gap:6px;align-items:center;margin-bottom:6px'})
+    const inp=h('input',{value:it.name,style:'flex:1','data-hwi':idx})
+    row.appendChild(inp)
+    row.appendChild(h('button',{className:'btn btn-danger btn-sm',onClick:function(){D.hw.items.splice(idx,1);sv(D);render();ts('已删除')}},'✕'))
+    hwl.appendChild(row)
+  })
+  hwCard.appendChild(hwl)
+  hwCard.appendChild(h('button',{className:'btn btn-primary btn-sm',style:'margin-top:6px',onClick:function(){
+    const inputs=hwCard.querySelectorAll('input[data-hwi]')
+    for(let i=0;i<inputs.length;i++){const idx=parseInt(inputs[i].getAttribute('data-hwi'));if(!isNaN(idx)&&D.hw.items[idx])D.hw.items[idx].name=inputs[i].value.trim()||D.hw.items[idx].name}
+    sv(D);render();ts('✅ 作业项已更新')
+  }},'💾 保存作业项'))
+  const addRow=h('div',{style:'display:flex;gap:6px;margin-top:8px'})
+  addRow.innerHTML='<input id="hwNew" placeholder="新作业项，如：背诵古诗" style="flex:1">'
+  addRow.appendChild(h('button',{className:'btn btn-success btn-sm',onClick:function(){var v=document.getElementById('hwNew').value.trim();if(!v){ts('⚠️ 请输入名称');return}D.hw.items.push({id:'h_'+Date.now(),name:v});sv(D);render();ts('✅ 已添加：'+v)}},'➕ 添加'))
+  hwCard.appendChild(addRow)
+  $c.appendChild(hwCard)
 
   // 口令与 AI
   const sec=h('div',{className:'card edit-only'})
@@ -1967,17 +2101,36 @@ function rwk(){
   const rp=h('div',{className:'card'})
   rp.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📊'}),'学习周报'))
   rp.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-bottom:12px'},'本周：'+fd(weekStartStr)+' ~ '+fd(ymd(now))))
-  const items=[{icon:'✅',label:'本周打卡',val:weekChecks+' 次'},{icon:'⭐',label:'本周积分',val:(weekPoints>0?'+':'')+weekPoints+' 分'},{icon:'📕',label:'本周新增错题',val:weekMistakes+' 道'},{icon:'🎯',label:'薄弱科目',val:weak.length?weak.join('、'):'暂无'}]
-  for(const it of items){rp.appendChild(h('div',{style:'display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:14px'},h('span',null,it.icon+' '+it.label),h('strong',null,it.val)))}
+  const _lws=new Date(weekStart);_lws.setDate(weekStart.getDate()-7)
+  const _TW=weekStatsOf(weekStart)
+  const _LT=weekStatsOf(_lws)
+  function _cmp(a,b){if(a>b)return {t:'↑'+(a-b),c:'var(--success)'};if(a<b)return {t:'↓'+(b-a),c:'var(--danger)'};return {t:'持平',c:'var(--muted)'}}
+  const items=[
+    {icon:'📷',label:'拍照记录',v:_TW.checks+' 次',lv:_LT.checks+' 次',cp:_cmp(_TW.checks,_LT.checks)},
+    {icon:'🔁',label:'习惯打卡',v:_TW.habits+' 次',lv:_LT.habits+' 次',cp:_cmp(_TW.habits,_LT.habits)},
+    {icon:'📝',label:'作业按时',v:_TW.hwOn+'/'+_TW.hwTotal,lv:_LT.hwOn+'/'+_LT.hwTotal,cp:_cmp(_TW.hwOn,_LT.hwOn)},
+    {icon:'⭐',label:'积分',v:(_TW.pts>0?'+':'')+_TW.pts,lv:(_LT.pts>0?'+':'')+_LT.pts,cp:_cmp(_TW.pts,_LT.pts)},
+    {icon:'📕',label:'整理错题',v:_TW.mis+' 道',lv:_LT.mis+' 道',cp:_cmp(_TW.mis,_LT.mis)},
+    {icon:'🎯',label:'薄弱科目',v:weak.length?weak.join('、'):'暂无',lv:'',cp:null}
+  ]
+  for(const it of items){
+    const row=h('div',{style:'display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border);font-size:14px'})
+    row.appendChild(h('span',{style:'flex:1'},it.icon+' '+it.label))
+    if(it.lv)row.appendChild(h('span',{style:'font-size:12px;color:var(--faint)'},'上周 '+it.lv))
+    if(it.cp)row.appendChild(h('span',{style:'font-size:12.5px;font-weight:700;color:'+it.cp.c+';min-width:52px;text-align:right'},it.cp.t))
+    row.appendChild(h('strong',{style:'min-width:64px;text-align:right'},it.v))
+    rp.appendChild(row)
+  }
+  rp.appendChild(h('div',{style:'font-size:12px;color:var(--muted);margin-top:6px'},'右边是本周，中间是跟上周的自己比（↑进步 ↓退步）'))
   rp.appendChild(h('div',{style:'margin-top:14px;padding:12px;background:var(--primary-weak);border-radius:8px;font-size:13.5px',innerHTML:'💡 <strong>下周建议：</strong>'+(weak.length?'重点突破 '+weak[0]+'，每天15分钟专项练习':'保持当前节奏，巩固已学知识')}))
   rp.appendChild(h('div',{className:'daily-praise',style:'margin-top:12px'},'💬 一周的坚持看得见，下周继续加油！'))
   if(!VW){
     rp.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-top:12px',onClick:function(){
-      let txt='【阿勒学习周报】\n'+fd(weekStartStr)+' ~ '+fd(ymd(now))+'\n本周打卡：'+weekChecks+'次\n本周积分：'+(weekPoints>0?'+':'')+weekPoints+'分\n新增错题：'+weekMistakes+'道\n薄弱科目：'+(weak.length?weak.join('、'):'暂无')+'\n下周建议：'+(weak.length?'重点突破 '+weak[0]:'保持节奏')+'\n'
+      let txt='【阿勒学习周报】\n'+fd(weekStartStr)+' ~ '+fd(ymd(now))+(_LT.checks!==undefined?('\n上周对比：\n拍照记录 '+(weekStartStr&&_TW.checks)+'次（上周 '+_LT.checks+'）\n习惯打卡 '+_TW.habits+'次（上周 '+_LT.habits+'）\n作业按时 '+_TW.hwOn+'/'+_TW.hwTotal+'（上周 '+_LT.hwOn+'/'+_LT.hwTotal+'）\n积分 '+_TW.pts+'（上周 '+_LT.pts+'）\n整理错题 '+_TW.mis+'道（上周 '+_LT.mis+'）'):'')+'\n薄弱科目：'+(weak.length?weak.join('、'):'暂无')+'\n下周建议：'+(weak.length?'重点突破 '+weak[0]:'保持节奏')+'\n'
       navigator.clipboard.writeText(txt).then(function(){ts('✅ 周报已复制 · '+praise('week'))}).catch(function(){ts('⚠️ 复制失败')})
     }},'📋 复制周报到家庭群'))
     rp.appendChild(h('button',{className:'btn btn-success btn-sm edit-only',style:'margin-top:12px;margin-left:8px',onClick:function(){
-      exportWeekly({range:fd(weekStartStr)+' ~ '+fd(ymd(now)),items:items.map(function(x){return {label:x.label,val:x.val}}),advice:(weak.length?'重点突破 '+weak[0]+'，每天15分钟专项练习':'保持当前节奏，巩固已学知识')})
+      exportWeekly({range:fd(weekStartStr)+' ~ '+fd(ymd(now)),items:items.map(function(x){return {label:x.label+'（上周 '+x.lv+'）',val:x.v}}),advice:(weak.length?'重点突破 '+weak[0]+'，每天15分钟专项练习':'保持当前节奏，巩固已学知识')})
     }},'🖼 存成图片发群'))
   }
   $c.appendChild(rp)
