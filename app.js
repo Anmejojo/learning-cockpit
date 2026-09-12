@@ -1357,6 +1357,21 @@ function rset(){
     else ts('请手动选中上面那串复制')
   }},'📋 复制令牌'))
   sec.appendChild(tkRow)
+  const testRow=h('div',{style:'margin-top:8px'})
+  const testOut=h('div',{style:'font-size:12.5px;margin-top:6px;color:var(--muted);white-space:pre-wrap'},'')
+  testRow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){
+    testOut.style.color='var(--muted)';testOut.textContent='测试中…（约 5 秒）'
+    aiCall('请只回复两个字：正常').then(function(r){
+      if(r.ok){
+        testOut.style.color='var(--success)';testOut.textContent='✅ AI 已部署并可用，模型回复：'+r.text
+      }else{
+        testOut.style.color='var(--danger)'
+        testOut.textContent='❌ 还用不了：'+(r.err||'未知错误')+'\n（若显示「AI 函数未部署」，说明腾讯云那边的 leaiai 云函数还没建好）'
+      }
+    })
+  }},'🔌 测试 AI 连接'))
+  testRow.appendChild(testOut)
+  sec.appendChild(testRow)
   sec.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:10px'},'🤖 AI 状态：'+(cloudReady?'云端已连接；云函数部署后「一键生成」即可用':'未连云端，可用「复制提示词」手动生成')))
   sec.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:4px'},'部署步骤见项目目录里的「AI-部署说明.md」；云函数代码在 cloud-function-ai.js'))
   $c.appendChild(sec)
