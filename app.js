@@ -249,13 +249,13 @@ function logout(){
 /* ================= AI 助手（密钥在云函数里，网页端不存） ================= */
 const AI_URL='https://jiajia-study-d6gjyod13d77728d6-1483465315.ap-shanghai.app.tcloudbase.com/ai'
 function aiToken(){return localStorage.getItem('lc_tok')||''}
-async function aiCall(prompt,image){
+async function aiCall(prompt,image,kbq){
   if(!aiToken())return {ok:false,err:'请先设置口令，再使用 AI'}
   try{
     const res=await fetch(AI_URL,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({token:aiToken(),prompt:prompt,image:(image||'')})
+      body:JSON.stringify({token:aiToken(),prompt:prompt,image:(image||''),kbq:(kbq||'')})
     })
     const txt=await res.text()
     let j=null
@@ -836,7 +836,7 @@ function chatSend(imgB64){
     tail,
     chatTailRules()
   ].filter(Boolean).join('\n\n')
-  aiCall(_full, imgB64||'').then(async function(r){
+  aiCall(_full, imgB64||'', (v||'')).then(async function(r){
     let _txt=r.ok?String(r.text):'（我现在有点卡，你等下再问我一次）'
     const _bad=r.ok?chatBanned(_txt):[]
     if(_bad.length){
