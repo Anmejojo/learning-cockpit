@@ -323,10 +323,10 @@ function aiCardUI(kind){
   if(store&&store.text)head.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-left:auto',onClick:function(){if(isReport)D._aiReport=null;else D._aiPraise=null;sv(D);render()}},'清除'))
   c.appendChild(head)
   if(store&&store.text){
-    c.appendChild(h('div',{style:'font-size:13.5px;line-height:1.75;white-space:pre-wrap;background:var(--bg-elev);border-radius:8px;padding:10px 12px;border:1px solid var(--border)'},store.text))
-    c.appendChild(h('div',{style:'font-size:11.5px;color:var(--faint);margin-top:6px'},store.at?('生成于 '+fd(ymd(new Date(store.at)))+' '+fmtHM(store.at)):''))
+    c.appendChild(h('div',{className:'longtext',style:'font-size:15px;line-height:1.8;white-space:pre-wrap;background:var(--bg-elev);border-radius:8px;padding:12px 14px;border:1px solid var(--border)'},store.text))
+    c.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:6px'},store.at?('生成于 '+fd(ymd(new Date(store.at)))+' '+fmtHM(store.at)):''))
   }else{
-    c.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-bottom:8px'},isReport?'还没有点评。点「一键生成」，或复制提示词自己去问，再把结果粘回来。':'还没有今日鼓励。'))
+    c.appendChild(h('div',{style:'font-size:14px;color:var(--muted);margin-bottom:8px'},isReport?'还没有点评。点「一键生成」，或复制提示词自己去问，再把结果粘回来。':'还没有今日鼓励。'))
   }
   const row=h('div',{style:'display:flex;gap:8px;flex-wrap:wrap',className:'edit-only'})
   row.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){
@@ -355,7 +355,7 @@ function aiCardUI(kind){
     sv(D);render();ts('✅ 已保存')
   }},'📥 粘贴 AI 回复'))
   c.appendChild(row)
-  c.appendChild(h('div',{style:'font-size:11.5px;color:var(--faint);margin-top:6px'},'AI 只给方法不直接给答案；「一键生成」会把上面那份数据发给 AI 服务'))
+  c.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:6px'},'AI 只给方法不直接给答案；「一键生成」会把上面那份数据发给 AI 服务'))
   return c
 }
 
@@ -438,15 +438,15 @@ function msgCardUI(){
   const c=h('div',{className:'card'})
   const head=h('div',{className:'card-header'},h('span',{innerHTML:'💬'}),mine==='p'?'给孩子的留言':'妈妈的话')
   const un=msgUnread(mine)
-  if(un)head.appendChild(h('span',{style:'margin-left:auto;font-size:12px;color:var(--danger);font-weight:600'},'新 '+un+' 条'))
+  if(un)head.appendChild(h('span',{style:'margin-left:auto;font-size:13px;color:var(--danger);font-weight:600'},'新 '+un+' 条'))
   c.appendChild(head)
-  if(!list.length)c.appendChild(h('div',{style:'color:var(--muted);font-size:13px;margin-bottom:8px'},mine==='p'?'还没有留言，写一句鼓励的话吧':'妈妈还没留言，先打个卡吧'))
+  if(!list.length)c.appendChild(h('div',{style:'color:var(--muted);font-size:14px;margin-bottom:8px'},mine==='p'?'还没有留言，写一句鼓励的话吧':'妈妈还没留言，先打个卡吧'))
   list.forEach(function(m){
     const isMe=m.from===mine
     const row=h('div',{style:'margin-bottom:8px;display:flex;'+(isMe?'justify-content:flex-end':'justify-content:flex-start')})
     const wrap=h('div',{style:'max-width:80%'})
-    wrap.appendChild(h('div',{style:'font-size:11.5px;color:var(--faint);margin-bottom:2px;text-align:'+(isMe?'right':'left')},(isMe?'我':(mine==='p'?'孩子':'妈妈'))+' · '+fmtHM(m.ts)))
-    const b=h('div',{style:'padding:8px 12px;border-radius:12px;font-size:13.5px;line-height:1.55;word-break:break-word;'+(isMe?'background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff':'background:var(--card-2);border:1px solid var(--border);color:var(--text)')})
+    wrap.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-bottom:2px;text-align:'+(isMe?'right':'left')},(isMe?'我':(mine==='p'?'孩子':'妈妈'))+' · '+fmtHM(m.ts)))
+    const b=h('div',{style:'padding:8px 12px;border-radius:12px;font-size:14.5px;line-height:1.55;word-break:break-word;'+(isMe?'background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff':'background:var(--card-2);border:1px solid var(--border);color:var(--text)')})
     b.textContent=m.text
     wrap.appendChild(b)
     row.appendChild(wrap)
@@ -454,7 +454,7 @@ function msgCardUI(){
   })
   if(mine==='p'){
     const tw=h('div',{style:'display:flex;gap:6px;flex-wrap:wrap;margin-top:8px'})
-    tw.appendChild(h('span',{style:'font-size:12px;color:var(--faint);width:100%'},'不知道写什么？点一个套用：'))
+    tw.appendChild(h('span',{style:'font-size:13px;color:var(--faint);width:100%'},'不知道写什么？点一个套用：'))
     msgTemplates().forEach(function(t){
       tw.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){const el=document.getElementById('msgInput');if(el){el.value=t;el.focus()}}},t.slice(0,14)+'…'))
     })
@@ -486,12 +486,12 @@ function reviewCardUI(){
   const picks=[rank[0],rank[1],rank[2+idx]].filter(function(x){return !!x})
   const c=h('div',{className:'card'})
   c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📚'}),'复习计划 · 距大考 '+days+' 天'))
-  if(D.examTopic)c.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-bottom:8px'},'📌 考试内容：'+D.examTopic))
-  c.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-bottom:8px'},'按目前最弱的科目排的，每天照着做就行：'))
+  if(D.examTopic)c.appendChild(h('div',{style:'font-size:14px;color:var(--muted);margin-bottom:8px'},'📌 考试内容：'+D.examTopic))
+  c.appendChild(h('div',{style:'font-size:14px;color:var(--muted);margin-bottom:8px'},'按目前最弱的科目排的，每天照着做就行：'))
   picks.forEach(function(p){
     c.appendChild(h('div',{className:'alert warning',style:'margin-bottom:6px'},'🔴 '+p.name+'（'+p.pct.toFixed(0)+'%）→ '+subjectAdvice(p.name)))
   })
-  c.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:6px'},'基准分在「成绩」页可以修改，改完这里的建议会跟着变'))
+  c.appendChild(h('div',{style:'font-size:13px;color:var(--faint);margin-top:6px'},'基准分在「成绩」页可以修改，改完这里的建议会跟着变'))
   return c
 }
 function trashPush(kind,label,data){
@@ -705,7 +705,7 @@ function renderLb(){
     next.style.cssText='position:absolute;right:12px;top:50%;transform:translateY(-50%);width:46px;height:46px;border:none;border-radius:50%;background:rgba(255,255,255,0.2);color:#fff;font-size:30px;line-height:1;cursor:pointer;z-index:4'
     next.onclick=function(e){e.stopPropagation();_lbList=keep;_lbIdx=keepIdx;lbStep(1)}
     const cnt=h('div',null,(keepIdx+1)+' / '+keep.length)
-    cnt.style.cssText='position:absolute;top:20px;left:50%;transform:translateX(-50%);color:#fff;font-size:13.5px;background:rgba(0,0,0,0.55);padding:4px 13px;border-radius:12px;z-index:4'
+    cnt.style.cssText='position:absolute;top:20px;left:50%;transform:translateX(-50%);color:#fff;font-size:14.5px;background:rgba(0,0,0,0.55);padding:4px 13px;border-radius:12px;z-index:4'
     ov.appendChild(prev);ov.appendChild(next);ov.appendChild(cnt)
   }
   const bar=h('div',null)
@@ -864,7 +864,7 @@ function render(){
   updateTabBadges()
 }
 
-let _openImg={},_examEdit=false,_openExamForm=false,_ckView='list',_scView='list',_pkView='points',_partEdit=false,_blEdit=false,_ptFilter='all',_exFilter='all'
+let _showAlerts=false,_openImg={},_examEdit=false,_openExamForm=false,_ckView='list',_scView='list',_pkView='points',_partEdit=false,_blEdit=false,_ptFilter='all',_exFilter='all'
 
 /* ============ ① 今日（概览 + 快捷操作） ============ */
 function rtoday(){
@@ -872,6 +872,41 @@ function rtoday(){
   const si=lt?ct(lt.scores,lt.sem||D.sem):{total:0,fullTotal:gs(D.sem).reduce((s,sub)=>s+sub.full*sub.rate,0),pct:0}
   const ds=dayStats(td)
   const hs=habStats(td)
+
+  // ☀️ 今天：先给成就，再给待办
+  let stk=0
+  ;(function(){const has=function(d){return (D.checks||[]).some(function(c){return c.date===d&&c.status==='approved'})};const dd=new Date();if(!has(ymd(dd)))dd.setDate(dd.getDate()-1);for(let i=0;i<400;i++){const d=ymd(dd);if(has(d)){stk++;dd.setDate(dd.getDate()-1)}else break}})()
+  const avail=(D.points||[]).filter(function(pp){return pp.type==='earn'}).reduce(function(x,pp){return x+pp.points},0)-(D.points||[]).filter(function(pp){return pp.type==='spend'}).reduce(function(x,pp){return x+pp.points},0)
+  const tcard=h('div',{className:'card todo-card'})
+  tcard.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'☀️'}),'今天'))
+  const bigRow=h('div',{className:'stat-grid mini-grid'})
+  const _dsum=ds.done+hs.done,_tsum=ds.total+hs.total
+  bigRow.appendChild(h('div',{className:'stat-card '+(_dsum>0?'success':'primary')},h('div',{className:'sv'},_dsum+'/'+_tsum),h('div',{className:'sl'},'今日完成')))
+  bigRow.appendChild(h('div',{className:'stat-card '+(stk>0?'success':'primary')},h('div',{className:'sv'},'🔥 '+stk),h('div',{className:'sl'},'连续打卡')))
+  bigRow.appendChild(h('div',{className:'stat-card primary'},h('div',{className:'sv'},'⭐ '+avail),h('div',{className:'sl'},'可用积分')))
+  tcard.appendChild(bigRow)
+  function bar(done,total,label,cls){
+    const row=h('div',{style:'margin-bottom:10px'})
+    row.appendChild(h('div',{style:'display:flex;justify-content:space-between;font-size:14.5px;margin-bottom:2px'},h('span',null,label),h('span',{className:'num',style:'color:var(--muted)'},done+' / '+total)))
+    const pb=h('div',{className:'progress-bar'})
+    const pf=h('div',{className:'fill '+cls})
+    pf.style.width=(total?Math.round(done/total*100):0)+'%'
+    pb.appendChild(pf);row.appendChild(pb)
+    return row
+  }
+  tcard.appendChild(bar(ds.done,ds.total,'📷 今日记录',ds.done>=ds.total?'success':'primary'))
+  tcard.appendChild(bar(hs.done,hs.total,'🔁 习惯打卡',hs.done>=hs.total?'success':'warning'))
+  const qrow=h('div',{style:'display:flex;flex-wrap:wrap;gap:8px;margin-top:2px'})
+  for(const subj of SUBJECTS){
+    const st=subjStats(subj,td)
+    const full=st.total>0&&st.done===st.total
+    const b=h('button',{className:'q-btn'+(full?' done':(st.pending?' pending':'')),onClick:function(){_openSubj={};_openSubj[subj]=true;_ckView='list';sw('checkin');setTimeout(function(){var el=document.getElementById('subj_'+subj);if(el)el.scrollIntoView({behavior:'smooth',block:'center'})},120)}})
+    b.innerHTML=subj+' '+st.done+'/'+st.total+(st.pending?' ⏳':'')
+    qrow.appendChild(b)
+  }
+  tcard.appendChild(qrow)
+  tcard.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-top:8px'},'点科目名直接跳到「记录」页并展开该科'))
+  $c.appendChild(tcard)
 
   // 考试倒计时
   const ed=D.examDate
@@ -887,7 +922,7 @@ function rtoday(){
   if(!VW)cdHead.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-left:auto',onClick:function(){sw('settings')}},'✏️ 修改'))
   cd.appendChild(cdHead)
   cd.appendChild(h('div',{style:'font-size:20px;font-weight:700',innerHTML:cdTxt}))
-  if(D.examTopic)cd.appendChild(h('div',{style:'margin-top:6px;padding:8px 12px;background:var(--bg-elev);border-radius:6px;font-size:14px',innerHTML:'📌 考试内容：<strong>'+D.examTopic+'</strong>'}))
+  if(D.examTopic)cd.appendChild(h('div',{style:'margin-top:6px;padding:8px 12px;background:var(--bg-elev);border-radius:6px;font-size:15px',innerHTML:'📌 考试内容：<strong>'+D.examTopic+'</strong>'}))
   $c.appendChild(cd)
 
   // 今日概览 Hero
@@ -928,10 +963,10 @@ function rtoday(){
     kpf.style.width=(kt?Math.round(kd/kt*100):0)+'%'
     kpb.appendChild(kpf);kc.appendChild(kpb)
     if(kd>=kt&&kt>0)kc.appendChild(h('div',{className:'alert success'},'🎉 今天的任务全部完成，你真棒！'))
-    else kc.appendChild(h('div',{style:'font-size:13.5px;margin-top:8px'},'今天还剩 '+(kt-kd)+' 项没完成，加油～'))
+    else kc.appendChild(h('div',{style:'font-size:14.5px;margin-top:8px'},'今天还剩 '+(kt-kd)+' 项没完成，加油～'))
     if(nx){
       const need=Math.max(0,nx.cost-avail)
-      kc.appendChild(h('div',{style:'margin-top:10px;padding:10px 12px;background:var(--primary-weak);border:1px solid var(--primary-border);border-radius:8px;font-size:13.5px'},'🎁 再攒 '+need+' 积分，就能解锁 '+nx.icon+' '+nx.name+'（需要 ⭐'+nx.cost+'）'))
+      kc.appendChild(h('div',{style:'margin-top:10px;padding:10px 12px;background:var(--primary-weak);border:1px solid var(--primary-border);border-radius:8px;font-size:14.5px'},'🎁 再攒 '+need+' 积分，就能解锁 '+nx.icon+' '+nx.name+'（需要 ⭐'+nx.cost+'）'))
     }
     $c.appendChild(kc)
   }
@@ -946,31 +981,7 @@ function rtoday(){
   const _rv=reviewCardUI()
   if(_rv)$c.appendChild(_rv)
 
-  // 今日完成度
-  const tcard=h('div',{className:'card todo-card'})
-  tcard.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🎯'}),'今日完成度'))
-  function bar(done,total,label,cls){
-    const row=h('div',{style:'margin-bottom:10px'})
-    row.appendChild(h('div',{style:'display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:2px'},h('span',null,label),h('span',{className:'num',style:'color:var(--muted)'},done+' / '+total)))
-    const pb=h('div',{className:'progress-bar'})
-    const pf=h('div',{className:'fill '+cls})
-    pf.style.width=(total?Math.round(done/total*100):0)+'%'
-    pb.appendChild(pf);row.appendChild(pb)
-    return row
-  }
-  tcard.appendChild(bar(ds.done,ds.total,'📷 今日记录',ds.done>=ds.total?'success':'primary'))
-  tcard.appendChild(bar(hs.done,hs.total,'🔁 习惯打卡',hs.done>=hs.total?'success':'warning'))
-  const qrow=h('div',{style:'display:flex;flex-wrap:wrap;gap:8px;margin-top:2px'})
-  for(const subj of SUBJECTS){
-    const st=subjStats(subj,td)
-    const full=st.total>0&&st.done===st.total
-    const b=h('button',{className:'q-btn'+(full?' done':(st.pending?' pending':'')),onClick:function(){_openSubj={};_openSubj[subj]=true;_ckView='list';sw('checkin');setTimeout(function(){var el=document.getElementById('subj_'+subj);if(el)el.scrollIntoView({behavior:'smooth',block:'center'})},120)}})
-    b.innerHTML=subj+' '+st.done+'/'+st.total+(st.pending?' ⏳':'')
-    qrow.appendChild(b)
-  }
-  tcard.appendChild(qrow)
-  tcard.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-top:8px'},'点科目名直接跳到「打卡」页并展开该科'))
-  $c.appendChild(tcard)
+
 
   // 快捷操作
   if(!VW){
@@ -1008,12 +1019,14 @@ function rtoday(){
   if(!VW&&_daysBk>=7)al.push({l:'warning',m:'💾 '+(_lastBk?('已经 '+_daysBk+' 天'):'还没有')+'导出过备份，建议现在导出一份',_bk:true})
   if(al.length){
     const ac=h('div',{className:'card'})
-    ac.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🚨'}),'需要关注'))
-    for(const a of al){
+    ac.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🚨'}),'需要关注'+(al.length>1&&!_showAlerts?('（'+al.length+' 条）'):'')))
+    const _show=_showAlerts?al:al.slice(0,1)
+    for(const a of _show){
       const row=h('div',{className:'alert '+a.l,style:a._bk?'flex-wrap:wrap;gap:10px':''},a.m)
       if(a._bk)row.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:exportBackup},'📥 立即导出'))
       ac.appendChild(row)
     }
+    if(al.length>1&&!_showAlerts)ac.appendChild(h('button',{className:'btn btn-outline btn-sm',style:'margin-top:4px',onClick:function(){_showAlerts=true;render()}},'还有 '+(al.length-1)+' 条'))
     $c.appendChild(ac)
   }
 }
@@ -1036,7 +1049,7 @@ function rckList(){
   cq.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📷'}),'记录今天（拍张照给妈妈看，通过后加分）'))
   const minD=(function(){var d=new Date();d.setDate(d.getDate()-2);return ymd(d)})()
   const dateRow=h('div',{style:'display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap'})
-  dateRow.innerHTML='<span style="font-size:13.5px">日期：</span><input type="date" id="checkDateInput" value="'+ckd+'" min="'+minD+'" max="'+td+'" style="width:150px">'+(ckd!==td?'<span style="font-size:13px;color:var(--warning)">（补卡 '+ckd+'）</span>':'')
+  dateRow.innerHTML='<span style="font-size:14.5px">日期：</span><input type="date" id="checkDateInput" value="'+ckd+'" min="'+minD+'" max="'+td+'" style="width:150px">'+(ckd!==td?'<span style="font-size:14px;color:var(--warning)">（补卡 '+ckd+'）</span>':'')
   dateRow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){var v=document.getElementById('checkDateInput').value||td;if(v<minD){ts('⚠️ 只能补最近 2 天（'+minD+'之后）');return}if(v>td){ts('⚠️ 不能选未来日期');return}_checkDate=v;render()}},'切换'))
   dateRow.appendChild(h('button',{className:'btn btn-warning btn-sm',onClick:function(){var d=new Date();d.setDate(d.getDate()-1);_checkDate=ymd(d);render()}},'⏰ 补昨天'))
   if(ckd!==td)dateRow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_checkDate=null;render()}},'回到今天'))
@@ -1058,7 +1071,7 @@ function rckList(){
   function makeCheckCard(type,subj){
     const rec=findRec(subj,type.id,ckd)
     const card=h('div',{className:'check-item '+(rec&&rec.status==='approved'?'done':'')})
-    card.innerHTML='<div class="ci">'+type.icon+'</div><div class="cl">'+type.name+' <span style="font-size:12.5px;color:var(--muted)">+'+type.pts+'</span></div>'
+    card.innerHTML='<div class="ci">'+type.icon+'</div><div class="cl">'+type.name+' <span style="font-size:13.5px;color:var(--muted)">+'+type.pts+'</span></div>'
     const rImgs=checkImgs(rec)
     if(rImgs.length){
       const ir=h('div',{style:'display:flex;flex-wrap:wrap;gap:5px;margin-top:6px'})
@@ -1068,7 +1081,7 @@ function rckList(){
     if(rec){
       const st=rec.status==='pending'?'⏳ 待审核':rec.status==='approved'?'✅ 已通过':'↩️ 已退回'
       const sc2=rec.status==='pending'?'var(--warning)':rec.status==='approved'?'var(--success)':'var(--muted)'
-      card.appendChild(h('div',{style:'font-size:13px;margin-top:5px;color:'+sc2+';font-weight:600'},st+(rec.ts?' · '+fmtHM(rec.ts)+' 提交':'')))
+      card.appendChild(h('div',{style:'font-size:14px;margin-top:5px;color:'+sc2+';font-weight:600'},st+(rec.ts?' · '+fmtHM(rec.ts)+' 提交':'')))
       if(VW&&rec.status==='pending'){
         card.appendChild(h('button',{className:'btn btn-outline btn-sm',style:'margin-top:6px',onClick:function(){startCheck(type,subj)}},'📷 重新上传'))
       }
@@ -1103,7 +1116,7 @@ function rckList(){
       cq.appendChild(grid)
     }
   }
-  cq.appendChild(h('div',{style:'font-weight:700;font-size:14px;margin:8px 0'},'其他'))
+  cq.appendChild(h('div',{style:'font-weight:700;font-size:15px;margin:8px 0'},'其他'))
   const ggrid=h('div',{className:'check-grid'})
   for(const type of CHECK_TYPES.filter(function(t){return !t.subject}))ggrid.appendChild(makeCheckCard(type,''))
   cq.appendChild(ggrid)
@@ -1136,7 +1149,7 @@ function rckList(){
     if(!VW){const del=h('button',{className:'btn btn-danger btn-sm',style:'margin-left:6px',onClick:function(){D.tasks=D.tasks.filter(function(x){return x.id!==task.id});sv(D);render()}});del.innerHTML='✕';item.appendChild(del)}
     tt.appendChild(item)
   }
-  if(todayTasks.length===0)tt.appendChild(h('div',{style:'color:var(--muted);font-size:13.5px'},'今天还没有任务，可在下方添加'))
+  if(todayTasks.length===0)tt.appendChild(h('div',{style:'color:var(--muted);font-size:14.5px'},'今天还没有任务，可在下方添加'))
   tc.appendChild(tt)
   if(!VW){
     const addRow=h('div',{style:'display:flex;gap:8px;margin-top:10px'})
@@ -1195,7 +1208,7 @@ function rset(){
   const rt=D.ritualTime||'20:00'
   const rc=h('div',{className:'card edit-only'})
   rc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🕗'}),'固定学习时间'))
-  rc.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-bottom:8px'},'固定时间比临时起意更省力，孩子不用纠结"要不要学"，到点就做'))
+  rc.appendChild(h('div',{style:'font-size:14.5px;color:var(--muted);margin-bottom:8px'},'固定时间比临时起意更省力，孩子不用纠结"要不要学"，到点就做'))
   const rrow=h('div',{style:'display:flex;align-items:center;gap:8px;flex-wrap:wrap'})
   rrow.innerHTML='<input type="time" id="ritualTime" value="'+rt+'" style="width:130px">'
   rrow.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){var v=document.getElementById('ritualTime').value;if(v){D.ritualTime=v;sv(D);render();ts('✅ 学习时间已设为 '+v)}}},'💾 保存'))
@@ -1206,8 +1219,8 @@ function rset(){
   const goals=D.smallGoals||[]
   const gcard=h('div',{className:'card edit-only'})
   gcard.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🎯'}),'小目标阶梯（达成 +10 分）'))
-  gcard.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-bottom:8px'},'够得着，别定太高。每次只提一点点（如英语70→75）'))
-  if(!goals.length)gcard.appendChild(h('div',{style:'color:var(--muted);font-size:13.5px'},'还没有小目标，在下面添加'))
+  gcard.appendChild(h('div',{style:'font-size:14px;color:var(--muted);margin-bottom:8px'},'够得着，别定太高。每次只提一点点（如英语70→75）'))
+  if(!goals.length)gcard.appendChild(h('div',{style:'color:var(--muted);font-size:14.5px'},'还没有小目标，在下面添加'))
   for(const g of goals){
     const row=h('div',{className:'mistake-item'})
     row.innerHTML='<strong>'+g.subject+'</strong> '+g.from+'→'+g.to+(g.done?' <span style="color:var(--success)">✅ 已达成</span>':'')
@@ -1227,15 +1240,15 @@ function rset(){
   // 平板使用
   const tabCard=h('div',{className:'card edit-only'})
   tabCard.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'💻'}),'平板使用'))
-  tabCard.appendChild(h('div',{style:'font-size:13.5px',innerHTML:'状态：'+(D.tabUnlock?'✅ 已发放':'⬜ 未发放')+' | 每天限时 <strong>'+(D.tabDailyMinutes||60)+' 分钟</strong>'}))
+  tabCard.appendChild(h('div',{style:'font-size:14.5px',innerHTML:'状态：'+(D.tabUnlock?'✅ 已发放':'⬜ 未发放')+' | 每天限时 <strong>'+(D.tabDailyMinutes||60)+' 分钟</strong>'}))
   const limitRow=h('div',{style:'display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap'})
-  limitRow.innerHTML='<span style="font-size:13.5px">限时：</span><input type="number" id="tabLimit" value="'+(D.tabDailyMinutes||60)+'" min="10" max="240" step="10" style="width:80px"><span style="font-size:13.5px">分钟</span>'
+  limitRow.innerHTML='<span style="font-size:14.5px">限时：</span><input type="number" id="tabLimit" value="'+(D.tabDailyMinutes||60)+'" min="10" max="240" step="10" style="width:80px"><span style="font-size:14.5px">分钟</span>'
   limitRow.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){var v=parseInt(document.getElementById('tabLimit').value);if(v>0){D.tabDailyMinutes=v;sv(D);render();ts('✅ 平板限时已设为 '+v+' 分钟')}}},'💾 保存'))
   tabCard.appendChild(limitRow)
   const tgl=h('button',{className:'btn '+(D.tabUnlock?'btn-outline':'btn-success')+' btn-sm',style:'margin-top:8px',onClick:function(){D.tabUnlock=!D.tabUnlock;sv(D);render();ts(D.tabUnlock?'✅ 已标记发放':'已标记未发放')}})
   tgl.innerHTML=D.tabUnlock?'标记为未发放':'✅ 标记为已发放'
   tabCard.appendChild(tgl)
-  tabCard.appendChild(h('div',{style:'font-size:12.5px;color:var(--muted);margin-top:6px'},'提示：网页只记录规则，实际锁屏请在平板系统的"屏幕使用时间/家长控制"里设置'))
+  tabCard.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-top:6px'},'提示：网页只记录规则，实际锁屏请在平板系统的"屏幕使用时间/家长控制"里设置'))
   $c.appendChild(tabCard)
 
   // 话费
@@ -1244,7 +1257,7 @@ function rset(){
   pc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📞'}),'话费套餐'))
   pc.innerHTML+='<div class="table-scroll"><table><thead><tr><th scope="col">套餐</th><th scope="col">内容</th><th scope="col">月费</th><th scope="col">当前</th></tr></thead><tbody>'+PLANS.map(function(pp,i){return '<tr><td>'+pp.name+'</td><td>'+pp.data+'</td><td>¥'+pp.cost+'</td><td>'+(i<=plc?'✅':'⬜')+'</td></tr>'}).join('')+'</tbody></table></div>'
   const pcost=PLANS.slice(0,Math.min(plc+1,PLANS.length)).reduce(function(a,pp){return a+pp.cost},0)
-  pc.appendChild(h('div',{style:'margin-top:10px;font-size:13.5px',innerHTML:'💰 月费：<strong>¥'+pcost+'</strong> | 📱：'+(D.phone?'✅ '+(D.phDate?'已发放('+D.phDate+')':'待发放'):'⬜ 待达标')}))
+  pc.appendChild(h('div',{style:'margin-top:10px;font-size:14.5px',innerHTML:'💰 月费：<strong>¥'+pcost+'</strong> | 📱：'+(D.phone?'✅ '+(D.phDate?'已发放('+D.phDate+')':'待发放'):'⬜ 待达标')}))
   const pbr=h('div',{style:'display:flex;gap:8px;margin-top:10px;flex-wrap:wrap'})
   if(plc<PLANS.length-1)pbr.appendChild(h('button',{className:'btn btn-success btn-sm',onClick:function(){D.pl=Math.min(plc+1,PLANS.length-1);sv(D);render();ts('📈 已升级')}},'📈 升级'))
   if(plc>0)pbr.appendChild(h('button',{className:'btn btn-warning btn-sm',onClick:function(){D.pl=Math.max(plc-1,0);sv(D);render();ts('📉 已降级')}},'📉 降级'))
@@ -1259,7 +1272,7 @@ function rset(){
   const rrow2=h('div',{style:'display:flex;align-items:center;gap:10px;flex-wrap:wrap'})
   rrow2.innerHTML='<span>当前：<strong>1元 = '+rate+' 积分</strong></span><input type="number" id="ri" value="'+rate+'" min="0.1" max="100" step="0.1" style="width:90px"><button class="btn btn-primary btn-sm" id="br">更新</button>'
   rt2.appendChild(rrow2)
-  rt2.appendChild(h('div',{style:'font-size:12.5px;color:var(--muted);margin-top:6px'},'修改后所有零件所需积分自动重算'))
+  rt2.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-top:6px'},'修改后所有零件所需积分自动重算'))
   rt2.querySelector('#br').addEventListener('click',function(){const nr=parseFloat(rt2.querySelector('#ri').value);if(nr>0){D.rate=nr;sv(D);render();ts('💱 1元='+nr+'积分')}})
   $c.appendChild(rt2)
 
@@ -1348,18 +1361,18 @@ function rset(){
     _title='你在电脑上'
     _steps=['看网址栏右侧有没有一个「安装」小图标（显示器加箭头），点它','或点浏览器右上角「⋮ / ⋯」→ 找「应用 → 安装此站点」','安装后会像独立软件一样打开，没有地址栏']
   }
-  gc.appendChild(h('div',{style:'font-size:13px;color:var(--primary);font-weight:600;margin-bottom:6px'},'👉 '+_title))
-  const _ol=h('div',{style:'font-size:13px;line-height:1.9;color:var(--muted)'})
+  gc.appendChild(h('div',{style:'font-size:14px;color:var(--primary);font-weight:600;margin-bottom:6px'},'👉 '+_title))
+  const _ol=h('div',{style:'font-size:14px;line-height:1.9;color:var(--muted)'})
   _steps.forEach(function(t,i){_ol.appendChild(h('div',null,(i+1)+'. '+t))})
   gc.appendChild(_ol)
-  gc.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:8px'},'装到桌面后：图标是紫色的仪表盘，点开即全屏，不用再找网址'))
+  gc.appendChild(h('div',{style:'font-size:13px;color:var(--faint);margin-top:8px'},'装到桌面后：图标是紫色的仪表盘，点开即全屏，不用再找网址'))
   $c.appendChild(gc)
 
   // 孩子端链接
   const sh=h('div',{className:'card edit-only'})
   sh.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔗'}),'孩子端链接（发给大哥）'))
   const _kid=((typeof location!=='undefined'&&location.origin&&location.origin!=='null')?location.origin+location.pathname:'index.html')+'?view'
-  sh.appendChild(h('div',{style:'font-size:12.5px;color:var(--muted);margin-bottom:8px;word-break:break-all'},_kid))
+  sh.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-bottom:8px;word-break:break-all'},_kid))
   const sbr=h('div',{style:'display:flex;gap:8px;flex-wrap:wrap'})
   sbr.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){
     const done=function(){ts('✅ 已复制，粘贴到微信发给大哥即可')}
@@ -1368,12 +1381,12 @@ function rset(){
   }},'📋 复制孩子端链接'))
   sbr.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){window.open(_kid,'_blank')}},'🔍 预览孩子端'))
   sh.appendChild(sbr)
-  sh.appendChild(h('div',{style:'font-size:12px;color:var(--muted);margin-top:8px'},'孩子打开只能看和提交打卡，不能改设置；手机浏览器菜单里选「添加到主屏幕」可以像 App 一样打开'))
+  sh.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-top:8px'},'孩子打开只能看和提交打卡，不能改设置；手机浏览器菜单里选「添加到主屏幕」可以像 App 一样打开'))
   $c.appendChild(sh)
 
   const sec=h('div',{className:'card edit-only'})
   sec.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔐'}),'口令与 AI'))
-  sec.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-bottom:8px'},'家长口令=全部权限；孩子口令=只能看和打卡。口令已记在本机，换设备需要重新输入。'))
+  sec.appendChild(h('div',{style:'font-size:14px;color:var(--muted);margin-bottom:8px'},'家长口令=全部权限；孩子口令=只能看和打卡。口令已记在本机，换设备需要重新输入。'))
   const srow=h('div',{style:'display:flex;gap:8px;flex-wrap:wrap'})
   srow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){localStorage.removeItem('lc_lv');localStorage.removeItem('lc_tok');ts('已退出，正在刷新…');setTimeout(function(){location.reload()},800)}},'🚪 退出登录'))
   srow.appendChild(h('button',{className:'btn btn-danger btn-sm',onClick:function(){
@@ -1383,15 +1396,15 @@ function rset(){
   sec.appendChild(srow)
   const _tk=aiToken()||'（先设置口令）'
   const tkRow=h('div',{style:'margin-top:10px;padding:10px 12px;background:var(--bg-elev);border-radius:8px;border:1px solid var(--border)'})
-  tkRow.appendChild(h('div',{style:'font-size:12.5px;color:var(--muted);font-weight:600;margin-bottom:4px'},'云函数需要的 AI_TOKEN（复制到腾讯云云函数的环境变量里）'))
-  tkRow.appendChild(h('div',{style:'font-size:12.5px;word-break:break-all;color:var(--primary)'},_tk))
+  tkRow.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);font-weight:600;margin-bottom:4px'},'云函数需要的 AI_TOKEN（复制到腾讯云云函数的环境变量里）'))
+  tkRow.appendChild(h('div',{style:'font-size:13.5px;word-break:break-all;color:var(--primary)'},_tk))
   tkRow.appendChild(h('button',{className:'btn btn-outline btn-sm',style:'margin-top:6px',onClick:function(){
     if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(_tk).then(function(){ts('✅ 令牌已复制')}).catch(function(){ts('⚠️ 复制失败，请手动选中复制')})}
     else ts('请手动选中上面那串复制')
   }},'📋 复制令牌'))
   sec.appendChild(tkRow)
   const testRow=h('div',{style:'margin-top:8px'})
-  const testOut=h('div',{style:'font-size:12.5px;margin-top:6px;color:var(--muted);white-space:pre-wrap'},'')
+  const testOut=h('div',{style:'font-size:13.5px;margin-top:6px;color:var(--muted);white-space:pre-wrap'},'')
   testRow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){
     testOut.style.color='var(--muted)';testOut.textContent='测试中…（约 5 秒）'
     aiCall('请只回复两个字：正常').then(function(r){
@@ -1405,19 +1418,19 @@ function rset(){
   }},'🔌 测试 AI 连接'))
   testRow.appendChild(testOut)
   sec.appendChild(testRow)
-  sec.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:10px'},'🤖 AI 状态：'+(cloudReady?'云端已连接；云函数部署后「一键生成」即可用':'未连云端，可用「复制提示词」手动生成')))
-  sec.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:4px'},'部署步骤见项目目录里的「AI-部署说明.md」；云函数代码在 cloud-function-ai.js'))
+  sec.appendChild(h('div',{style:'font-size:13px;color:var(--faint);margin-top:10px'},'🤖 AI 状态：'+(cloudReady?'云端已连接；云函数部署后「一键生成」即可用':'未连云端，可用「复制提示词」手动生成')))
+  sec.appendChild(h('div',{style:'font-size:13px;color:var(--faint);margin-top:4px'},'部署步骤见项目目录里的「AI-部署说明.md」；云函数代码在 cloud-function-ai.js'))
   $c.appendChild(sec)
 
   // 历史版本
   const hv=h('div',{className:'card edit-only'})
   hv.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🕘'}),'历史版本（每 6 小时自动存一版，保留 5 版）'))
   const snaps=(D._snaps||[])
-  if(!snaps.length)hv.appendChild(h('div',{style:'color:var(--muted);font-size:13px'},'还没有历史版本，用一会儿就会自动生成'))
+  if(!snaps.length)hv.appendChild(h('div',{style:'color:var(--muted);font-size:14px'},'还没有历史版本，用一会儿就会自动生成'))
   snaps.slice().reverse().forEach(function(sn,ri){
     const realIdx=snaps.length-1-ri
     const row=h('div',{className:'mistake-item',style:'display:flex;align-items:center;gap:8px;flex-wrap:wrap'})
-    row.appendChild(h('span',{style:'flex:1;font-size:13px'},(ri===0?'最新 · ':'')+sn.label))
+    row.appendChild(h('span',{style:'flex:1;font-size:14px'},(ri===0?'最新 · ':'')+sn.label))
     row.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){rollbackTo(realIdx)}},'↩️ 回滚到这一版'))
     hv.appendChild(row)
   })
@@ -1431,8 +1444,8 @@ function rset(){
     tv.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🗑'}),'最近删除（'+tr.length+' 条 · 30 天内可恢复）'))
     tr.slice(0,15).forEach(function(t){
       const row=h('div',{className:'mistake-item',style:'display:flex;align-items:center;gap:8px;flex-wrap:wrap'})
-      row.appendChild(h('span',{style:'flex:1;font-size:13px'},t.label))
-      row.appendChild(h('span',{style:'font-size:12.5px;color:var(--faint)'},fd(ymd(new Date(t.at)))))
+      row.appendChild(h('span',{style:'flex:1;font-size:14px'},t.label))
+      row.appendChild(h('span',{style:'font-size:13.5px;color:var(--faint)'},fd(ymd(new Date(t.at)))))
       row.appendChild(h('button',{className:'btn btn-success btn-sm',onClick:function(){trashRestore(t.id)}},'恢复'))
       tv.appendChild(row)
     })
@@ -1454,7 +1467,7 @@ function rset(){
     setTimeout(function(){location.reload()},1000)
   }},'🧹 清理本机缓存'))
   dm.appendChild(dbr)
-  dm.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-top:8px'},'上次备份：'+((D._lastBackup)?fd(ymd(new Date(D._lastBackup))):'从未导出')+'（建议每周导出一次，存微信收藏或网盘）'))
+  dm.appendChild(h('div',{style:'font-size:14px;color:var(--muted);margin-top:8px'},'上次备份：'+((D._lastBackup)?fd(ymd(new Date(D._lastBackup))):'从未导出')+'（建议每周导出一次，存微信收藏或网盘）'))
   $c.appendChild(dm)
 }
 
@@ -1473,7 +1486,7 @@ function rs(){
   if(!_showForm){
     const oc=h('div',{className:'card edit-only'})
     oc.appendChild(h('button',{className:'btn btn-primary',onClick:function(){_openExamForm=true;render()}},'＋ 录入考试成绩'))
-    oc.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-top:8px'},'点按钮展开录入；录入时可以顺手拍试卷照片，通过后计入'))
+    oc.appendChild(h('div',{style:'font-size:14px;color:var(--muted);margin-top:8px'},'点按钮展开录入；录入时可以顺手拍试卷照片，通过后计入'))
     $c.appendChild(oc)
   }
   if(_showForm){
@@ -1492,7 +1505,7 @@ function rs(){
     arr.forEach(function(b64,idx){
       const wrap=h('div',{style:'position:relative;display:inline-block'})
       wrap.appendChild(h('img',{alt:'记录照片',loading:'lazy',src:b64,style:'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer',onClick:function(){viewImg(b64,arr)}}))
-      wrap.appendChild(h('button',{className:'btn btn-danger btn-sm',style:'position:absolute;top:-6px;right:-6px;padding:0 4px;font-size:11.5px;line-height:1',onClick:function(){subjImgs[subId].splice(idx,1);renderSubjImgs(subId)}},'✕'))
+      wrap.appendChild(h('button',{className:'btn btn-danger btn-sm',style:'position:absolute;top:-6px;right:-6px;padding:0 4px;font-size:12.5px;line-height:1',onClick:function(){subjImgs[subId].splice(idx,1);renderSubjImgs(subId)}},'✕'))
       box.appendChild(wrap)
     })
   }
@@ -1524,7 +1537,7 @@ function rs(){
     for(const s of subs){
       const oldVal=prev[s.id]!=null?prev[s.id]:(editing&&orig&&orig.scores&&orig.scores[s.id]!=null?orig.scores[s.id]:'')
       const row=h('div',{className:'subj-line',style:'padding-bottom:8px;border-bottom:1px dashed var(--border);margin-bottom:8px'})
-      row.appendChild(h('label',{style:'font-size:13px;color:var(--muted);font-weight:600;display:block;margin-bottom:4px'},s.name+'（满分'+s.full+'，×'+(s.rate*100).toFixed(0)+'%）'))
+      row.appendChild(h('label',{style:'font-size:14px;color:var(--muted);font-weight:600;display:block;margin-bottom:4px'},s.name+'（满分'+s.full+'，×'+(s.rate*100).toFixed(0)+'%）'))
       const r2=h('div',{style:'display:flex;align-items:center;gap:8px;flex-wrap:wrap'})
       r2.appendChild(h('input',{type:'text',placeholder:'数字或ABC',value:String(oldVal),'data-sub':s.id,style:'width:110px'}))
       const _n=(subjImgs[s.id]||[]).length
@@ -1659,7 +1672,7 @@ function rs(){
   bc.innerHTML+=btb
   const bpct=bkf>0?(bkt/bkf*100):0
   const bfull=bsubs.reduce(function(a,x){return a+x.full*x.rate},0)
-  bc.appendChild(h('div',{style:'margin-top:10px;padding:8px;background:var(--bg-elev);border-radius:6px;font-size:13px',innerHTML:'📊 基准合计：<strong>'+bkt.toFixed(1)+'/'+bkf.toFixed(0)+'</strong>（'+bpct.toFixed(1)+'%）| 满分：'+bfull}))
+  bc.appendChild(h('div',{style:'margin-top:10px;padding:8px;background:var(--bg-elev);border-radius:6px;font-size:14px',innerHTML:'📊 基准合计：<strong>'+bkt.toFixed(1)+'/'+bkf.toFixed(0)+'</strong>（'+bpct.toFixed(1)+'%）| 满分：'+bfull}))
   if(!VW&&_blEdit){
     const beg=h('div',{className:'form-row',style:'margin-top:10px'})
     for(const sb of bsubs){
@@ -1701,7 +1714,7 @@ function rs(){
     const tcc=h('div',{className:'card'})
     tcc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📈'}),'成绩趋势（'+(D.sem||'')+' 得分率）'))
     tcc.appendChild(buildTrendSvg(_sorted))
-    tcc.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-top:4px'},'绿色虚线是「三中 625 线」对应得分率 78.1%，点越往上越好'))
+    tcc.appendChild(h('div',{style:'font-size:14px;color:var(--muted);margin-top:4px'},'绿色虚线是「三中 625 线」对应得分率 78.1%，点越往上越好'))
     $c.appendChild(tcc)
   }
 
@@ -1722,14 +1735,14 @@ function rs(){
       const st=ex.status==='pending'?'⏳ 待审核':ex.status==='rejected'?'↩️ 已退回':'✅'
       const stc=ex.status==='pending'?'var(--warning)':ex.status==='rejected'?'var(--muted)':'var(--success)'
       const row=h('div',{className:'mistake-item'})
-      row.innerHTML='<div><strong>'+fd(ex.date)+' '+ex.sem+' '+ex.examType+'</strong> <span style="color:'+stc+'">'+st+'</span></div><div style="font-size:13.5px;color:var(--muted);margin-top:2px">总分 <strong style="color:'+pctColor+'">'+info.total+'</strong> / '+info.fullTotal+' （'+ps(info.pct)+'）</div>'
+      row.innerHTML='<div><strong>'+fd(ex.date)+' '+ex.sem+' '+ex.examType+'</strong> <span style="color:'+stc+'">'+st+'</span></div><div style="font-size:14.5px;color:var(--muted);margin-top:2px">总分 <strong style="color:'+pctColor+'">'+info.total+'</strong> / '+info.fullTotal+' （'+ps(info.pct)+'）</div>'
       if(ex.imgs&&ex.imgs.length){
         const ir=h('div',{style:'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px'})
         for(const b of ex.imgs){ir.appendChild(h('img',{alt:'记录照片',loading:'lazy',src:b,style:'width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b,ex.imgs)}}))}
         row.appendChild(ir)
       }
       if(ex.history&&ex.history.length){
-        const hd=h('div',{style:'margin-top:6px;font-size:13px;color:var(--faint)'})
+        const hd=h('div',{style:'margin-top:6px;font-size:14px;color:var(--faint)'})
         hd.appendChild(h('div',{style:'font-weight:600;color:var(--muted)'},'📝 更新日志（'+ex.history.length+'条）'))
         for(const hh of ex.history){hd.appendChild(h('div',{style:'margin-top:2px'},fd(ymd(new Date(hh.ts)))+': '+hh.note))}
         row.appendChild(hd)
@@ -1796,19 +1809,19 @@ function rp(){
   for(const part of D.parts){
     const pcost=Math.round(part.value*rate)
     const card=h('div',{className:'part-card '+(part.unlocked?'unlocked':'locked'),onClick:()=>{if(!VW&&part.unlocked&&!part.received){if(confirm('标记 "'+part.name+'" 为已签收？')){part.received=true;sv(D);render();ts('✅ 已标记签收 · '+praise('part'))}}}})
-    card.innerHTML='<div class="pb">'+(part.received?'✅':part.unlocked?'🔓':'🔒')+'</div><div class="pi">'+part.icon+'</div><div class="pn">'+part.name+'</div><div class="pv">¥'+part.value.toLocaleString()+' / ⭐'+pcost.toLocaleString()+'</div><div class="pc">'+part.cond+'</div><div style="font-size:11.5px;color:var(--muted);margin-top:2px">'+(part.exchange?('需 '+pcost.toLocaleString()+' 积分兑换'):part.det)+'</div>'
+    card.innerHTML='<div class="pb">'+(part.received?'✅':part.unlocked?'🔓':'🔒')+'</div><div class="pi">'+part.icon+'</div><div class="pn">'+part.name+'</div><div class="pv">¥'+part.value.toLocaleString()+' / ⭐'+pcost.toLocaleString()+'</div><div class="pc">'+part.cond+'</div><div style="font-size:12.5px;color:var(--muted);margin-top:2px">'+(part.exchange?('需 '+pcost.toLocaleString()+' 积分兑换'):part.det)+'</div>'
     if(part.exchange&&!part.unlocked&&!VW){
       const need=pcost
       const can=availPts>=need
-      card.appendChild(h('button',{className:'btn btn-sm '+(can?'btn-success':'btn-outline'),style:'margin-top:6px;font-size:12.5px',onClick:(e)=>{e.stopPropagation();if(availPts<need){ts('⚠️ 积分不足，还差 '+(need-availPts).toLocaleString()+' 分');return}if(confirm('确认用 '+need.toLocaleString()+' 积分兑换 '+part.name+'？')){D.points.push({date:td,source:'兑换 '+part.name,points:need,type:'spend'});part.unlocked=true;sv(D);render();ts('✅ 已兑换 '+part.name+' · '+praise('part'))}}},(can?'💰 兑换 ⭐':'🔒 积分不足')))
+      card.appendChild(h('button',{className:'btn btn-sm '+(can?'btn-success':'btn-outline'),style:'margin-top:6px;font-size:13.5px',onClick:(e)=>{e.stopPropagation();if(availPts<need){ts('⚠️ 积分不足，还差 '+(need-availPts).toLocaleString()+' 分');return}if(confirm('确认用 '+need.toLocaleString()+' 积分兑换 '+part.name+'？')){D.points.push({date:td,source:'兑换 '+part.name,points:need,type:'spend'});part.unlocked=true;sv(D);render();ts('✅ 已兑换 '+part.name+' · '+praise('part'))}}},(can?'💰 兑换 ⭐':'🔒 积分不足')))
     }
-    if(!VW)card.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-top:6px;font-size:11.5px',onClick:(e)=>{e.stopPropagation();const np=prompt('修改 '+part.name+' 价格（当前：¥'+part.value.toLocaleString()+'）：',part.value);if(np!==null){const v=parseFloat(np);if(!isNaN(v)&&v>0){part.value=v;sv(D);render();ts('✅ 已更新')}}}},'✏️ 改价'))
+    if(!VW)card.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-top:6px;font-size:12.5px',onClick:(e)=>{e.stopPropagation();const np=prompt('修改 '+part.name+' 价格（当前：¥'+part.value.toLocaleString()+'）：',part.value);if(np!==null){const v=parseFloat(np);if(!isNaN(v)&&v>0){part.value=v;sv(D);render();ts('✅ 已更新')}}}},'✏️ 改价'))
     grid.appendChild(card)
   }
   pc.appendChild(grid)
   const av=D.parts.reduce((s,p)=>s+p.value,0)
   const ap=D.parts.reduce((s,p)=>s+Math.round(p.value*rate),0)
-  pc.appendChild(h('div',{style:'margin-top:14px;padding:10px;background:var(--bg-elev);border-radius:6px;font-size:13.5px;text-align:center',innerHTML:'💰 全部总价：<strong>¥'+av.toLocaleString()+'</strong> | 共需积分：<strong>⭐'+ap.toLocaleString()+'</strong>（1元='+rate+'分）'}))
+  pc.appendChild(h('div',{style:'margin-top:14px;padding:10px;background:var(--bg-elev);border-radius:6px;font-size:14.5px;text-align:center',innerHTML:'💰 全部总价：<strong>¥'+av.toLocaleString()+'</strong> | 共需积分：<strong>⭐'+ap.toLocaleString()+'</strong>（1元='+rate+'分）'}))
   $c.appendChild(pc)
 
   /* 管理零件清单已移到「设置」页 */
@@ -1859,7 +1872,7 @@ function rpt(){
     }
     dc.innerHTML+='<div class="table-scroll"><table><thead><tr><th scope="col">日期</th><th scope="col">来源</th><th class="col-sm-hide">类型</th><th scope="col">分值</th><th scope="col">操作</th></tr></thead><tbody>'+rows2+'</tbody></table></div>'
     if(!VW){for(var pi2=0;pi2<sorted.length;pi2++){(function(p2){var el=dc.querySelector('#btn_'+pi2);if(el)el.onclick=function(){if(!confirm('删除这条积分记录？\n'+p2.date+' '+p2.source+' '+(p2.type==='earn'?'+':'-')+p2.points+'\n\n会放进「设置 → 最近删除」，30 天内可恢复'))return;const _i=D.points.indexOf(p2);if(_i<0)return;trashPush('point',p2.date+' '+p2.source,D.points[_i]);D.points.splice(_i,1);sv(D);render();ts('已删除（可在设置页恢复）')}})(sorted[pi2])}}
-    if(D.points.length>50)dc.appendChild(h('div',{style:'text-align:center;color:var(--muted);margin-top:8px;font-size:13px'},'仅显示最近 50 条'+(_ptFilter!=='all'?'（已按类型筛选）':'')))
+    if(D.points.length>50)dc.appendChild(h('div',{style:'text-align:center;color:var(--muted);margin-top:8px;font-size:14px'},'仅显示最近 50 条'+(_ptFilter!=='all'?'（已按类型筛选）':'')))
   }
   $c.appendChild(dc)
 
@@ -1873,12 +1886,12 @@ function rpt(){
   _rtb+='<tr><td>✅ 家长手动添加</td><td>在「积分账本」页录入</td></tr>'
   _rtb+='</tbody></table></div>'
   rc.innerHTML+=_rtb
-  rc.appendChild(h('div',{style:'font-size:13px;color:var(--muted);padding:8px;background:var(--bg-elev);border-radius:6px;margin-top:8px'},'大考奖励分数不会自动加，请参考下表用「手动添加」录入实际达成的项'))
+  rc.appendChild(h('div',{style:'font-size:14px;color:var(--muted);padding:8px;background:var(--bg-elev);border-radius:6px;margin-top:8px'},'大考奖励分数不会自动加，请参考下表用「手动添加」录入实际达成的项'))
   $c.appendChild(rc)
 
   const erc=h('div',{className:'card'})
   erc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🏅'}),'大考积分参考（手动录入）'))
-  erc.innerHTML+='<div class="table-scroll"><table><thead><tr><th scope="col">积分项</th><th scope="col">参考分值</th></tr></thead><tbody><tr><td>🏅 达标基础分</td><td><strong>+150</strong></td></tr><tr><td>🚀 超标加分</td><td><strong>+15/分</strong></td></tr><tr><td>📚 单科达标</td><td><strong>+40/科</strong></td></tr><tr><td>🌟 全科达标</td><td><strong>+80</strong></td></tr><tr><td>📈 进步奖</td><td><strong>+60</strong></td></tr><tr><td>🔥 连续达标</td><td><strong>+80</strong></td></tr></tbody></table></div><div style="margin-top:10px;font-size:13px;color:var(--muted);padding:8px;background:var(--warning-weak);border-radius:6px">💡 <strong>示例：</strong>达标150 + 超标45 + 3科120 + 进步60 = <strong>375 分</strong></div>'
+  erc.innerHTML+='<div class="table-scroll"><table><thead><tr><th scope="col">积分项</th><th scope="col">参考分值</th></tr></thead><tbody><tr><td>🏅 达标基础分</td><td><strong>+150</strong></td></tr><tr><td>🚀 超标加分</td><td><strong>+15/分</strong></td></tr><tr><td>📚 单科达标</td><td><strong>+40/科</strong></td></tr><tr><td>🌟 全科达标</td><td><strong>+80</strong></td></tr><tr><td>📈 进步奖</td><td><strong>+60</strong></td></tr><tr><td>🔥 连续达标</td><td><strong>+80</strong></td></tr></tbody></table></div><div style="margin-top:10px;font-size:14px;color:var(--muted);padding:8px;background:var(--warning-weak);border-radius:6px">💡 <strong>示例：</strong>达标150 + 超标45 + 3科120 + 进步60 = <strong>375 分</strong></div>'
   $c.appendChild(erc)
 }
 
@@ -1919,7 +1932,7 @@ function rcal(){
   nav.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_calM++;if(_calM>11){_calM=0;_calY++}render()}},'下月 →'))
   head.appendChild(nav)
   // 图例
-  head.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-top:10px;display:flex;gap:14px;flex-wrap:wrap'},'🟢 有打卡 · ⚪ 无打卡 · 数字=当天打卡次数'))
+  head.appendChild(h('div',{style:'font-size:14px;color:var(--muted);margin-top:10px;display:flex;gap:14px;flex-wrap:wrap'},'🟢 有打卡 · ⚪ 无打卡 · 数字=当天打卡次数'))
   $c.appendChild(head)
 
   // 日历网格
@@ -1929,7 +1942,7 @@ function rcal(){
   const calCard=h('div',{className:'card'})
   const wk=['一','二','三','四','五','六','日']
   const grid=h('div',{style:'display:grid;grid-template-columns:repeat(7,1fr);gap:4px'})
-  for(const w of wk){grid.appendChild(h('div',{style:'text-align:center;font-size:13px;color:var(--faint);padding:6px 0;font-weight:600'},w))}
+  for(const w of wk){grid.appendChild(h('div',{style:'text-align:center;font-size:14px;color:var(--faint);padding:6px 0;font-weight:600'},w))}
   for(let i=0;i<offset;i++){grid.appendChild(h('div',null))}
   const todayStr=ymd()
   for(let d=1;d<=daysInMonth;d++){
@@ -1939,11 +1952,11 @@ function rcal(){
     const isToday=ds===todayStr
     const isSel=ds===_calSel
     const cell=h('div',{style:'min-height:56px;border-radius:8px;padding:4px;cursor:pointer;border:1px solid '+(isSel?'var(--primary-border)':isToday?'var(--border-strong)':'var(--border)')+';background:'+(cnt>0?(app===cnt&&cnt>0?'var(--success-weak)':'var(--warning-weak)'):'transparent'),onClick:function(){_calSel=(_calSel===ds)?null:ds;render()}})
-    cell.appendChild(h('div',{style:'font-size:13.5px;font-weight:'+(isToday?'700':'500')+';color:'+(isToday?'var(--primary)':'var(--text)')},d))
+    cell.appendChild(h('div',{style:'font-size:14.5px;font-weight:'+(isToday?'700':'500')+';color:'+(isToday?'var(--primary)':'var(--text)')},d))
     if(cnt>0){
-      cell.appendChild(h('div',{style:'text-align:center;margin-top:4px'},h('span',{style:'display:inline-block;min-width:18px;padding:1px 6px;border-radius:10px;font-size:12.5px;font-weight:700;color:#fff;background:'+(app===cnt?'var(--success)':'var(--warning)')},cnt)))
+      cell.appendChild(h('div',{style:'text-align:center;margin-top:4px'},h('span',{style:'display:inline-block;min-width:18px;padding:1px 6px;border-radius:10px;font-size:13.5px;font-weight:700;color:#fff;background:'+(app===cnt?'var(--success)':'var(--warning)')},cnt)))
     }else{
-      cell.appendChild(h('div',{style:'text-align:center;margin-top:4px;font-size:12.5px;color:var(--faint)'},'⚪'))
+      cell.appendChild(h('div',{style:'text-align:center;margin-top:4px;font-size:13.5px;color:var(--faint)'},'⚪'))
     }
     grid.appendChild(cell)
   }
@@ -1955,14 +1968,14 @@ function rcal(){
     const selChecks=(D.checks||[]).filter(function(c){return c.date===_calSel})
     const dc=h('div',{className:'card'})
     dc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📅'}),_calSel+' 打卡详情（'+selChecks.length+'条）'))
-    if(!selChecks.length){dc.appendChild(h('div',{style:'color:var(--muted);font-size:13.5px'},'这天没有打卡记录'))}
+    if(!selChecks.length){dc.appendChild(h('div',{style:'color:var(--muted);font-size:14.5px'},'这天没有打卡记录'))}
     else{
       for(const c of selChecks){
         const type=CHECK_TYPES.find(function(t){return t.id===c.type})||{name:c.typeName,icon:''}
         const st=c.status==='pending'?'⏳ 待审核':c.status==='approved'?'✅ 已通过':'↩️ 已退回'
         const sc2=c.status==='pending'?'var(--warning)':c.status==='approved'?'var(--success)':'var(--muted)'
         const row=h('div',{className:'mistake-item'})
-        row.innerHTML='<div><strong>'+type.icon+' '+(c.subject?c.subject+'·':'')+type.name+'</strong> <span style="color:'+sc2+'">'+st+'</span> <span style="color:var(--muted);font-size:13px">+'+c.pts+'分</span></div>'
+        row.innerHTML='<div><strong>'+type.icon+' '+(c.subject?c.subject+'·':'')+type.name+'</strong> <span style="color:'+sc2+'">'+st+'</span> <span style="color:var(--muted);font-size:14px">+'+c.pts+'分</span></div>'
         const cImgs=checkImgs(c)
         if(cImgs.length){const cir=h('div',{style:'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px'});cImgs.forEach(function(b){cir.appendChild(h('img',{alt:'记录照片',loading:'lazy',src:b,style:'width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b,cImgs)}}))});row.appendChild(cir)}
         dc.appendChild(row)
@@ -1989,7 +2002,7 @@ function rwk(){
   for(const s of bsubs){const raw=bl[s.id];if(raw!=null){const p=raw/s.full*100;if(p<60)weak.push(s.name+'('+p.toFixed(0)+'%)')}}
   const rp=h('div',{className:'card'})
   rp.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📊'}),'学习周报'))
-  rp.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-bottom:12px'},'本周：'+fd(weekStartStr)+' ~ '+fd(ymd(now))))
+  rp.appendChild(h('div',{style:'font-size:14.5px;color:var(--muted);margin-bottom:12px'},'本周：'+fd(weekStartStr)+' ~ '+fd(ymd(now))))
   const _lws=new Date(weekStart);_lws.setDate(weekStart.getDate()-7)
   const _TW=weekStatsOf(weekStart)
   const _LT=weekStatsOf(_lws)
@@ -2002,15 +2015,15 @@ function rwk(){
     {icon:'🎯',label:'薄弱科目',v:weak.length?weak.join('、'):'暂无',lv:'',cp:null}
   ]
   for(const it of items){
-    const row=h('div',{style:'display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border);font-size:14px'})
+    const row=h('div',{style:'display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border);font-size:15px'})
     row.appendChild(h('span',{style:'flex:1'},it.icon+' '+it.label))
-    if(it.lv)row.appendChild(h('span',{style:'font-size:12px;color:var(--faint)'},'上周 '+it.lv))
-    if(it.cp)row.appendChild(h('span',{style:'font-size:12.5px;font-weight:700;color:'+it.cp.c+';min-width:52px;text-align:right'},it.cp.t))
+    if(it.lv)row.appendChild(h('span',{style:'font-size:13px;color:var(--faint)'},'上周 '+it.lv))
+    if(it.cp)row.appendChild(h('span',{style:'font-size:13.5px;font-weight:700;color:'+it.cp.c+';min-width:52px;text-align:right'},it.cp.t))
     row.appendChild(h('strong',{style:'min-width:64px;text-align:right'},it.v))
     rp.appendChild(row)
   }
-  rp.appendChild(h('div',{style:'font-size:12px;color:var(--muted);margin-top:6px'},'右边是本周，中间是跟上周的自己比（↑进步 ↓退步）'))
-  rp.appendChild(h('div',{style:'margin-top:14px;padding:12px;background:var(--primary-weak);border-radius:8px;font-size:13.5px',innerHTML:'💡 <strong>下周建议：</strong>'+(weak.length?'重点突破 '+weak[0]+'，每天15分钟专项练习':'保持当前节奏，巩固已学知识')}))
+  rp.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-top:6px'},'右边是本周，中间是跟上周的自己比（↑进步 ↓退步）'))
+  rp.appendChild(h('div',{className:'longtext',style:'margin-top:14px;padding:12px;background:var(--primary-weak);border-radius:8px;font-size:15px;line-height:1.8',innerHTML:'💡 <strong>下周建议：</strong>'+(weak.length?'重点突破 '+weak[0]+'，每天15分钟专项练习':'保持当前节奏，巩固已学知识')}))
   rp.appendChild(h('div',{className:'daily-praise',style:'margin-top:12px'},'💬 一周的坚持看得见，下周继续加油！'))
   if(!VW){
     rp.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-top:12px',onClick:function(){
