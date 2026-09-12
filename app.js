@@ -246,18 +246,25 @@ function logout(){
 }
 
 /* ================= AI 助手（密钥在云函数里，网页端不存） ================= */
-const AI_FN='leaiai'
+const AI_URL='https://jiajia-study-d6gjyod13d77728d6-1483465315.ap-shanghai.app.tcloudbase.com/ai'
 function aiToken(){return localStorage.getItem('lc_tok')||''}
 async function aiCall(prompt){
-  if(!cloudReady||!cloudApp||typeof cloudApp.callFunction!=='function')return {ok:false,err:'未连接云端'}
+  if(!aiToken())return {ok:false,err:'请先设置口令，再使用 AI'}
   try{
-    const r=await cloudApp.callFunction({name:AI_FN,data:{token:aiToken(),prompt:prompt}})
-    const res=r&&r.result
-    if(res&&res.ok)return {ok:true,text:String(res.text||'')}
-    return {ok:false,err:(res&&res.err)||('返回内容异常：'+JSON.stringify(r).slice(0,120))}
+    const res=await fetch(AI_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({token:aiToken(),prompt:prompt})
+    })
+    const txt=await res.text()
+    let j=null
+    try{j=JSON.parse(txt)}catch(e){}
+    if(j&&j.ok)return {ok:true,text:String(j.text||'')}
+    if(j&&j.err)return {ok:false,err:j.err}
+    return {ok:false,err:'返回异常(HTTP '+res.status+')：'+txt.slice(0,120)}
   }catch(e){
     console.error('AI 调用失败',e)
-    return {ok:false,err:'调用失败：'+String((e&&(e.message||e.msg||e.errMsg))||e).slice(0,160)}
+    return {ok:false,err:'网络请求失败：'+String((e&&e.message)||e).slice(0,140)}
   }
 }
 function weekStats(){
