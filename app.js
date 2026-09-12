@@ -759,6 +759,14 @@ function chatPersona(){
   '【你的边界】',
   '你不是医生：不诊断、不贴标签、不说"你会好起来的""你有心理问题"。你只陪他说话。',
   '',
+  '【表情】',
+  '你可以偶尔用一个表情（1 个就够，比如 🌙 😅 👍 ），但不要每句都带、不要连着好几个；他情绪不好时不要用笑脸。',
+  '',
+  '【每次回复的最后，另外起一行做一件事】',
+  '用标签标出他这条属于哪类，格式：[[T:类别]]。类别只能是 q / e / c / h 之一：',
+  'q = 问功课或学习方法；e = 情绪、人际、家庭；c = 闲聊、没事找话说；h = 需要大人关注（自伤、被打、被严重欺负等）。',
+  '这一行会被系统收走，他不会看到，所以不用文字解释，只写标签本身。',
+  '',
   '【你的目标】',
   '让他觉得跟你说话不累、不丢脸，愿意每天来问一两个问题、说一两句心里话。'
   ].join('\n')
@@ -838,13 +846,33 @@ function chatSend(imgB64){
       }catch(e){}
     }
     let _alert=false
-    if(_txt.indexOf('[[ALERT]]')>=0){_alert=true;_txt=_txt.replace(/\[\[ALERT\]\]/g,'').trim()}
+    let _tag=''
+    const _tm=_txt.match(/\[\[T:([qech])\]\]/)
+    if(_tm){_tag=_tm[1];_txt=_txt.replace(/\[\[T:[qech]\]\]/g,'').trim()}
+    if(_txt.indexOf('[[ALERT]]')>=0){_alert=true;_txt=_txt.replace(/\[\[ALERT\]\]/g,'').trim();_tag='h'}
     const l2=chatLog()
-    l2.push({id:Date.now()+1,date:td,role:'a',text:_txt.trim(),alert:_alert||undefined,ts:Date.now()})
+    l2.push({id:Date.now()+1,date:td,role:'a',text:_txt.trim(),alert:_alert||undefined,tag:_tag||undefined,ts:Date.now()})
+    if(_tag){const _last=l2[l2.length-2];if(_last&&_last.role==='u')_last.tag=_tag}
     if(_alert){const pp=askPool();pp.alert={date:td,at:Date.now()};}
     if(l2.length>300)D._chat=l2.slice(-300)
     sv(D);render()
   })
+}
+const EMOJI_SETS=[
+ {name:'常用',list:['😀','😂','😅','😊','👍','🙏','💪','🔥','✅','😭','🤔','😴','🌙','🍚','⚽','🎮']},
+ {name:'心情',list:['😄','😊','😌','🙂','😐','😔','😞','😢','😤','😰','🥺','😶','🤗','😎','😩','🫠']},
+ {name:'学习',list:['📖','📝','✏️','📐','🧮','🔤','🧠','💡','❓','🔬','🧪','🗺️','📜','⚖️','🌿','📊']}
+]
+function renderEmoji(list,tabs,idx,box){
+  box.innerHTML=''
+  list.forEach(function(e){
+    box.appendChild(h('button',{style:'font-size:22px;background:transparent;border:none;cursor:pointer;padding:2px;border-radius:6px;line-height:1.2',onClick:function(){
+      const el=document.getElementById('chatInput')
+      if(el){el.value=(el.value||'')+e;el.focus()}
+    }},e))
+  })
+  const bs=tabs.querySelectorAll('button')
+  for(let i=0;i<bs.length;i++){bs[i].className='btn btn-sm '+(i===idx?'btn-primary':'btn-outline')}
 }
 function chatTimeLabel(ts,prevTs){
   const d=new Date(ts)
@@ -886,8 +914,19 @@ function chatUI(){
   c.appendChild(wrap)
   if(VW){
     c.appendChild(h('div',{id:'chatOut',style:'display:none'}))
+    const emo=h('div',{id:'emoPanel',style:'display:none;margin-top:8px;background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:10px'})
+    const etabs=h('div',{style:'display:flex;gap:6px;margin-bottom:8px'})
+    const ebox=h('div',{style:'display:grid;grid-template-columns:repeat(8,1fr);gap:4px'})
+    EMOJI_SETS.forEach(function(st,si){
+      const b=h('button',{className:'btn btn-sm '+ (si===0?'btn-primary':'btn-outline'),onClick:function(){renderEmoji(st.list,etabs,si,ebox)}},st.name)
+      etabs.appendChild(b)
+    })
+    emo.appendChild(etabs);emo.appendChild(ebox)
+    renderEmoji(EMOJI_SETS[0].list,etabs,0,ebox)
+    c.appendChild(emo)
     const bar=h('div',{className:'chat-bar'})
     bar.appendChild(h('button',{className:'chat-cam',onClick:function(){chatPickImage()}},'📷'))
+    bar.appendChild(h('button',{className:'chat-cam',onClick:function(){emo.style.display=(emo.style.display==='none'?'':'none')}},'😊'))
     bar.appendChild(h('input',{id:'chatInput',placeholder:'说点什么…'}))
     bar.appendChild(h('button',{className:'chat-send',onClick:function(){chatSend()}},'发送'))
     c.appendChild(bar)
@@ -948,6 +987,14 @@ function chatParentUI(){
   const p=askPool()
   const c=h('div',{className:'card edit-only'})
   c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🫂'}),'他和 '+AI_NAME+' 聊了 '+list.length+' 句'))
+  const _cnt={q:0,e:0,c:0,h:0}
+  list.forEach(function(m){if(m.role==='u'&&m.tag&&_cnt[m.tag]!==undefined)_cnt[m.tag]++})
+  const _parts=[]
+  if(_cnt.q)_parts.push('提问 '+_cnt.q)
+  if(_cnt.e)_parts.push('情绪 '+_cnt.e)
+  if(_cnt.c)_parts.push('闲聊 '+_cnt.c)
+  if(_cnt.h)_parts.push('需关注 '+_cnt.h)
+  if(_parts.length)c.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-bottom:6px'},'今天聊的：'+_parts.join(' · ')))
   if(p.alert&&p.alert.date===td)c.appendChild(h('div',{className:'alert danger',style:'margin-bottom:8px'},'🆘 今天聊到需要你关注的内容，建议今晚打个电话，先别谈成绩'))
   const sum=(p.chatSum&&p.chatSum.date===td)?p.chatSum.text:'（正在整理今天的聊天摘要…）'
   c.appendChild(h('div',{className:'longtext',style:'font-size:14px;line-height:1.75;color:var(--text)'},sum))
@@ -955,6 +1002,7 @@ function chatParentUI(){
   const box=h('div',{style:'display:none;margin-top:8px'})
   list.forEach(function(m){
     const row=h('div',{style:'font-size:13.5px;line-height:1.7;margin-bottom:4px;color:'+(m.role==='u'?'var(--text)':'var(--muted)')})
+    if(m.role==='u'&&m.tag)row.appendChild(h('span',{style:'font-size:11px;padding:1px 6px;border-radius:8px;margin-right:4px;background:var(--bg-elev);border:1px solid var(--border);color:var(--muted)'},{q:'提问',e:'情绪',c:'闲聊',h:'需关注'}[m.tag]||''))
     row.appendChild(h('span',null,((m.role==='u')?'他：':(AI_NAME+'：'))+m.text))
     if(m.img)row.appendChild(h('img',{src:m.img,loading:'lazy',alt:'他发的照片',style:'width:64px;height:64px;object-fit:cover;border-radius:6px;margin-left:6px;vertical-align:middle;border:1px solid var(--border);cursor:pointer',onClick:function(){viewImg(m.img)}}))
     box.appendChild(row)
