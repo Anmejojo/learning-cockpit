@@ -586,7 +586,65 @@ function asksCardUI(){
 }
 
 ﻿/* ================= 和搭子说话（AI 对话栏） ================= */
-﻿/* ================= 小搭角色卡（结构化，参考 character-card-spec-v2 / SillyTavern） ================= */
+﻿﻿/* ================= 小搭「看得见网页」：站点地图 + 实时快照 ================= */
+function chatSiteMap(){
+  return ['【他能看到的网页（他妈妈给他做的「学习驾驶舱」）】',
+  '标签页有 5 个：今日 / 记录 / 成绩 / 积分奖励 / 设置。',
+  '· 今日：今天做到多少、连续几天、可用积分、妈妈留言、这周可以聊的3个问题；',
+  '· 记录：拍照记录今天做的事（妈妈审核后加分）、习惯打勾、今天的任务清单、不会的题可以问；',
+  '· 成绩：录入考试、成绩趋势图、基准线（起点分）、薄弱科目；',
+  '· 积分奖励：积分明细和规则 / 电脑零件清单（一件件解锁，攒积分兑换）；',
+  '· 设置：考试日期、学习时间、小目标、平板限时、话费、口令、数据备份。',
+  '他问"我在哪看xxx"时，直接告诉他点哪个标签、大概在页面什么位置，别让他自己找。'
+  ].join('\n')
+}
+function chatSnapshot(){
+  const L=['【网页上的实时数据（你随时可以引用，数字要准，不要编）】']
+  // 连续打卡
+  let stk=0
+  try{
+    const has=function(d){return (D.checks||[]).some(function(c){return c.date===d&&c.status==='approved'})}
+    const dd=new Date(); if(!has(ymd(dd)))dd.setDate(dd.getDate()-1)
+    for(let i=0;i<400;i++){const d=ymd(dd);if(has(d)){stk++;dd.setDate(dd.getDate()-1)}else break}
+  }catch(e){}
+  const ds=dayStats(td),hs=habStats(td)
+  L.push('· 连续有记录：'+stk+' 天；今天已做 '+((ds.done+hs.done))+' 项（共 '+(ds.total+hs.total)+' 项）')
+  // 成绩
+  const exs=(D.exams||[]).filter(function(e){return e.status!=='rejected'})
+  if(exs.length){
+    const last=[...exs].sort(function(a,b){return (a.date||'').localeCompare(b.date||'')}).slice(-1)[0]
+    const i2=ct(last.scores,last.sem)
+    const gap=Math.round(625-i2.total/i2.fullTotal*800)
+    L.push('· 最近一次考试：'+last.date+' '+last.examType+'，总分 '+i2.total+'/'+i2.fullTotal+'（'+i2.pct.toFixed(1)+'%）'+(gap>0?('，离三中线还差 '+gap+' 分'):'，已过三中线'))
+  }else{L.push('· 最近考试：还没有录成绩')}
+  // 薄弱科目
+  const weak=[]
+  for(const sb of gs(D.sem)){const raw=D.bl&&D.bl[sb.id]!=null?D.bl[sb.id]:null;if(raw!=null&&raw/sb.full*100<70)weak.push(sb.name+' '+(raw/sb.full*100).toFixed(0)+'%')}
+  if(weak.length)L.push('· 偏弱科目：'+weak.join('、'))
+  // 积分
+  const earn=(D.points||[]).filter(function(p){return p.type==='earn'}).reduce(function(a,p){return a+p.points},0)
+  const spend=(D.points||[]).filter(function(p){return p.type==='spend'}).reduce(function(a,p){return a+p.points},0)
+  const avail=earn-spend
+  L.push('· 积分：可用 '+avail+'（累计赚 '+earn+'，用掉 '+spend+'）')
+  // 零件
+  const rate=D.rate||1
+  const locked=(D.parts||[]).filter(function(p){return !p.unlocked}).map(function(p){return {name:p.name,icon:p.icon,cost:Math.round(p.value*rate)}}).sort(function(a,b){return a.cost-b.cost})
+  const pu=(D.parts||[]).filter(function(p){return p.unlocked}).length
+  if(locked.length)L.push('· 电脑零件：已解锁 '+pu+'/'+(D.parts||[]).length+'；下一件 '+locked[0].name+' 要 '+locked[0].cost+' 积分，还差 '+Math.max(0,locked[0].cost-avail))
+  // 本周错题
+  const wk=weekKey(); let mis=0
+  ;(D.checks||[]).forEach(function(c){if(c.date>=wk&&c.type==='mistake'&&c.status!=='rejected')mis++})
+  L.push('· 本周整理错题：'+mis+' 道')
+  // 妈妈留言
+  const un=(D.msgs||[]).filter(function(m){return m.from==='p'&&m.ts>(D.msgSeenC||0)}).length
+  if(un)L.push('· 妈妈给他留了 '+un+' 条还没看')
+  // 今日任务
+  const tds=D.tasks.filter(function(t){return t.date===td&&!t.done}).map(function(t){return t.text})
+  if(tds.length)L.push('· 他自己列了今天要做：'+tds.join('、'))
+  return L.join('\n')
+}
+
+/* ================= 小搭角色卡（结构化，参考 character-card-spec-v2 / SillyTavern） ================= */
 function chatCard(){
   return {
     name:AI_NAME,
@@ -661,6 +719,13 @@ function chatPersona(){
   '',
   '【他说心里话的时候】',
   '先听着，别急着给建议。可以问一句「那你现在最烦哪个」，不要马上把话题转回学习。',
+  '',
+  '【你能看到网页上的数据】',
+  '下面会给你这个网页有什么、以及他现在的各项数据（成绩/积分/零件/连续天数…）。规则：',
+  '1) 他问数据就准确回答（比如"我还有多少积分""离鼠标还差多远"），不要含糊、不要编；',
+  '2) 不要主动念数据、不要报数字流水账。只有他问、或者用来肯定他时才引用；',
+  '3) 引用时用"还剩xx""差xx"这种口语，不要说"根据数据""当前值为"；',
+  '4) 他问"在哪看"，直接告诉点哪个标签页。',
   '',
   '【你知道他今天的进度】',
   '下面会给你他今天做到的和没做的。规则（很重要）：',
@@ -753,6 +818,8 @@ function chatSend(imgB64){
   const tail=(imgB64?'他刚发了一张图（可能是题目、课本或作业）。先一句话说清你看到的是什么，再按规则给思路和第一步 + 反问；不要因为看到全题就把整道题解完；看不清就让他重拍。':'请回复他最后那句。记住：只给思路和第一步，不给最终答案；短一点。')
   const _mem=memText(v||'')
   const _full=[chatPersona(),
+    chatSiteMap(),
+    chatSnapshot(),
     '【你的角色卡】\n'+chatCard().desc,
     '【说话方式看这几个例子，照着这个长度和口气】\n'+chatExamplesText(),
     _mem,
