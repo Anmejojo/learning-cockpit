@@ -337,10 +337,10 @@ function aiCardUI(kind){
         if(isReport)D._aiReport={at:Date.now(),text:r.text};else D._aiPraise={at:Date.now(),date:td,text:r.text}
         sv(D);render();ts('✅ 生成完成')
       }else{
-        ts('⚠️ '+(r.err||'AI 不可用')+'：可用「复制提示词」手动生成')
+        ts('⚠️ '+(r.err||'暂时不可用')+'：可用「复制提示词」手动生成')
       }
     })
-  }},'🤖 一键生成'))
+  }},'生成一次'))
   row.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){
     const p=isReport?aiWeekPrompt():aiPraisePrompt()
     if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(p).then(function(){ts('📋 提示词已复制：粘到 DeepSeek/豆包，再把回复粘回来')}).catch(function(){ts('⚠️ 复制失败')})}
@@ -1488,7 +1488,7 @@ function rset(){
   encBtns.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){ts('正在后台生成…');encEnsure(true);setTimeout(function(){render();ts('已更新')},7000)}},'🔄 换一批鼓励语'))
   encRow.appendChild(encBtns)
   sec.appendChild(encRow)
-  sec.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:10px'},'🤖 AI 状态：'+(cloudReady?'云端已连接；云函数部署后「一键生成」即可用':'未连云端，可用「复制提示词」手动生成')))
+  sec.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:10px'},'🤖 后台状态：'+(cloudReady?'正常，鼓励语每天自动更新':'未连云端，先用备用句子')))
   sec.appendChild(h('div',{style:'font-size:13px;color:var(--faint);margin-top:4px'},'部署步骤见项目目录里的「AI-部署说明.md」；云函数代码在 cloud-function-ai.js'))
   $c.appendChild(sec)
 
