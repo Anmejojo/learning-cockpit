@@ -1377,6 +1377,7 @@ function render(){
   $c.innerHTML=''
   if(tb==='today')rtoday()
   else if(tb==='checkin')rck()
+  else if(tb==='chat')rchat()
   else if(tb==='scores')rsc()
   else if(tb==='points')rpk()
   else if(tb==='settings')rset()
@@ -1561,6 +1562,14 @@ function rtoday(){
 }
 
 /* ============ ② 打卡（拍照 + 习惯 + 日历） ============ */
+function rchat(){
+  $c.appendChild(h('div',{className:'daily-praise',style:'font-size:15px;line-height:1.75'},'💬 '+encToday()))
+  $c.appendChild(chatUI())
+  const ds=dayStats(td),hs=habStats(td)
+  const left=(ds.total+hs.total)-(ds.done+hs.done)
+  $c.appendChild(h('div',{style:'text-align:center;font-size:12.5px;color:var(--faint);padding:6px 0 12px'},left>0?('今天还有 '+left+' 项没弄，不着急，想弄的时候跟他说一声就行'):'今天该弄的都弄完了'))
+}
+
 function rck(){
   $c.appendChild(segBar([
     {label:'📷 记录今天',on:_ckView==='list',fn:function(){_ckView='list';render()}},
@@ -1574,7 +1583,6 @@ function rck(){
 
 function rckList(){
   const ckd=ckDate()
-  $c.appendChild(chatUI())
   const cq=h('div',{className:'card'})
   cq.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📷'}),'记录今天（拍张照给家长看，通过后加分）'))
   const minD=(function(){var d=new Date();d.setDate(d.getDate()-2);return ymd(d)})()
