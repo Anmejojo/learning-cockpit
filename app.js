@@ -615,6 +615,15 @@ function chatPersona(){
   '【他说心里话的时候】',
   '先听着，别急着给建议。可以问一句「那你现在最烦哪个」，不要马上把话题转回学习。',
   '',
+  '【你知道他今天的进度】',
+  '下面会给你他今天做到的和没做的。规则（很重要）：',
+  '1) 不要每次都提。只有这几种时候才自然地提一句：他问"现在做什么/还有什么"、你刚给他讲完一道题、他聊完情绪，或者他今天什么都没做；',
+  '2) 一次最多提 1~2 件，用邀请的语气（"要不要顺手把___弄了"、"这个弄完今天就收工"），不要列表、不要说"你还有几项没完成"；',
+  '3) 顺序永远是：先说他今天已经做到的（要具体，说哪一科哪个），再说可以做的；反过来就是催；',
+  '4) 如果他情绪不好（烦、累、难过、被气到），只接情绪，一件任务都别提；',
+  '5) 永远不用"打卡""任务""监督""未完成""应该"这些词，用"记一下""弄完""收工""顺手"；',
+  '6) 他不做就算了，说"那明天再说"，不要追。',
+  '',
   '【你也是他的心理老师】',
   '他不一定跟妈妈讲的事，可能会跟你讲：不想说话、烦躁、睡不着、觉得自己没用、不想上学、被同学孤立或被起外号、和家里人吵架（妈妈在外地）、喜欢上谁了、身体上的变化、只想打游戏不想写作业。',
   '处理方式：',
@@ -659,6 +668,30 @@ function chatPickImage(){
   }
   inp.click()
 }
+function chatStateText(){
+  const ds=td
+  const doneNow=[],todoNow=[]
+  ;(D.checks||[]).filter(function(c){return c.date===ds}).forEach(function(c){
+    const lbl=(c.subject?c.subject+'·':'')+c.typeName
+    if(c.status==='approved')doneNow.push(lbl)
+    else if(c.status==='pending')doneNow.push(lbl+'(刚交)')
+  })
+  const hs=habStats(ds)
+  const hk=hs.tchk
+  for(const it of hs.ci){if(hk[it.key])doneNow.push(it.label)}
+  const missSubj=[]
+  for(const subj of SUBJECTS){const st=subjStats(subj,ds);if(st.total>0&&st.done<st.total)missSubj.push(subj+'还差'+(st.total-st.done)+'项')}
+  const htodo=[];for(const it of hs.ci){if(!hk[it.key])htodo.push(it.label)}
+  const ttodo=D.tasks.filter(function(t){return t.date===ds&&!t.done}).map(function(t){return t.text})
+  if(missSubj.length)todoNow.push(missSubj.join('、'))
+  if(htodo.length)todoNow.push('习惯：'+htodo.join('、'))
+  if(ttodo.length)todoNow.push('今天自己列的：'+ttodo.join('、'))
+  return ['【他今天的进度】（按上面的规则，判断合适才自然提）',
+    '· 已完成：'+(doneNow.length?doneNow.join('、'):'还没有'),
+    '· 还没做：'+(todoNow.length?todoNow.join(' | '):'没有'),
+    '· 现在时间：'+fmtHM(Date.now())
+  ].join('\n')
+}
 function chatSend(imgB64){
   const el=document.getElementById('chatInput')
   const v=(el&&el.value||'').trim()
@@ -671,7 +704,7 @@ function chatSend(imgB64){
   if(box){box.style.display='';box.textContent=AI_NAME+' 正在看…'}
   const ctx=chatLog().slice(-8).map(function(m){return (m.role==='u'?'他：':'你：')+(m.text||'')}).join('\n')
   const tail=(imgB64?'他刚发了一张图（可能是题目、课本或作业）。先一句话说清你看到的是什么，再按规则给思路和第一步 + 反问；不要因为看到全题就把整道题解完；看不清就让他重拍。':'请回复他最后那句。记住：只给思路和第一步，不给最终答案；短一点。')
-  aiCall(chatPersona()+'\n\n【最近的对话】\n'+ctx+'\n\n'+tail, imgB64||'').then(function(r){
+  aiCall(chatPersona()+'\n\n'+chatStateText()+'\n\n【最近的对话】\n'+ctx+'\n\n'+tail, imgB64||'').then(function(r){
     let _txt=r.ok?String(r.text):'（我现在有点卡，你等下再问我一次）'
     let _alert=false
     if(_txt.indexOf('[[ALERT]]')>=0){_alert=true;_txt=_txt.replace(/\[\[ALERT\]\]/g,'').trim()}
