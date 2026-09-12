@@ -501,7 +501,7 @@ function asksPrompt(){
   const w=weekStatsOf(new Date(weekKey().replace(/-/g,'/')))
   const weak=[]
   for(const sb of gs(D.sem)){const raw=D.bl&&D.bl[sb.id]!=null?D.bl[sb.id]:null;if(raw!=null&&raw/sb.full*100<70)weak.push(sb.name+' '+(raw/sb.full*100).toFixed(0)+'%')}
-  const qs=(D._qa||[]).slice(-5).map(function(x){return x.q})
+  const qs=(D._chat||[]).filter(function(m){return m.role==='u'}).slice(-5).map(function(m){return m.text})
   return ['你在帮一位妈妈准备和初二儿子的一次聊天。妈妈在外地工作，孩子学习基础偏弱、不太愿意多说话。',
     '请给出 3 个「妈妈可以问他的问题」。要求：',
     '1) 不能用"作业写完了吗""今天学得怎么样"这种稽查式问题；',
@@ -574,54 +574,6 @@ function surpriseText(){
   if(!key)return ''
   return (p.surprise&&p.surprise.key===key)?p.surprise.text:''
 }
-function qaPrompt(q){
-  return ['你是初二学生的学习搭子（不是老师）。他问：'+q,
-    '请按这个结构回答，总共不超过 120 字：',
-    '1) 一句话说这题/这个问题考的是什么；',
-    '2) 给"第一步可以怎么做"的提示（不要给最终答案）；',
-    '3) 最后用一个反问句，让他自己往下想一步；',
-    '4) 语气像同学之间讨论，不要客套，不要讲大道理。',
-    '如果信息不够，就问他补充条件，不要瞎猜。'
-  ].join('\n')
-}
-function askAI(){
-  const el=document.getElementById('qaInput')
-  const q=(el&&el.value||'').trim()
-  if(!q){ts('先把题目或问题写一句');return}
-  const box=document.getElementById('qaOut')
-  if(box){box.style.display='';box.textContent='正在想…'}
-  aiCall(qaPrompt(q)).then(function(r){
-    if(!D._qa)D._qa=[]
-    D._qa.push({id:Date.now(),date:td,q:q,a:(r.ok?r.text:('（暂时没想出来：'+(r.err||'稍后再试')+'）')),ts:Date.now()})
-    if(D._qa.length>30)D._qa=D._qa.slice(-30)
-    sv(D);render()
-  })
-}
-function qaCardUI(){
-  const c=h('div',{className:'card'})
-  c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'❓'}),'不会的？写一句问一下'))
-  const row=h('div',{style:'display:flex;gap:8px;flex-wrap:wrap'})
-  row.appendChild(h('input',{id:'qaInput',placeholder:'比如：一次函数 y=2x+3 怎么求与 x 轴交点',style:'flex:1;min-width:200px'}))
-  row.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:askAI},'问一下'))
-  c.appendChild(row)
-  c.appendChild(h('div',{id:'qaOut',style:'display:none'}))
-  ;(D._qa||[]).filter(function(x){return x.date===td}).slice(-3).forEach(function(x){
-    c.appendChild(h('div',{className:'mistake-item',style:'margin-top:8px'},h('div',{style:'font-weight:600;font-size:14px'},'我：'+x.q),h('div',{className:'longtext',style:'margin-top:4px;font-size:14px;line-height:1.75;white-space:pre-wrap;color:var(--text)'},x.a)))
-  })
-  c.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:6px'},'只给思路和第一步，答案要自己算；问过的都会记下来'))
-  return c
-}
-function qaParentCardUI(){
-  const list=(D._qa||[]).slice(-3)
-  if(!list.length)return null
-  const c=h('div',{className:'card'})
-  c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🗣'}),'他最近问的问题'))
-  list.forEach(function(x){
-    c.appendChild(h('div',{className:'mistake-item'},h('div',{style:'font-size:14px;font-weight:600'},x.date+' · '+x.q),h('div',{className:'longtext',style:'margin-top:4px;font-size:13.5px;line-height:1.7;white-space:pre-wrap;color:var(--muted)'},x.a)))
-  })
-  c.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:6px'},'他问的时候你可能已经休息了——第二天拿这个开头跟他聊，比问"作业写完了吗"有效'))
-  return c
-}
 function asksCardUI(){
   const list=askQuestions()
   if(!list.length)return null
@@ -630,6 +582,119 @@ function asksCardUI(){
   list.forEach(function(q,i){c.appendChild(h('div',{className:'alert success',style:'margin-bottom:6px'},(i+1)+'. '+q))})
   c.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:4px'},'都是好回答的问题，别追加追问；他愿意多说一句就算成功'))
   if(!VW)c.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-top:8px',onClick:function(){ts('正在换一批…');ensureAsks(true);setTimeout(function(){render();ts('已更新')},7000)}},'换一批'))
+  return c
+}
+
+﻿/* ================= 和搭子说话（AI 对话栏） ================= */
+const AI_NAME='小搭'
+function chatLog(){if(!D._chat)D._chat=[];return D._chat}
+function chatToday(){return chatLog().filter(function(m){return m.date===td})}
+function chatPersona(){
+  return ['你是「'+AI_NAME+'」，一个比初二学生大两届的高中男生（刚考完中考）。你不是老师，也不是家长，你是陪他一起做题的同龄搭档。',
+  '',
+  '【你怎么说话】',
+  '- 短句、口语，像微信聊天；不用书面语，不说"同学你好""希望对你有帮助""让我们一起"这种话；',
+  '- 每次回复不超过 80 字，能一句说清就不说三句；',
+  '- 不喊口号、不夸他"聪明/真棒"、不说"加油"；',
+  '- 不叫他"同学"，直接说事。',
+  '',
+  '【你绝对不做】',
+  '1) 不直接给最终答案。永远只给：这题考什么 → 第一步怎么做 → 一个反问让他自己往下走；',
+  '2) 不说教、不比较（不提别人、不提排名、不提分数差距）；',
+  '3) 不评价他这个人（可以说"这个方法省事"，不能说"你真聪明""你太懒"）；',
+  '4) 不替他写作业、不写作文；',
+  '5) 不假装知道：题目信息不够，就让他补充，或说"这题我得看原题"。',
+  '',
+  '【他不想学的时候】',
+  '先接住情绪，别讲道理。比如：「行，那今天先只做 5 分钟」「这题做完就歇」。不追问原因，不教育他。',
+  '',
+  '【他说心里话的时候】',
+  '先听着，别急着给建议。可以问一句「那你现在最烦哪个」，不要马上把话题转回学习。',
+  '',
+  '【你的目标】',
+  '让他觉得跟你说话不累、不丢脸，愿意每天来问一两个问题。'
+  ].join('\n')
+}
+function chatSend(){
+  const el=document.getElementById('chatInput')
+  const v=(el&&el.value||'').trim()
+  if(!v)return
+  const log=chatLog()
+  log.push({id:Date.now(),date:td,role:'u',text:v,ts:Date.now()})
+  if(log.length>300)D._chat=log.slice(-300)
+  sv(D);render()
+  const box=document.getElementById('chatOut')
+  if(box){box.style.display='';box.textContent=AI_NAME+' 正在想…'}
+  const ctx=chatLog().slice(-8).map(function(m){return (m.role==='u'?'他：':'你：')+m.text}).join('\n')
+  aiCall(chatPersona()+'\n\n【最近的对话】\n'+ctx+'\n\n请回复他最后那句。记住：只给思路和第一步，不给最终答案；短一点。').then(function(r){
+    const l2=chatLog()
+    l2.push({id:Date.now()+1,date:td,role:'a',text:(r.ok?String(r.text).trim():'（我现在有点卡，你等下再问我一次）'),ts:Date.now()})
+    if(l2.length>300)D._chat=l2.slice(-300)
+    sv(D);render()
+  })
+}
+function chatUI(){
+  const list=chatToday().slice(-20)
+  const c=h('div',{className:'card'})
+  c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🫂'}),'和 '+AI_NAME+' 说话'))
+  if(!list.length)c.appendChild(h('div',{style:'color:var(--muted);font-size:14px;margin-bottom:8px'},'不会的题、不想学的时候，都可以跟他说一句'))
+  list.forEach(function(m){
+    const isMe=(m.role==='u')
+    const row=h('div',{style:'margin-bottom:8px;display:flex;'+(isMe?'justify-content:flex-end':'justify-content:flex-start')})
+    const wrap=h('div',{style:'max-width:82%'})
+    wrap.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-bottom:2px;text-align:'+(isMe?'right':'left')},isMe?'我':AI_NAME+' · '+fmtHM(m.ts)))
+    wrap.appendChild(h('div',{style:'padding:9px 12px;border-radius:12px;font-size:14.5px;line-height:1.7;white-space:pre-wrap;word-break:break-word;'+(isMe?'background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff':'background:var(--card-2);border:1px solid var(--border);color:var(--text)')},m.text))
+    row.appendChild(wrap);c.appendChild(row)
+  })
+  c.appendChild(h('div',{id:'chatOut',style:'display:none'}))
+  const ir=h('div',{style:'display:flex;gap:8px;margin-top:8px'})
+  ir.appendChild(h('input',{id:'chatInput',placeholder:'跟他说点什么…（比如：这题不会 / 今天不想学）',style:'flex:1;min-width:180px'}))
+  ir.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:chatSend},'发送'))
+  c.appendChild(ir)
+  c.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:6px'},'他只会给思路和第一步，不会直接给答案；聊天会记录下来'))
+  return c
+}
+function chatSummaryPrompt(){
+  const list=chatToday()
+  const txt=list.map(function(m){return (m.role==='u'?'他：':'搭子：')+m.text}).join('\n')
+  return ['下面是一位初二男生今天和学习搭子的聊天记录。你是给家长看的分析助手。',
+    '请用 80 字以内说清三件事：① 他今天问了/聊了什么 ② 他的状态（积极/疲惫/抵触/正常） ③ 家长今晚或明天可以做什么（一条具体动作）。',
+    '平实、不夸大、不煽情；如果只是问了题目，就说"主要是问功课"，不要过度解读。',
+    '',
+    '【聊天记录】',
+    txt
+  ].join('\n')
+}
+function ensureChatSummary(){
+  if(VW||!cloudReady)return
+  const list=chatToday()
+  if(!list.length)return
+  const p=askPool()
+  if(p.chatSum&&p.chatSum.date===td&&p.chatSum.n===list.length)return
+  aiCall(chatSummaryPrompt()).then(function(r){
+    if(!r.ok||!r.text)return
+    p.chatSum={date:td,n:list.length,text:String(r.text).replace(/[\r\n]+/g,' ').slice(0,160)}
+    sv(D)
+    if(tb==='today')render()
+  })
+}
+function chatParentUI(){
+  const list=chatToday()
+  if(!list.length)return null
+  const p=askPool()
+  const c=h('div',{className:'card edit-only'})
+  c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🫂'}),'他和 '+AI_NAME+' 聊了 '+list.length+' 句'))
+  const sum=(p.chatSum&&p.chatSum.date===td)?p.chatSum.text:'（正在整理今天的聊天摘要…）'
+  c.appendChild(h('div',{className:'longtext',style:'font-size:14px;line-height:1.75;color:var(--text)'},sum))
+  let open=false
+  const box=h('div',{style:'display:none;margin-top:8px'})
+  list.forEach(function(m){
+    box.appendChild(h('div',{style:'font-size:13.5px;line-height:1.7;margin-bottom:4px;color:'+(m.role==='u'?'var(--text)':'var(--muted)')},((m.role==='u')?'他：':(AI_NAME+'：'))+m.text))
+  })
+  c.appendChild(box)
+  c.appendChild(h('button',{className:'btn btn-outline btn-sm',style:'margin-top:8px',onClick:function(){open=!open;box.style.display=open?'':'none';this.innerHTML=open?'收起原文':'查看原文'}},'查看原文'))
+  c.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:6px'},'默认只给你摘要，需要时再点开原文——他知道聊天会被记录，这样他更敢说真话'))
+  ensureChatSummary()
   return c
 }
 
@@ -1184,7 +1249,7 @@ function rtoday(){
   // 每周 3 问 / 他问的问题（家长端）
   if(!VW){
     const _ak=asksCardUI();if(_ak)$c.appendChild(_ak)
-    const _qp=qaParentCardUI();if(_qp)$c.appendChild(_qp)
+    const _cp=chatParentUI();if(_cp)$c.appendChild(_cp)
     ensureAsks();ensureSurprise()
   }
 
@@ -1260,7 +1325,7 @@ function rck(){
 
 function rckList(){
   const ckd=ckDate()
-  $c.appendChild(qaCardUI())
+  $c.appendChild(chatUI())
   const cq=h('div',{className:'card'})
   cq.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📷'}),'记录今天（拍张照给家长看，通过后加分）'))
   const minD=(function(){var d=new Date();d.setDate(d.getDate()-2);return ymd(d)})()
