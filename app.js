@@ -319,14 +319,14 @@ function aiCardUI(kind){
   const store=isReport?(D._aiReport||null):(D._aiPraise||null)
   const fresh=!isReport||!store||store.date!==td?store:(store.date===td?store:null)
   const c=h('div',{className:'card'})
-  const head=h('div',{className:'card-header'},h('span',{innerHTML:'🤖'}),isReport?'AI 周报点评':'AI 今日鼓励')
+  const head=h('div',{className:'card-header'},h('span',{innerHTML:'📝'}),isReport?'本周点评':'今天的话')
   if(store&&store.text)head.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-left:auto',onClick:function(){if(isReport)D._aiReport=null;else D._aiPraise=null;sv(D);render()}},'清除'))
   c.appendChild(head)
   if(store&&store.text){
     c.appendChild(h('div',{className:'longtext',style:'font-size:15px;line-height:1.8;white-space:pre-wrap;background:var(--bg-elev);border-radius:8px;padding:12px 14px;border:1px solid var(--border)'},store.text))
     c.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:6px'},store.at?('生成于 '+fd(ymd(new Date(store.at)))+' '+fmtHM(store.at)):''))
   }else{
-    c.appendChild(h('div',{style:'font-size:14px;color:var(--muted);margin-bottom:8px'},isReport?'还没有点评。点「一键生成」，或复制提示词自己去问，再把结果粘回来。':'还没有今日鼓励。'))
+    c.appendChild(h('div',{style:'font-size:14px;color:var(--muted);margin-bottom:8px'},'还没有点评，点下面生成一次。'))
   }
   const row=h('div',{style:'display:flex;gap:8px;flex-wrap:wrap',className:'edit-only'})
   row.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){
@@ -355,14 +355,69 @@ function aiCardUI(kind){
     sv(D);render();ts('✅ 已保存')
   }},'📥 粘贴 AI 回复'))
   c.appendChild(row)
-  c.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:6px'},'AI 只给方法不直接给答案；「一键生成」会把上面那份数据发给 AI 服务'))
+  c.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:6px'},'根据本周的真实数据生成，只给方法、不直接给答案'))
   return c
 }
 
 
 function ts(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2000)}
 const PRAISE={check:['今天又进步了一点！','坚持就是胜利！','好习惯正在养成！','认真完成，真棒！'],score:['这次有进步，继续保持！','努力有回报了！','成绩稳步上升，加油！'],part:['攒下奖励，离目标更近一步！','一分耕耘一分收获！'],task:['任务完成，说到做到！','又完成一件，真棒！'],goal:['小目标达成，一步步变强！'],unlock:['太棒了，解锁新奖励！','努力开花结果了！'],week:['这周的努力看得见！','下周继续加油！'],default:['继续加油！','每天都有进步！']}
-function praise(cat){const a=PRAISE[cat]||PRAISE.default;return a[Math.floor(Math.random()*a.length)]}
+function encPool(){if(!D._enc)D._enc={today:null,queue:[],i:0};if(!D._enc.queue)D._enc.queue=[];return D._enc}
+function praise(cat){
+  const p=encPool()
+  if(p.queue.length){p.i=((p.i||0)+1)%p.queue.length;return p.queue[p.i]}
+  const a=PRAISE[cat]||PRAISE.default
+  return a[Math.floor(Math.random()*a.length)]
+}
+function encLine(){return praise('default')}
+function encToday(){const p=encPool();if(p.today&&p.today.text)return p.today.text;return praise('default')}
+function encTake(){const p=encPool();if(p.queue.length){const t=p.queue.shift();p.i=0;return t}return praise('default')}
+let _encRunning=false
+function encEnsure(force){
+  if(VW||_encRunning||!cloudReady)return
+  const p=encPool()
+  if(!force&&p.today&&p.today.date===td&&p.queue.length>=2)return
+  _encRunning=true
+  aiCall(encPrompt()).then(function(r){
+    _encRunning=false
+    if(!r.ok||!r.text)return
+    let j=null
+    try{
+      const raw=String(r.text).replace(/```json/g,'').replace(/```/g,'').trim()
+      const mm=raw.match(/[{][\s\S]*[}]/)
+      j=JSON.parse(mm?mm[0]:raw)
+    }catch(e){j=null}
+    if(j&&j.today){
+      p.today={date:td,text:String(j.today).slice(0,60)}
+      if(Array.isArray(j.queue))p.queue=j.queue.map(function(x){return String(x).slice(0,50)}).filter(Boolean).slice(0,8)
+      p.i=0
+      sv(D)
+      if(tb==='today'||tb==='checkin'||tb==='settings')render()
+    }
+  })
+}
+function encPrompt(){
+  const ds=dayStats(td),hs=habStats(td)
+  const done=[]
+  ;(D.checks||[]).filter(function(c){return c.date===td&&c.status==='approved'}).forEach(function(c){done.push((c.subject?c.subject+'·':'')+c.typeName)})
+  const hk=hs.tchk;for(const it of hs.ci){if(hk[it.key])done.push(it.label)}
+  const ex=(D.exams||[]).length?[...D.exams].sort(function(x,y){return (x.date||'').localeCompare(y.date||'')}).slice(-1)[0]:null
+  let exam='暂无'
+  if(ex){const i2=ct(ex.scores,ex.sem);exam=ex.date+' '+ex.examType+' 总分'+i2.total+'/'+i2.fullTotal}
+  const weak=[]
+  for(const sb of gs(D.sem)){const raw=D.bl&&D.bl[sb.id]!=null?D.bl[sb.id]:null;if(raw!=null&&raw/sb.full*100<70)weak.push(sb.name)}
+  return ['你在给一位初二的男生写鼓励的话。他学习基础偏弱、有点没信心，家长在外地工作。',
+    '要求：具体、平实、像家里人说话；不喊口号、不用"加油/真棒/相信自己"这类空话；不要提"打卡""任务"这类管理词；每句不超过25字。',
+    '只输出 JSON，不要任何解释：',
+    '{"today":"今天最想对他说的一句话","queue":["他完成一件事时显示的一句","再给3到4句"]}',
+    '',
+    '【今天的情况】',
+    '· 今天完成的：'+(done.length?done.join('、'):'还没有'),
+    '· 还没做的：'+(hs.total-hs.done)+' 项',
+    '· 最近考试：'+exam,
+    '· 偏弱科目：'+(weak.join('、')||'暂无')
+  ].join(String.fromCharCode(10))
+}
 function setExamDate(daysAgo){const d=new Date(Date.now()-(daysAgo||0)*86400000);const el=document.getElementById('ed');if(el)el.value=ymd(d)}
 function checkImgs(c){
   if(!c)return []
@@ -390,6 +445,7 @@ function approveCheck(id){
   const c=(D.checks||[]).find(function(x){return x.id===id})
   if(!c||c.status!=='pending')return
   c.status='approved'
+  c.note=encTake()
   D.points.push({date:(c.date||td),source:(c.subject?c.subject+'·':'')+c.typeName,points:c.pts,type:'earn'})
   sv(D);render()
   ts('✅ 已通过 +'+c.pts+'分')
@@ -436,16 +492,16 @@ function msgCardUI(){
   const mine=VW?'c':'p'
   const list=(D.msgs||[]).slice(-8)
   const c=h('div',{className:'card'})
-  const head=h('div',{className:'card-header'},h('span',{innerHTML:'💬'}),mine==='p'?'给孩子的留言':'妈妈的话')
+  const head=h('div',{className:'card-header'},h('span',{innerHTML:'💬'}),mine==='p'?'给孩子的留言':'家长的话')
   const un=msgUnread(mine)
   if(un)head.appendChild(h('span',{style:'margin-left:auto;font-size:13px;color:var(--danger);font-weight:600'},'新 '+un+' 条'))
   c.appendChild(head)
-  if(!list.length)c.appendChild(h('div',{style:'color:var(--muted);font-size:14px;margin-bottom:8px'},mine==='p'?'还没有留言，写一句鼓励的话吧':'妈妈还没留言，先打个卡吧'))
+  if(!list.length)c.appendChild(h('div',{style:'color:var(--muted);font-size:14px;margin-bottom:8px'},mine==='p'?'还没有留言，写一句鼓励的话吧':'家长还没留言'))
   list.forEach(function(m){
     const isMe=m.from===mine
     const row=h('div',{style:'margin-bottom:8px;display:flex;'+(isMe?'justify-content:flex-end':'justify-content:flex-start')})
     const wrap=h('div',{style:'max-width:80%'})
-    wrap.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-bottom:2px;text-align:'+(isMe?'right':'left')},(isMe?'我':(mine==='p'?'孩子':'妈妈'))+' · '+fmtHM(m.ts)))
+    wrap.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-bottom:2px;text-align:'+(isMe?'right':'left')},(isMe?'我':(mine==='p'?'孩子':'家长'))+' · '+fmtHM(m.ts)))
     const b=h('div',{style:'padding:8px 12px;border-radius:12px;font-size:14.5px;line-height:1.55;word-break:break-word;'+(isMe?'background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff':'background:var(--card-2);border:1px solid var(--border);color:var(--text)')})
     b.textContent=m.text
     wrap.appendChild(b)
@@ -461,7 +517,7 @@ function msgCardUI(){
     c.appendChild(tw)
   }
   const ir=h('div',{style:'display:flex;gap:8px;margin-top:8px'})
-  ir.appendChild(h('input',{id:'msgInput',placeholder:mine==='p'?'写一件他今天具体做了什么（比"加油"有用得多）…':'回复妈妈…',style:'flex:1'}))
+  ir.appendChild(h('input',{id:'msgInput',placeholder:mine==='p'?'写一件他今天具体做了什么（比"加油"有用得多）…':'回复家长…',style:'flex:1'}))
   ir.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){
     const el=document.getElementById('msgInput');const v=(el&&el.value||'').trim()
     if(!v){ts('⚠️ 请先写点什么');return}
@@ -558,6 +614,7 @@ function approveChecks(list){
   for(const c of list){
     if(!c||c.status!=='pending')continue
     c.status='approved'
+    c.note=encTake()
     D.points.push({date:(c.date||td),source:(c.subject?c.subject+'·':'')+c.typeName,points:c.pts,type:'earn'})
     n++;pts+=c.pts
   }
@@ -932,8 +989,8 @@ function rtoday(){
   $c.appendChild(hero)
 
   // 今日寄语
-  const dailyPraise=['每天进步一点点，长期就是大跨越！','今天的学习态度，决定明天的成绩！','坚持做好每一件小事，成功自然到来！','不积跬步，无以至千里！','你比自己想象的更优秀！','认真的人，运气都不会差！']
-  $c.appendChild(h('div',{className:'daily-praise'},'💬 今日寄语：'+dailyPraise[new Date().getDate()%dailyPraise.length]))
+  $c.appendChild(h('div',{className:'daily-praise',style:'font-size:15px;line-height:1.75'},'💬 '+encToday()))
+  encEnsure()
 
   // 孩子端：我的今日
   if(VW){
@@ -974,8 +1031,7 @@ function rtoday(){
   // 留言板
   $c.appendChild(msgCardUI())
 
-  // AI 今日鼓励
-  $c.appendChild(aiCardUI('praise'))
+  // 今日鼓励由后台生成，界面只呈现句子
 
   // 大考复习计划
   const _rv=reviewCardUI()
@@ -1046,7 +1102,7 @@ function rck(){
 function rckList(){
   const ckd=ckDate()
   const cq=h('div',{className:'card'})
-  cq.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📷'}),'记录今天（拍张照给妈妈看，通过后加分）'))
+  cq.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📷'}),'记录今天（拍张照给家长看，通过后加分）'))
   const minD=(function(){var d=new Date();d.setDate(d.getDate()-2);return ymd(d)})()
   const dateRow=h('div',{style:'display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap'})
   dateRow.innerHTML='<span style="font-size:14.5px">日期：</span><input type="date" id="checkDateInput" value="'+ckd+'" min="'+minD+'" max="'+td+'" style="width:150px">'+(ckd!==td?'<span style="font-size:14px;color:var(--warning)">（补卡 '+ckd+'）</span>':'')
@@ -1091,7 +1147,8 @@ function rckList(){
         br.appendChild(h('button',{className:'btn btn-danger btn-sm',onClick:function(){rejectCheck(rec.id)}},'↩️ 退回'))
         card.appendChild(br)
       }
-      if(rec.status==='rejected')card.appendChild(h('button',{className:'btn btn-outline btn-sm',style:'margin-top:6px',onClick:function(){startCheck(type,subj)}},'📷 重新打卡'))
+      if(rec.status==='rejected')card.appendChild(h('button',{className:'btn btn-outline btn-sm',style:'margin-top:6px',onClick:function(){startCheck(type,subj)}},'📷 重新上传'))
+      if(rec.status==='approved'&&rec.note)card.appendChild(h('div',{className:'longtext',style:'font-size:13.5px;line-height:1.7;color:var(--primary);margin-top:6px'},'💬 '+rec.note))
     }else{
       card.appendChild(h('button',{className:'btn btn-primary btn-sm',style:'margin-top:6px',onClick:function(){startCheck(type,subj)}},'📷 记一笔'))
     }
@@ -1418,7 +1475,15 @@ function rset(){
   }},'🔌 测试 AI 连接'))
   testRow.appendChild(testOut)
   sec.appendChild(testRow)
-  sec.appendChild(h('div',{style:'font-size:13px;color:var(--faint);margin-top:10px'},'🤖 AI 状态：'+(cloudReady?'云端已连接；云函数部署后「一键生成」即可用':'未连云端，可用「复制提示词」手动生成')))
+  const encRow=h('div',{style:'margin-top:10px;padding:10px 12px;background:var(--bg-elev);border-radius:8px;border:1px solid var(--border)'})
+  encRow.appendChild(h('div',{style:'font-size:12.5px;color:var(--muted);font-weight:600;margin-bottom:4px'},'今天显示给孩子的鼓励（后台生成，界面上不出现"AI"字样）'))
+  encRow.appendChild(h('div',{className:'longtext',style:'font-size:14px;line-height:1.75'},encToday()))
+  encRow.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:4px'},'备用句子还有 '+encPool().queue.length+' 句（他完成一件就呈现一句）'))
+  const encBtns=h('div',{style:'display:flex;gap:8px;flex-wrap:wrap;margin-top:8px'})
+  encBtns.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){ts('正在后台生成…');encEnsure(true);setTimeout(function(){render();ts('已更新')},7000)}},'🔄 换一批鼓励语'))
+  encRow.appendChild(encBtns)
+  sec.appendChild(encRow)
+  sec.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:10px'},'🤖 AI 状态：'+(cloudReady?'云端已连接；云函数部署后「一键生成」即可用':'未连云端，可用「复制提示词」手动生成')))
   sec.appendChild(h('div',{style:'font-size:13px;color:var(--faint);margin-top:4px'},'部署步骤见项目目录里的「AI-部署说明.md」；云函数代码在 cloud-function-ai.js'))
   $c.appendChild(sec)
 
@@ -1473,7 +1538,7 @@ function rset(){
 
 let _editExamId=null,_editOrig=null
 function rs(){
-  $c.appendChild(h('div',{className:'daily-praise'},'📈 每一次记录，都是进步的足迹！'))
+  $c.appendChild(h('div',{className:'daily-praise'},'💬 '+encLine()))
 
   const editing=_editExamId?true:false
   const orig=_editOrig
@@ -1783,7 +1848,7 @@ function cu(ex){
 }
 
 function rp(){
-  $c.appendChild(h('div',{className:'daily-praise'},'🎁 每一件奖励，都是你努力的证明！'))
+  $c.appendChild(h('div',{className:'daily-praise'},'💬 '+encLine()))
   const rate=D.rate||1
   const pu=D.parts.filter(p=>p.unlocked).length
   const pr=D.parts.filter(p=>p.received).length
@@ -1831,7 +1896,7 @@ function rp(){
 /* rdl() 已合并进打卡页 rckList() */
 
 function rpt(){
-  $c.appendChild(h('div',{className:'daily-praise'},'💡 攒下每一分，兑换你想要的奖励！'))
+  $c.appendChild(h('div',{className:'daily-praise'},'💬 '+encLine()))
   const te=D.points.filter(p=>p.type==='earn').reduce((s,p)=>s+p.points,0)
   const ts_=D.points.filter(p=>p.type==='spend').reduce((s,p)=>s+p.points,0)
   const sm=h('div',{className:'ps'})
@@ -2024,7 +2089,7 @@ function rwk(){
   }
   rp.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-top:6px'},'右边是本周，中间是跟上周的自己比（↑进步 ↓退步）'))
   rp.appendChild(h('div',{className:'longtext',style:'margin-top:14px;padding:12px;background:var(--primary-weak);border-radius:8px;font-size:15px;line-height:1.8',innerHTML:'💡 <strong>下周建议：</strong>'+(weak.length?'重点突破 '+weak[0]+'，每天15分钟专项练习':'保持当前节奏，巩固已学知识')}))
-  rp.appendChild(h('div',{className:'daily-praise',style:'margin-top:12px'},'💬 一周的坚持看得见，下周继续加油！'))
+  rp.appendChild(h('div',{className:'daily-praise',style:'margin-top:12px'},'💬 '+encLine()))
   if(!VW){
     rp.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-top:12px',onClick:function(){
       let txt='【阿勒学习周报】\n'+fd(weekStartStr)+' ~ '+fd(ymd(now))+(_LT.checks!==undefined?('\n上周对比：\n拍照记录 '+(weekStartStr&&_TW.checks)+'次（上周 '+_LT.checks+'）\n习惯打卡 '+_TW.habits+'次（上周 '+_LT.habits+'）\n积分 '+_TW.pts+'（上周 '+_LT.pts+'）\n整理错题 '+_TW.mis+'道（上周 '+_LT.mis+'）'):'')+'\n薄弱科目：'+(weak.length?weak.join('、'):'暂无')+'\n下周建议：'+(weak.length?'重点突破 '+weak[0]:'保持节奏')+'\n'
