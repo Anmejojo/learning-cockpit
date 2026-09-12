@@ -856,6 +856,7 @@ function chatSend(imgB64){
     if(_alert){const pp=askPool();pp.alert={date:td,at:Date.now()};}
     if(l2.length>300)D._chat=l2.slice(-300)
     sv(D);render()
+    setTimeout(function(){const el=document.getElementById('chatScroll');if(el)el.scrollTop=el.scrollHeight},60)
   })
 }
 const EMOJI_SETS=[
@@ -883,21 +884,26 @@ function chatTimeLabel(ts,prevTs){
   else pre=fd(ds)+' '
   return pre+fmtHM(ts)
 }
+function chatHeight(){
+  try{
+    const top=(document.querySelector('.topbar')||{}).offsetHeight||58
+    const tabs=(document.getElementById('tabNav')||{}).offsetHeight||46
+    document.documentElement.style.setProperty('--chat-h',(window.innerHeight-top-tabs)+'px')
+  }catch(e){}
+}
+window.addEventListener('resize',function(){if(document.body.classList.contains('chat-page'))chatHeight()})
+
 function chatUI(){
-  const list=chatToday().slice(-30)
-  const c=h('div',{className:'card'})
-  const head=h('div',{className:'card-header'},h('span',{innerHTML:'🫂'}),'和 '+AI_NAME+' 说话')
-  if(list.length)head.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-left:auto',onClick:function(){
-    if(confirm('清空今天的对话？（记录会一起清掉）')){D._chat=chatLog().filter(function(m){return m.date!==td});sv(D);render();ts('已清空')}
-  }},'清空'))
-  c.appendChild(head)
-  const wrap=h('div',{className:'chat-wrap'})
+  const list=chatToday().slice(-40)
+  const full=h('div',{className:'chat-full'})
+  const scroll=h('div',{className:'chat-scroll',id:'chatScroll'})
+  scroll.appendChild(h('div',{className:'chat-time'},'💬 '+encToday()))
   if(!list.length){
-    wrap.appendChild(h('div',{style:'text-align:center;color:var(--muted);font-size:14px;padding:18px 0'},'不会的题、不想学的时候，都可以跟他说一句'))
+    scroll.appendChild(h('div',{className:'chat-empty'},'不会的题、不想学的时候，\n都可以跟他说一句'))
   }
   let prevTs=0
   list.forEach(function(m){
-    if(!prevTs||m.ts-prevTs>8*60000){wrap.appendChild(h('div',{className:'chat-time'},chatTimeLabel(m.ts)));}
+    if(!prevTs||m.ts-prevTs>8*60000)scroll.appendChild(h('div',{className:'chat-time'},chatTimeLabel(m.ts)))
     const me=(m.role==='u')
     const row=h('div',{className:'chat-row'+(me?' me':'')})
     row.appendChild(h('div',{className:'chat-av '+(me?'u':'a')},me?'我':'搭'))
@@ -908,33 +914,36 @@ function chatUI(){
     if(m.imgCleared)bub.appendChild(h('div',{className:'imgtip'},'（图片已清理）'))
     main.appendChild(bub)
     row.appendChild(main)
-    wrap.appendChild(row)
+    scroll.appendChild(row)
     prevTs=m.ts
   })
-  c.appendChild(wrap)
+  full.appendChild(scroll)
+
+  const bottom=h('div',{className:'chat-bottom'})
   if(VW){
-    c.appendChild(h('div',{id:'chatOut',style:'display:none'}))
-    const emo=h('div',{id:'emoPanel',style:'display:none;margin-top:8px;background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:10px'})
+    const ds=dayStats(td),hs=habStats(td)
+    const left=(ds.total+hs.total)-(ds.done+hs.done)
+    bottom.appendChild(h('div',{className:'chat-hint'},left>0?('今天还有 '+left+' 项没弄，不着急，想弄的时候跟他说一声'):'今天该弄的都弄完了'))
+    const emo=h('div',{id:'emoPanel',style:'display:none;margin-bottom:8px;background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:10px'})
     const etabs=h('div',{style:'display:flex;gap:6px;margin-bottom:8px'})
     const ebox=h('div',{style:'display:grid;grid-template-columns:repeat(8,1fr);gap:4px'})
     EMOJI_SETS.forEach(function(st,si){
-      const b=h('button',{className:'btn btn-sm '+ (si===0?'btn-primary':'btn-outline'),onClick:function(){renderEmoji(st.list,etabs,si,ebox)}},st.name)
-      etabs.appendChild(b)
+      etabs.appendChild(h('button',{className:'btn btn-sm '+(si===0?'btn-primary':'btn-outline'),onClick:function(){renderEmoji(st.list,etabs,si,ebox)}},st.name))
     })
     emo.appendChild(etabs);emo.appendChild(ebox)
     renderEmoji(EMOJI_SETS[0].list,etabs,0,ebox)
-    c.appendChild(emo)
+    bottom.appendChild(emo)
     const bar=h('div',{className:'chat-bar'})
     bar.appendChild(h('button',{className:'chat-cam',onClick:function(){chatPickImage()}},'📷'))
     bar.appendChild(h('button',{className:'chat-cam',onClick:function(){emo.style.display=(emo.style.display==='none'?'':'none')}},'😊'))
     bar.appendChild(h('input',{id:'chatInput',placeholder:'说点什么…'}))
     bar.appendChild(h('button',{className:'chat-send',onClick:function(){chatSend()}},'发送'))
-    c.appendChild(bar)
-    c.appendChild(h('div',{className:'chat-tip'},'不会的题可以拍照发给他；他只给思路和第一步'))
+    bottom.appendChild(bar)
   }else{
-    c.appendChild(h('div',{style:'margin-top:10px;padding:10px 12px;background:var(--bg-elev);border-radius:8px;font-size:13px;color:var(--muted);line-height:1.7'},'这是他在手机上看到的界面（微信式）。这是他和小搭的私人对话——你可以看、可以看他问了什么，但不建议替他发言；有话想跟他说，用「留言」更合适。'))
+    bottom.appendChild(h('div',{style:'font-size:13px;color:var(--muted);line-height:1.75'},'这是他在手机上看到的界面（微信式，整页）。这里是他和小搭的私人对话——你可以看，但不建议替他发言；有话想跟他说，用「留言」更合适。'))
   }
-  return c
+  full.appendChild(bottom)
+  return full
 }
 function chatSummaryPrompt(){
   const list=chatToday()
@@ -1449,6 +1458,7 @@ function h(tag,attrs,...children){
 function render(){
   if(document.getElementById('gate'))return
   $c.innerHTML=''
+  if(tb!=='chat')document.body.classList.remove('chat-page')
   if(tb==='today')rtoday()
   else if(tb==='checkin')rck()
   else if(tb==='chat')rchat()
@@ -1637,11 +1647,10 @@ function rtoday(){
 
 /* ============ ② 打卡（拍照 + 习惯 + 日历） ============ */
 function rchat(){
-  $c.appendChild(h('div',{className:'daily-praise',style:'font-size:15px;line-height:1.75'},'💬 '+encToday()))
+  document.body.classList.add('chat-page')
+  chatHeight()
   $c.appendChild(chatUI())
-  const ds=dayStats(td),hs=habStats(td)
-  const left=(ds.total+hs.total)-(ds.done+hs.done)
-  $c.appendChild(h('div',{style:'text-align:center;font-size:12.5px;color:var(--faint);padding:6px 0 12px'},left>0?('今天还有 '+left+' 项没弄，不着急，想弄的时候跟他说一声就行'):'今天该弄的都弄完了'))
+  setTimeout(function(){const el=document.getElementById('chatScroll');if(el)el.scrollTop=el.scrollHeight},60)
 }
 
 function rck(){
