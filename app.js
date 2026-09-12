@@ -862,13 +862,17 @@ function chatUI(){
     wrap.appendChild(bubble)
     row.appendChild(wrap);c.appendChild(row)
   })
-  c.appendChild(h('div',{id:'chatOut',style:'display:none'}))
-  const ir=h('div',{style:'display:flex;gap:8px;margin-top:8px'})
-  ir.appendChild(h('input',{id:'chatInput',placeholder:'说点什么，或拍张题图…',style:'flex:1;min-width:160px'}))
-  ir.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){chatPickImage()}},'📷 拍题'))
-  ir.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){chatSend()}},'发送'))
-  c.appendChild(ir)
-  c.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:6px'},'不会的题可以拍照发给他；他只给思路和第一步，不会直接给答案；聊天会记录下来'))
+  if(VW){
+    c.appendChild(h('div',{id:'chatOut',style:'display:none'}))
+    const ir=h('div',{style:'display:flex;gap:8px;margin-top:8px'})
+    ir.appendChild(h('input',{id:'chatInput',placeholder:'说点什么，或拍张题图…',style:'flex:1;min-width:160px'}))
+    ir.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){chatPickImage()}},'📷 拍题'))
+    ir.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){chatSend()}},'发送'))
+    c.appendChild(ir)
+    c.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:6px'},'不会的题可以拍照发给他；他只给思路和第一步，不会直接给答案；聊天会记录下来'))
+  }else{
+    c.appendChild(h('div',{style:'margin-top:10px;padding:10px 12px;background:var(--bg-elev);border-radius:8px;font-size:13px;color:var(--muted);line-height:1.7'},'这是他在手机上看到的界面。这里是他和小搭的私人对话——你可以看、可以看他问了什么，但不建议替他发言；有话想跟他说，用「留言」更合适。'))
+  }
   return c
 }
 function chatSummaryPrompt(){
