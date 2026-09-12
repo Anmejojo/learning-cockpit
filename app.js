@@ -437,14 +437,19 @@ function submitCheck(typeId,subject,imgsArr){
   const _ds=_checkDate||td
   const _sub=subject||''
   const old=(D.checks||[]).find(function(c){return c.date===_ds&&c.subject===_sub&&c.type===typeId})
+  const _lbl=(_sub?_sub+'·':'')+type.name
   if(old&&old.status!=='approved'){
     old.imgs=imgsArr||[];old.status='pending';old.ts=Date.now();old.pts=type.pts
-    sv(D);render();ts('✅ 照片已更新，重新提交等待审核')
+    old.noteSubmit=encTake()
+    sv(D);render();ts('✅ 已更新 · '+old.noteSubmit)
     return
   }
-  D.checks.unshift({id:Date.now(),date:_ds,type:typeId,typeName:type.name,subject:_sub,imgs:imgsArr||[],pts:type.pts,status:'pending',ts:Date.now()})
+  const _rec={id:Date.now(),date:_ds,type:typeId,typeName:type.name,subject:_sub,imgs:imgsArr||[],pts:type.pts,status:'pending',ts:Date.now()}
+  _rec.noteSubmit=encTake()
+  D.checks.unshift(_rec)
+  D.points.push({date:_ds,source:'提交·'+_lbl,points:1,type:'earn'})
   sv(D);render()
-  ts('✅ 照片已上传，已提交等待家长审核')
+  ts('✅ 已收到 +1分 · '+_rec.noteSubmit)
 }
 function approveCheck(id){
   const c=(D.checks||[]).find(function(x){return x.id===id})
@@ -486,6 +491,146 @@ function weekStatsOf(ws){
   const pts=(D.points||[]).filter(function(p){return p.date>=wsStr&&p.date<=td}).reduce(function(x,p){return x+(p.type==='earn'?p.points:-p.points)},0)
   let mis=0;for(const c of (D.checks||[])){if(c.date>=wsStr&&c.date<=td&&c.type==='mistake'&&c.status!=='rejected')mis++}
   return {checks:checks,habits:habits,pts:pts,mis:mis}
+}
+
+﻿/* ================= AI 提问 / 惊喜提示 / 即时反馈 ================= */
+function askPool(){if(!D._enc)D._enc={today:null,queue:[],i:0};return D._enc}
+function weekKey(){const now=new Date();const day=now.getDay()||7;const ws=new Date(now);ws.setDate(now.getDate()-day+1);return ymd(ws)}
+function askQuestions(){const p=askPool();return (p.asks&&p.asks.week===weekKey())?(p.asks.list||[]):[]}
+function asksPrompt(){
+  const w=weekStatsOf(new Date(weekKey().replace(/-/g,'/')))
+  const weak=[]
+  for(const sb of gs(D.sem)){const raw=D.bl&&D.bl[sb.id]!=null?D.bl[sb.id]:null;if(raw!=null&&raw/sb.full*100<70)weak.push(sb.name+' '+(raw/sb.full*100).toFixed(0)+'%')}
+  const qs=(D._qa||[]).slice(-5).map(function(x){return x.q})
+  return ['你在帮一位妈妈准备和初二儿子的一次聊天。妈妈在外地工作，孩子学习基础偏弱、不太愿意多说话。',
+    '请给出 3 个「妈妈可以问他的问题」。要求：',
+    '1) 不能用"作业写完了吗""今天学得怎么样"这种稽查式问题；',
+    '2) 要具体、好回答、不让他有压力，能让他愿意多说两句；',
+    '3) 分别对应：这周的数据、他自己的感受、下周的打算；',
+    '4) 每个问题不超过 20 字。',
+    '只输出 JSON，不要解释：{"asks":["问题1","问题2","问题3"]}',
+    '',
+    '【这周情况】',
+    '· 记录通过 '+w.checks+' 次；习惯打卡 '+w.habits+' 次；整理错题 '+w.mis+' 道',
+    '· 偏弱科目：'+(weak.join('、')||'暂无'),
+    '· 他最近问过的问题：'+(qs.length?qs.join(' / '):'（没有）')
+  ].join('\n')
+}
+function ensureAsks(force){
+  if(VW||!cloudReady)return
+  const p=askPool()
+  if(!force&&p.asks&&p.asks.week===weekKey()&&(p.asks.list||[]).length>=3)return
+  aiCall(asksPrompt()).then(function(r){
+    if(!r.ok||!r.text)return
+    let j=null
+    try{const raw=String(r.text).replace(/```json/g,'').replace(/```/g,'').trim();const mm=raw.match(/[{][\s\S]*[}]/);j=JSON.parse(mm?mm[0]:raw)}catch(e){j=null}
+    if(j&&Array.isArray(j.asks)&&j.asks.length){
+      p.asks={week:weekKey(),list:j.asks.map(function(x){return String(x).slice(0,40)}).slice(0,3)}
+      sv(D);render()
+    }
+  })
+}
+function safeStreak(){
+  try{let n=0;const dd=new Date()
+    const has=function(d){return (D.checks||[]).some(function(c){return c.date===d&&c.status==='approved'})}
+    if(!has(ymd(dd)))dd.setDate(dd.getDate()-1)
+    for(let i=0;i<400;i++){const d=ymd(dd);if(has(d)){n++;dd.setDate(dd.getDate()-1)}else break}
+    return n
+  }catch(e){return 0}
+}
+function surpriseSignal(){
+  const stk=safeStreak()
+  const w=weekStatsOf(new Date(weekKey().replace(/-/g,'/')))
+  if(stk>=5)return 'stk'+Math.floor(stk/5)*5
+  if(w.checks>=8)return 'ck8'
+  if(w.mis>=10)return 'mis10'
+  return null
+}
+function surprisePrompt(){
+  const stk=safeStreak()
+  const w=weekStatsOf(new Date(weekKey().replace(/-/g,'/')))
+  return ['你在给一位妈妈出主意。她初二儿子最近坚持得不错，妈妈想给他一个"惊喜"（是心意，不是奖励制度）。',
+    '请给 1 个具体建议：做什么、大概花多少钱、为什么适合他。像朋友给主意，不超过 60 字，只输出这一句话。',
+    '',
+    '【情况】连续 '+stk+' 天有记录；本周通过 '+w.checks+' 次；整理错题 '+w.mis+' 道',
+    '【背景】他在莆田上学、跟爷爷奶奶住；妈妈在杭州工作；母子靠视频联系'
+  ].join('\n')
+}
+function ensureSurprise(){
+  if(VW||!cloudReady)return
+  const key=surpriseSignal()
+  if(!key)return
+  const p=askPool()
+  if(p.surprise&&p.surprise.key===key)return
+  aiCall(surprisePrompt()).then(function(r){
+    if(!r.ok||!r.text)return
+    p.surprise={key:key,text:String(r.text).replace(/[\r\n]+/g,' ').slice(0,80),at:Date.now()}
+    sv(D)
+    if(tb==='today')render()
+  })
+}
+function surpriseText(){
+  const p=askPool();const key=surpriseSignal()
+  if(!key)return ''
+  return (p.surprise&&p.surprise.key===key)?p.surprise.text:''
+}
+function qaPrompt(q){
+  return ['你是初二学生的学习搭子（不是老师）。他问：'+q,
+    '请按这个结构回答，总共不超过 120 字：',
+    '1) 一句话说这题/这个问题考的是什么；',
+    '2) 给"第一步可以怎么做"的提示（不要给最终答案）；',
+    '3) 最后用一个反问句，让他自己往下想一步；',
+    '4) 语气像同学之间讨论，不要客套，不要讲大道理。',
+    '如果信息不够，就问他补充条件，不要瞎猜。'
+  ].join('\n')
+}
+function askAI(){
+  const el=document.getElementById('qaInput')
+  const q=(el&&el.value||'').trim()
+  if(!q){ts('先把题目或问题写一句');return}
+  const box=document.getElementById('qaOut')
+  if(box){box.style.display='';box.textContent='正在想…'}
+  aiCall(qaPrompt(q)).then(function(r){
+    if(!D._qa)D._qa=[]
+    D._qa.push({id:Date.now(),date:td,q:q,a:(r.ok?r.text:('（暂时没想出来：'+(r.err||'稍后再试')+'）')),ts:Date.now()})
+    if(D._qa.length>30)D._qa=D._qa.slice(-30)
+    sv(D);render()
+  })
+}
+function qaCardUI(){
+  const c=h('div',{className:'card'})
+  c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'❓'}),'不会的？写一句问一下'))
+  const row=h('div',{style:'display:flex;gap:8px;flex-wrap:wrap'})
+  row.appendChild(h('input',{id:'qaInput',placeholder:'比如：一次函数 y=2x+3 怎么求与 x 轴交点',style:'flex:1;min-width:200px'}))
+  row.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:askAI},'问一下'))
+  c.appendChild(row)
+  c.appendChild(h('div',{id:'qaOut',style:'display:none'}))
+  ;(D._qa||[]).filter(function(x){return x.date===td}).slice(-3).forEach(function(x){
+    c.appendChild(h('div',{className:'mistake-item',style:'margin-top:8px'},h('div',{style:'font-weight:600;font-size:14px'},'我：'+x.q),h('div',{className:'longtext',style:'margin-top:4px;font-size:14px;line-height:1.75;white-space:pre-wrap;color:var(--text)'},x.a)))
+  })
+  c.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:6px'},'只给思路和第一步，答案要自己算；问过的都会记下来'))
+  return c
+}
+function qaParentCardUI(){
+  const list=(D._qa||[]).slice(-3)
+  if(!list.length)return null
+  const c=h('div',{className:'card'})
+  c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🗣'}),'他最近问的问题'))
+  list.forEach(function(x){
+    c.appendChild(h('div',{className:'mistake-item'},h('div',{style:'font-size:14px;font-weight:600'},x.date+' · '+x.q),h('div',{className:'longtext',style:'margin-top:4px;font-size:13.5px;line-height:1.7;white-space:pre-wrap;color:var(--muted)'},x.a)))
+  })
+  c.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:6px'},'他问的时候你可能已经休息了——第二天拿这个开头跟他聊，比问"作业写完了吗"有效'))
+  return c
+}
+function asksCardUI(){
+  const list=askQuestions()
+  if(!list.length)return null
+  const c=h('div',{className:'card'})
+  c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'💬'}),'这周可以问他这 3 个问题'))
+  list.forEach(function(q,i){c.appendChild(h('div',{className:'alert success',style:'margin-bottom:6px'},(i+1)+'. '+q))})
+  c.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:4px'},'都是好回答的问题，别追加追问；他愿意多说一句就算成功'))
+  if(!VW)c.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-top:8px',onClick:function(){ts('正在换一批…');ensureAsks(true);setTimeout(function(){render();ts('已更新')},7000)}},'换一批'))
+  return c
 }
 
 function msgTemplates(){
@@ -1036,6 +1181,13 @@ function rtoday(){
   // 留言板
   $c.appendChild(msgCardUI())
 
+  // 每周 3 问 / 他问的问题（家长端）
+  if(!VW){
+    const _ak=asksCardUI();if(_ak)$c.appendChild(_ak)
+    const _qp=qaParentCardUI();if(_qp)$c.appendChild(_qp)
+    ensureAsks();ensureSurprise()
+  }
+
   // 今日鼓励由后台生成，界面只呈现句子
 
   // 大考复习计划
@@ -1072,6 +1224,8 @@ function rtoday(){
     const pe=(D.exams||[]).filter(function(e){return e.status==='pending'}).length
     if(pn+pe)al.push({l:'warning',m:'⏳ 有 '+(pn+pe)+' 条待审核（打卡 '+pn+' · 成绩 '+pe+'）'})
   }
+  const _sp=surpriseText()
+  if(!VW&&_sp)al.unshift({l:'success',m:'🎁 '+_sp})
   const ystr=(function(){var d=new Date();d.setDate(d.getDate()-1);return ymd(d)})()
   const yCnt=(D.checks||[]).filter(function(c){return c.date===ystr}).length
   if(yCnt===0)al.push({l:'warning',m:'⏰ 昨天（'+ystr+'）没有打卡记录，可到「打卡」页补卡'})
@@ -1106,6 +1260,7 @@ function rck(){
 
 function rckList(){
   const ckd=ckDate()
+  $c.appendChild(qaCardUI())
   const cq=h('div',{className:'card'})
   cq.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📷'}),'记录今天（拍张照给家长看，通过后加分）'))
   const minD=(function(){var d=new Date();d.setDate(d.getDate()-2);return ymd(d)})()
@@ -1153,7 +1308,8 @@ function rckList(){
         card.appendChild(br)
       }
       if(rec.status==='rejected')card.appendChild(h('button',{className:'btn btn-outline btn-sm',style:'margin-top:6px',onClick:function(){startCheck(type,subj)}},'📷 重新上传'))
-      if(rec.status==='approved'&&rec.note)card.appendChild(h('div',{className:'longtext',style:'font-size:13.5px;line-height:1.7;color:var(--primary);margin-top:6px'},'💬 '+rec.note))
+      if(rec.status==='pending'&&rec.noteSubmit)card.appendChild(h('div',{className:'longtext',style:'font-size:14px;line-height:1.7;color:var(--success);margin-top:6px'},'💬 '+rec.noteSubmit))
+      if(rec.status==='approved'&&rec.note)card.appendChild(h('div',{className:'longtext',style:'font-size:14px;line-height:1.7;color:var(--primary);margin-top:6px'},'💬 '+rec.note))
     }else{
       card.appendChild(h('button',{className:'btn btn-primary btn-sm',style:'margin-top:6px',onClick:function(){startCheck(type,subj)}},'📷 记一笔'))
     }
