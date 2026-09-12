@@ -897,7 +897,6 @@ function chatUI(){
   const list=chatToday().slice(-40)
   const full=h('div',{className:'chat-full'})
   const scroll=h('div',{className:'chat-scroll',id:'chatScroll'})
-  scroll.appendChild(h('div',{className:'chat-time'},'💬 '+encToday()))
   if(!list.length){
     scroll.appendChild(h('div',{className:'chat-empty'},'不会的题、不想学的时候，\n都可以跟他说一句'))
   }
@@ -921,9 +920,6 @@ function chatUI(){
 
   const bottom=h('div',{className:'chat-bottom'})
   if(VW){
-    const ds=dayStats(td),hs=habStats(td)
-    const left=(ds.total+hs.total)-(ds.done+hs.done)
-    bottom.appendChild(h('div',{className:'chat-hint'},left>0?('今天还有 '+left+' 项没弄，不着急，想弄的时候跟他说一声'):'今天该弄的都弄完了'))
     const emo=h('div',{id:'emoPanel',style:'display:none;margin-bottom:8px;background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:10px'})
     const etabs=h('div',{style:'display:flex;gap:6px;margin-bottom:8px'})
     const ebox=h('div',{style:'display:grid;grid-template-columns:repeat(8,1fr);gap:4px'})
