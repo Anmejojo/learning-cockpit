@@ -230,3 +230,13 @@ input:focus,select:focus{outline:none;border-color:var(--primary-border);box-sha
 }
 @media(max-width:430px){.col-sm-hide{display:none!important}}
 #bootTip{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(21,24,31,0.96);border:1px solid var(--border-strong);color:var(--text);padding:14px 22px;border-radius:10px;font-size:14px;z-index:9999;box-shadow:0 10px 40px rgba(0,0,0,0.5);white-space:nowrap}
+
+
+/* ================= 访问口令闸门 ================= */
+#gate{position:fixed;inset:0;background:rgba(8,10,14,0.97);z-index:99998;display:flex;align-items:center;justify-content:center;padding:20px}
+.gate-box{width:100%;max-width:390px;background:var(--card);border:1px solid var(--border-strong);border-radius:14px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,0.6)}
+.gate-title{font-size:17px;font-weight:700;margin-bottom:8px}
+.gate-desc{font-size:13px;color:var(--muted);line-height:1.65;margin-bottom:12px}
+.gate-label{font-size:12.5px;color:var(--muted);font-weight:600;margin:10px 0 4px}
+.gate-box input{width:100%}
+.gate-err{font-size:12.5px;color:var(--danger);margin-top:10px;min-height:18px}
