@@ -586,6 +586,53 @@ function asksCardUI(){
 }
 
 ﻿/* ================= 和搭子说话（AI 对话栏） ================= */
+﻿/* ================= 小搭角色卡（结构化，参考 character-card-spec-v2 / SillyTavern） ================= */
+function chatCard(){
+  return {
+    name:AI_NAME,
+    desc:'比初二学生大两届的高中男生，刚考完中考。不是老师，不是家长，是陪他做题的同龄搭子。短句、口语、不客套。',
+    mes:[
+      {u:'在吗', a:'在，说。'},
+      {u:'今天不想学了', a:'行，那今天不学了。就歇着，想干啥干啥。'},
+      {u:'这题不会：一次函数和x轴交点怎么求', a:'x轴交点就是 y=0 那个点。先把 y=0 代进去，得到个式子，你写出来我看看？'},
+      {u:'还有什么没做的', a:'语文笔记弄完了，先记一笔。数学还差3项，要不要挑一个顺手的弄掉？完事儿就收工。'},
+      {u:'我妈老是问成绩，烦死了', a:'反复问是真烦。你是烦她问的那一下，还是烦问完后面那套话？'},
+      {u:'算了没事', a:'行，我在。想说再说。'}
+    ]
+  }
+}
+function chatExamplesText(){
+  return chatCard().mes.map(function(m){return '他：'+m.u+'\n'+AI_NAME+'：'+m.a}).join('\n\n')
+}
+/* 后置强约束：放在提示词最后（模型对末尾更敏感） */
+function chatTailRules(){
+  return ['【最后再确认一次——按这些写】',
+    '· 只给思路和第一步，不给最终答案；',
+    '· 80 字以内，像微信聊天；',
+    '· 不用"加油/真棒/你真聪明/打卡/任务/监督/未完成/你应该/必须"这些词；',
+    '· 不评价他这个人，不讲大道理；',
+    '· 情绪优先：他状态不好就不提任何事。'
+  ].join('\n')
+}
+/* 禁词兜底（工程保障，不靠模型自觉） */
+const CHAT_BAN=['加油','真棒','你真聪明','打卡','任务','监督','未完成','你应该','必须要','一定得','相信自己','好好学习']
+function chatBanned(t){
+  const s=String(t||'')
+  return CHAT_BAN.filter(function(w){return s.indexOf(w)>=0})
+}
+/* 关于他的记忆（简化版 lorebook / 长期记忆） */
+function chatMem(){if(!D._mem)D._mem=[];return D._mem}
+function memRelevant(text){
+  const mem=chatMem()
+  if(!mem.length)return []
+  const hits=mem.filter(function(m){return (m.tags||[]).some(function(t){return t&&text.indexOf(t)>=0})})
+  return (hits.length?hits:mem.slice(-2)).slice(0,3).map(function(m){return m.text})
+}
+function memText(text){
+  const r=memRelevant(text)
+  return r.length?('【你记得关于他的事】\n· '+r.join('\n· ')):''
+}
+
 const AI_NAME='小搭'
 function chatLog(){if(!D._chat)D._chat=[];return D._chat}
 function chatToday(){return chatLog().filter(function(m){return m.date===td})}
@@ -704,8 +751,25 @@ function chatSend(imgB64){
   if(box){box.style.display='';box.textContent=AI_NAME+' 正在看…'}
   const ctx=chatLog().slice(-8).map(function(m){return (m.role==='u'?'他：':'你：')+(m.text||'')}).join('\n')
   const tail=(imgB64?'他刚发了一张图（可能是题目、课本或作业）。先一句话说清你看到的是什么，再按规则给思路和第一步 + 反问；不要因为看到全题就把整道题解完；看不清就让他重拍。':'请回复他最后那句。记住：只给思路和第一步，不给最终答案；短一点。')
-  aiCall(chatPersona()+'\n\n'+chatStateText()+'\n\n【最近的对话】\n'+ctx+'\n\n'+tail, imgB64||'').then(function(r){
+  const _mem=memText(v||'')
+  const _full=[chatPersona(),
+    '【你的角色卡】\n'+chatCard().desc,
+    '【说话方式看这几个例子，照着这个长度和口气】\n'+chatExamplesText(),
+    _mem,
+    chatStateText(),
+    '【最近的对话】\n'+ctx,
+    tail,
+    chatTailRules()
+  ].filter(Boolean).join('\n\n')
+  aiCall(_full, imgB64||'').then(async function(r){
     let _txt=r.ok?String(r.text):'（我现在有点卡，你等下再问我一次）'
+    const _bad=r.ok?chatBanned(_txt):[]
+    if(_bad.length){
+      try{
+        const fx=await aiCall('下面这段话违反了说话要求（出现了：'+_bad.join('、')+'）。请在不改变意思的前提下重写一遍：80字以内、像微信聊天、不用这些词、只给思路不给答案。只输出重写后的内容。\n\n原文：'+_txt)
+        if(fx&&fx.ok&&fx.text)_txt=fx.text
+      }catch(e){}
+    }
     let _alert=false
     if(_txt.indexOf('[[ALERT]]')>=0){_alert=true;_txt=_txt.replace(/\[\[ALERT\]\]/g,'').trim()}
     const l2=chatLog()
@@ -744,9 +808,12 @@ function chatSummaryPrompt(){
   const list=chatToday()
   const txt=list.map(function(m){return (m.role==='u'?'他：':'搭子：')+m.text+(m.img?'（并发了题图）':'')}).join('\n')
   return ['下面是一位初二男生今天和学习搭子的聊天记录。你是给家长看的分析助手。',
-    '请用 90 字以内说清三件事：① 他今天问了/聊了什么 ② 他的情绪状态（积极/疲惫/烦躁/低落/抵触/正常，要给依据） ③ 家长今晚或明天可以做什么（一条具体动作，不要提成绩）。',
-    '如果聊天里出现自我否定、被欺负、和家里冲突、不想上学这类内容，请如实说明，并提醒家长"先关心人，不要先讲道理"。',
-    '平实、不夸大、不煽情；如果只是问了题目，就说"主要是问功课"，不要过度解读。',
+    '请只输出 JSON，不要任何解释，格式：',
+    '{"summary":"90字以内：①他今天聊了什么 ②情绪状态（要有依据） ③家长今晚可以做什么（一条具体动作，不要提成绩）",',
+    ' "memories":[{"text":"关于他的1条稳定事实，20字内","tags":["关键词1","关键词2"]}]}',
+    'memories 要记"关于他这个人"的稳定事实（如"不喜欢被问成绩""数学函数容易卡""和同桌关系不错"），不是当天流水；最多 2 条，没有就空数组。',
+    '平实、不夸大；如果只是问了题目，只说"主要是问功课"，不要过度解读。',
+    '如果出现自我否定、被欺负、和家里冲突、不想上学，summary 里要如实说，并提醒家长先关心人。',
     '',
     '【聊天记录】',
     txt
@@ -760,7 +827,24 @@ function ensureChatSummary(){
   if(p.chatSum&&p.chatSum.date===td&&p.chatSum.n===list.length)return
   aiCall(chatSummaryPrompt()).then(function(r){
     if(!r.ok||!r.text)return
-    p.chatSum={date:td,n:list.length,text:String(r.text).replace(/[\r\n]+/g,' ').slice(0,160)}
+    const _raw=String(r.text).trim()
+    let _jj=null
+    try{const m2=_raw.replace(/```json/g,'').replace(/```/g,'').match(/[{][\s\S]*[}]/);if(m2)_jj=JSON.parse(m2[0])}catch(e){_jj=null}
+    if(_jj&&_jj.summary){
+      p.chatSum={date:td,n:list.length,text:String(_jj.summary).replace(/[\r\n]+/g,' ').slice(0,160)}
+      if(Array.isArray(_jj.memories)&&_jj.memories.length){
+        const mem=chatMem()
+        _jj.memories.forEach(function(m3){
+          const t3=String((m3&&m3.text)||m3||'').replace(/[\r\n]+/g,' ').slice(0,60)
+          if(!t3)return
+          if(mem.some(function(x){return x.text===t3}))return
+          mem.push({id:Date.now()+Math.random(),text:t3,tags:(m3&&m3.tags)||[],at:Date.now()})
+        })
+        if(mem.length>40)D._mem=mem.slice(-40)
+      }
+    }else{
+      p.chatSum={date:td,n:list.length,text:_raw.replace(/[\r\n]+/g,' ').slice(0,160)}
+    }
     sv(D)
     if(tb==='today')render()
   })
@@ -784,6 +868,11 @@ function chatParentUI(){
   })
   c.appendChild(box)
   c.appendChild(h('button',{className:'btn btn-outline btn-sm',style:'margin-top:8px',onClick:function(){open=!open;box.style.display=open?'':'none';this.innerHTML=open?'收起原文':'查看原文'}},'查看原文'))
+  const mem=chatMem().slice(-6)
+  if(mem.length){
+    c.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-top:10px;font-weight:600'},'小搭记住的关于他的事：'))
+    mem.forEach(function(m5){c.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-top:2px'},'· '+m5.text))})
+  }
   c.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:6px'},'默认只给你摘要，需要时再点开原文——他知道聊天会被记录，这样他更敢说真话'))
   ensureChatSummary()
   return c
