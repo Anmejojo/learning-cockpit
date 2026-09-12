@@ -249,13 +249,13 @@ function logout(){
 /* ================= AI 助手（密钥在云函数里，网页端不存） ================= */
 const AI_URL='https://jiajia-study-d6gjyod13d77728d6-1483465315.ap-shanghai.app.tcloudbase.com/ai'
 function aiToken(){return localStorage.getItem('lc_tok')||''}
-async function aiCall(prompt){
+async function aiCall(prompt,image){
   if(!aiToken())return {ok:false,err:'请先设置口令，再使用 AI'}
   try{
     const res=await fetch(AI_URL,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({token:aiToken(),prompt:prompt})
+      body:JSON.stringify({token:aiToken(),prompt:prompt,image:(image||'')})
     })
     const txt=await res.text()
     let j=null
@@ -605,6 +605,10 @@ function chatPersona(){
   '4) 不替他写作业、不写作文；',
   '5) 不假装知道：题目信息不够，就让他补充，或说"这题我得看原题"。',
   '',
+  '【他发图片的时候】',
+  '先一句话说清你看到的是什么（哪科、什么题），然后按上面的规则给思路和第一步 + 反问；',
+  '不要因为看到全题就把整道题解完；图片看不清就说"图有点糊，重拍一张"，不要瞎猜。',
+  '',
   '【他不想学的时候】',
   '先接住情绪，别讲道理。比如：「行，那今天先只做 5 分钟」「这题做完就歇」。不追问原因，不教育他。',
   '',
@@ -615,18 +619,36 @@ function chatPersona(){
   '让他觉得跟你说话不累、不丢脸，愿意每天来问一两个问题。'
   ].join('\n')
 }
-function chatSend(){
+function chatTrim(){
+  const log=chatLog()
+  if(log.length>300)D._chat=log.slice(-300)
+  const withImg=chatLog().filter(function(m){return m.img})
+  if(withImg.length>20){withImg.slice(0,withImg.length-20).forEach(function(m){m.img='';m.imgCleared=true})}
+}
+function chatPickImage(){
+  const inp=document.createElement('input')
+  inp.type='file';inp.accept='image/*'
+  inp.onchange=function(e){
+    const f=e.target.files[0]
+    if(!f)return
+    ts('正在处理照片…')
+    compressImage(f,function(b64){ if(b64)chatSend(b64); else ts('照片处理失败，重拍一张') })
+  }
+  inp.click()
+}
+function chatSend(imgB64){
   const el=document.getElementById('chatInput')
   const v=(el&&el.value||'').trim()
-  if(!v)return
+  if(!v&&!imgB64)return
   const log=chatLog()
-  log.push({id:Date.now(),date:td,role:'u',text:v,ts:Date.now()})
-  if(log.length>300)D._chat=log.slice(-300)
+  log.push({id:Date.now(),date:td,role:'u',text:(v||'（发了张图）'),img:(imgB64||''),ts:Date.now()})
+  chatTrim()
   sv(D);render()
   const box=document.getElementById('chatOut')
-  if(box){box.style.display='';box.textContent=AI_NAME+' 正在想…'}
-  const ctx=chatLog().slice(-8).map(function(m){return (m.role==='u'?'他：':'你：')+m.text}).join('\n')
-  aiCall(chatPersona()+'\n\n【最近的对话】\n'+ctx+'\n\n请回复他最后那句。记住：只给思路和第一步，不给最终答案；短一点。').then(function(r){
+  if(box){box.style.display='';box.textContent=AI_NAME+' 正在看…'}
+  const ctx=chatLog().slice(-8).map(function(m){return (m.role==='u'?'他：':'你：')+(m.text||'')}).join('\n')
+  const tail=(imgB64?'他刚发了一张图（可能是题目、课本或作业）。先一句话说清你看到的是什么，再按规则给思路和第一步 + 反问；不要因为看到全题就把整道题解完；看不清就让他重拍。':'请回复他最后那句。记住：只给思路和第一步，不给最终答案；短一点。')
+  aiCall(chatPersona()+'\n\n【最近的对话】\n'+ctx+'\n\n'+tail, imgB64||'').then(function(r){
     const l2=chatLog()
     l2.push({id:Date.now()+1,date:td,role:'a',text:(r.ok?String(r.text).trim():'（我现在有点卡，你等下再问我一次）'),ts:Date.now()})
     if(l2.length>300)D._chat=l2.slice(-300)
@@ -643,20 +665,24 @@ function chatUI(){
     const row=h('div',{style:'margin-bottom:8px;display:flex;'+(isMe?'justify-content:flex-end':'justify-content:flex-start')})
     const wrap=h('div',{style:'max-width:82%'})
     wrap.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-bottom:2px;text-align:'+(isMe?'right':'left')},isMe?'我':AI_NAME+' · '+fmtHM(m.ts)))
-    wrap.appendChild(h('div',{style:'padding:9px 12px;border-radius:12px;font-size:14.5px;line-height:1.7;white-space:pre-wrap;word-break:break-word;'+(isMe?'background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff':'background:var(--card-2);border:1px solid var(--border);color:var(--text)')},m.text))
+    const bubble=h('div',{style:'padding:9px 12px;border-radius:12px;font-size:14.5px;line-height:1.7;white-space:pre-wrap;word-break:break-word;'+(isMe?'background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff':'background:var(--card-2);border:1px solid var(--border);color:var(--text)')},m.text)
+    if(m.img)bubble.appendChild(h('img',{src:m.img,loading:'lazy',alt:'他发的照片',style:'max-width:100%;max-height:260px;border-radius:8px;margin-top:6px;display:block;border:1px solid var(--border);cursor:pointer',onClick:function(){viewImg(m.img)}}))
+    if(m.imgCleared)bubble.appendChild(h('div',{style:'font-size:12px;opacity:.7;margin-top:4px'},'（图片已清理）'))
+    wrap.appendChild(bubble)
     row.appendChild(wrap);c.appendChild(row)
   })
   c.appendChild(h('div',{id:'chatOut',style:'display:none'}))
   const ir=h('div',{style:'display:flex;gap:8px;margin-top:8px'})
-  ir.appendChild(h('input',{id:'chatInput',placeholder:'跟他说点什么…（比如：这题不会 / 今天不想学）',style:'flex:1;min-width:180px'}))
-  ir.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:chatSend},'发送'))
+  ir.appendChild(h('input',{id:'chatInput',placeholder:'说点什么，或拍张题图…',style:'flex:1;min-width:160px'}))
+  ir.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){chatPickImage()}},'📷 拍题'))
+  ir.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){chatSend()}},'发送'))
   c.appendChild(ir)
-  c.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:6px'},'他只会给思路和第一步，不会直接给答案；聊天会记录下来'))
+  c.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:6px'},'不会的题可以拍照发给他；他只给思路和第一步，不会直接给答案；聊天会记录下来'))
   return c
 }
 function chatSummaryPrompt(){
   const list=chatToday()
-  const txt=list.map(function(m){return (m.role==='u'?'他：':'搭子：')+m.text}).join('\n')
+  const txt=list.map(function(m){return (m.role==='u'?'他：':'搭子：')+m.text+(m.img?'（并发了题图）':'')}).join('\n')
   return ['下面是一位初二男生今天和学习搭子的聊天记录。你是给家长看的分析助手。',
     '请用 80 字以内说清三件事：① 他今天问了/聊了什么 ② 他的状态（积极/疲惫/抵触/正常） ③ 家长今晚或明天可以做什么（一条具体动作）。',
     '平实、不夸大、不煽情；如果只是问了题目，就说"主要是问功课"，不要过度解读。',
@@ -689,7 +715,10 @@ function chatParentUI(){
   let open=false
   const box=h('div',{style:'display:none;margin-top:8px'})
   list.forEach(function(m){
-    box.appendChild(h('div',{style:'font-size:13.5px;line-height:1.7;margin-bottom:4px;color:'+(m.role==='u'?'var(--text)':'var(--muted)')},((m.role==='u')?'他：':(AI_NAME+'：'))+m.text))
+    const row=h('div',{style:'font-size:13.5px;line-height:1.7;margin-bottom:4px;color:'+(m.role==='u'?'var(--text)':'var(--muted)')})
+    row.appendChild(h('span',null,((m.role==='u')?'他：':(AI_NAME+'：'))+m.text))
+    if(m.img)row.appendChild(h('img',{src:m.img,loading:'lazy',alt:'他发的照片',style:'width:64px;height:64px;object-fit:cover;border-radius:6px;margin-left:6px;vertical-align:middle;border:1px solid var(--border);cursor:pointer',onClick:function(){viewImg(m.img)}}))
+    box.appendChild(row)
   })
   c.appendChild(box)
   c.appendChild(h('button',{className:'btn btn-outline btn-sm',style:'margin-top:8px',onClick:function(){open=!open;box.style.display=open?'':'none';this.innerHTML=open?'收起原文':'查看原文'}},'查看原文'))
