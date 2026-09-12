@@ -615,8 +615,31 @@ function chatPersona(){
   '【他说心里话的时候】',
   '先听着，别急着给建议。可以问一句「那你现在最烦哪个」，不要马上把话题转回学习。',
   '',
+  '【你也是他的心理老师】',
+  '他不一定跟妈妈讲的事，可能会跟你讲：不想说话、烦躁、睡不着、觉得自己没用、不想上学、被同学孤立或被起外号、和家里人吵架（妈妈在外地）、喜欢上谁了、身体上的变化、只想打游戏不想写作业。',
+  '处理方式：',
+  '1) 先接情绪，后谈事。第一句永远先站在他这边（"这挺正常的""换我也烦"）；',
+  '2) 不评价、不贴标签：不说"你太敏感""你想太多了""你这是抑郁"；',
+  '3) 不讲大道理，一次只给一个能做到的小动作（"今晚手机放客厅充电，下楼走十分钟"）；',
+  '4) 他说"没事"就不追问，只说"行，我在，想说了随时说"；',
+  '5) 不评价他爸妈，也不替他传话；',
+  '6) 身体发育、喜欢谁这类事：当成正常事聊，不回避、不笑话、不追问细节；',
+  '7) 回复依然要短，不要变成心理咨询腔，不要问一长串问题。',
+  '',
+  '【安全底线（最高优先，覆盖上面所有规则）】',
+  '如果他提到：不想活 / 伤害自己 / 被打 / 被威胁 / 被欺负得很严重：',
+  '- 第一句先让他感到你在意："你跟我说这个，我挺在意的"；',
+  '- 不讲道理，不说"你别想不开""你要坚强""你没那么严重"；',
+  '- 明确告诉他：这件事得让大人知道，鼓励他告诉信任的大人（妈妈或老师）；',
+  '- 如果他说不能告诉家里，就把这个电话给他：12355（共青团青少年服务台，专门帮学生说话）；',
+  '- 这类事不能替他保密；',
+  '- 并且在这一条回复的最后，另起一行单独写：[[ALERT]]（这一行会被系统收走，不会给他看到）。',
+  '',
+  '【你的边界】',
+  '你不是医生：不诊断、不贴标签、不说"你会好起来的""你有心理问题"。你只陪他说话。',
+  '',
   '【你的目标】',
-  '让他觉得跟你说话不累、不丢脸，愿意每天来问一两个问题。'
+  '让他觉得跟你说话不累、不丢脸，愿意每天来问一两个问题、说一两句心里话。'
   ].join('\n')
 }
 function chatTrim(){
@@ -649,8 +672,12 @@ function chatSend(imgB64){
   const ctx=chatLog().slice(-8).map(function(m){return (m.role==='u'?'他：':'你：')+(m.text||'')}).join('\n')
   const tail=(imgB64?'他刚发了一张图（可能是题目、课本或作业）。先一句话说清你看到的是什么，再按规则给思路和第一步 + 反问；不要因为看到全题就把整道题解完；看不清就让他重拍。':'请回复他最后那句。记住：只给思路和第一步，不给最终答案；短一点。')
   aiCall(chatPersona()+'\n\n【最近的对话】\n'+ctx+'\n\n'+tail, imgB64||'').then(function(r){
+    let _txt=r.ok?String(r.text):'（我现在有点卡，你等下再问我一次）'
+    let _alert=false
+    if(_txt.indexOf('[[ALERT]]')>=0){_alert=true;_txt=_txt.replace(/\[\[ALERT\]\]/g,'').trim()}
     const l2=chatLog()
-    l2.push({id:Date.now()+1,date:td,role:'a',text:(r.ok?String(r.text).trim():'（我现在有点卡，你等下再问我一次）'),ts:Date.now()})
+    l2.push({id:Date.now()+1,date:td,role:'a',text:_txt.trim(),alert:_alert||undefined,ts:Date.now()})
+    if(_alert){const pp=askPool();pp.alert={date:td,at:Date.now()};}
     if(l2.length>300)D._chat=l2.slice(-300)
     sv(D);render()
   })
@@ -684,7 +711,8 @@ function chatSummaryPrompt(){
   const list=chatToday()
   const txt=list.map(function(m){return (m.role==='u'?'他：':'搭子：')+m.text+(m.img?'（并发了题图）':'')}).join('\n')
   return ['下面是一位初二男生今天和学习搭子的聊天记录。你是给家长看的分析助手。',
-    '请用 80 字以内说清三件事：① 他今天问了/聊了什么 ② 他的状态（积极/疲惫/抵触/正常） ③ 家长今晚或明天可以做什么（一条具体动作）。',
+    '请用 90 字以内说清三件事：① 他今天问了/聊了什么 ② 他的情绪状态（积极/疲惫/烦躁/低落/抵触/正常，要给依据） ③ 家长今晚或明天可以做什么（一条具体动作，不要提成绩）。',
+    '如果聊天里出现自我否定、被欺负、和家里冲突、不想上学这类内容，请如实说明，并提醒家长"先关心人，不要先讲道理"。',
     '平实、不夸大、不煽情；如果只是问了题目，就说"主要是问功课"，不要过度解读。',
     '',
     '【聊天记录】',
@@ -710,6 +738,7 @@ function chatParentUI(){
   const p=askPool()
   const c=h('div',{className:'card edit-only'})
   c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🫂'}),'他和 '+AI_NAME+' 聊了 '+list.length+' 句'))
+  if(p.alert&&p.alert.date===td)c.appendChild(h('div',{className:'alert danger',style:'margin-bottom:8px'},'🆘 今天聊到需要你关注的内容，建议今晚打个电话，先别谈成绩'))
   const sum=(p.chatSum&&p.chatSum.date===td)?p.chatSum.text:'（正在整理今天的聊天摘要…）'
   c.appendChild(h('div',{className:'longtext',style:'font-size:14px;line-height:1.75;color:var(--text)'},sum))
   let open=false
@@ -1318,6 +1347,8 @@ function rtoday(){
     const pe=(D.exams||[]).filter(function(e){return e.status==='pending'}).length
     if(pn+pe)al.push({l:'warning',m:'⏳ 有 '+(pn+pe)+' 条待审核（打卡 '+pn+' · 成绩 '+pe+'）'})
   }
+  const _al=askPool().alert
+  if(!VW&&_al&&_al.date===td)al.unshift({l:'danger',m:'🆘 他今天和小搭聊到情绪或困难，建议今晚给他打个电话，先别问成绩'})
   const _sp=surpriseText()
   if(!VW&&_sp)al.unshift({l:'success',m:'🎁 '+_sp})
   const ystr=(function(){var d=new Date();d.setDate(d.getDate()-1);return ymd(d)})()
