@@ -2186,7 +2186,7 @@ function chatSend(imgB64){
     [tail,0],
     [chatTailRules(),0]
   ]
-  const _LIMIT=5500
+  const _LIMIT=6000
   let _room=_LIMIT
   _blocks.forEach(function(b){if(b[0]&&b[1]!==1)_room-=(b[0].length+2)})
   const _out=[]
