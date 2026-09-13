@@ -238,7 +238,7 @@ function applyLv(lv){
 let _authPending=false
 function initAuth(){
   const saved=localStorage.getItem('lc_lv')||''
-  if(D._noGate){applyLv(saved||(VW?'c':'p'));render();return}   // 已关掉口令门：打开直接进
+  if(D._noGate&&!VW){applyLv(saved||'p');render();return}   // 家长链接：免口令直接进（孩子链接仍需口令）
   if(!(D._auth&&D._auth.p)){_authPending=true;return}   // 本机没存过口令：先别急着让人"设置"，等读完云端再判定（否则新设备会覆盖家里口令）
   if(saved==='c'&&D._auth.t&&localStorage.getItem('lc_tok')!==D._auth.t)localStorage.setItem('lc_tok',D._auth.t)
   if(saved==='p'||saved==='c'){applyLv(saved);render();return}
@@ -249,7 +249,7 @@ function authGateAfterLoad(){
   if(!_authPending)return
   _authPending=false
   const saved=localStorage.getItem('lc_lv')||''
-  if(D._noGate){applyLv(saved||(VW?'c':'p'));render();return}
+  if(D._noGate&&!VW){applyLv(saved||'p');render();return}
   if(D._auth&&D._auth.p){
     if(saved==='p'||saved==='c'){applyLv(saved);render()}
     else showGate()
@@ -2718,13 +2718,12 @@ function rset(){
 
   const _ng=h('div',{className:'card edit-only'})
   _ng.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🚪'}),'访问口令'))
-  _ng.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-bottom:8px;line-height:1.7'},'现在是：'+(D._noGate?'**不用输口令**，打开直接进（家长链接=家长模式，孩子链接=孩子版）':'要输一次口令（家长口令进家长模式，孩子口令进孩子版）')))
+  _ng.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-bottom:8px;line-height:1.7'},'现在是：'+(D._noGate?'**家长链接免口令**（打开直接进家长模式）；**孩子链接仍然要输孩子口令**':'家长链接、孩子链接都要输一次口令（家长口令进家长模式，孩子口令进孩子版）')))
   _ng.appendChild(h('button',{className:'btn '+(D._noGate?'btn-warning':'btn-outline'),onClick:function(){
     D._noGate=!D._noGate
-    if(D._noGate&&!_lv)applyLv('c')
-    sv(D);render();ts(D._noGate?'✅ 已关掉口令门：以后打开直接进':'🔒 已开启口令门：打开要输一次口令')
-  }},D._noGate?'🔓 关掉口令门（打开直接进）':'🔒 开启口令门'))
-  _ng.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:8px;line-height:1.7'},'提醒：关掉之后，任何拿到链接的人都能看到家里的数据（链接是公开网址）。建议只在"确定不会外传"的情况下关。'))
+    sv(D);render();ts(D._noGate?'✅ 家长链接已免口令（孩子链接仍要口令）':'🔒 家长链接也要口令了')
+  }},D._noGate?'🔓 家长链接免口令（点此恢复要口令）':'🔒 家长链接也要口令'))
+  _ng.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:8px;line-height:1.7'},'说明：① 孩子链接（?view 那个）永远需要孩子口令，不受这里影响；② 家长链接免口令后，拿到这个链接的人直接就是家长模式（能看到全部数据、能审核）——所以家长链接别外传；③ 孩子那台设备只要用孩子口令登过一次，以后自动记住。'))
   $c.appendChild(_ng)
   const sec=h('div',{className:'card edit-only'})
   sec.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔐'}),'口令与 AI'))
