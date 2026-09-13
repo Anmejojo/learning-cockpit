@@ -780,37 +780,23 @@ function mkAdd(){
   }
   inp.click()
 }
-function mkDueCount(list){return (list||[]).filter(mkDue).length}
-function mkDue(it){
-  try{
-    const days=[1,2,4,7,15]
-    const n=(it.pass||[]).length
-    if(n>=days.length)return false
-    const d0=new Date(String(it.date||td).replace(/-/g,'/')+' 00:00:00').getTime()
-    return Date.now()>=(d0+days[n]*86400000)
-  }catch(e){return false}
-}
-function mkPass(id){
-  const it=mkList().filter(function(x){return x.id===id})[0]
-  if(!it)return
-  if(!it.pass)it.pass=[]
-  it.pass.push(Date.now())
-  actLog('错题重做对了',(it.subject||'')+' '+(it.kp||''))
-  sv(D);render();ts('\u2705 记一次重做（第 '+it.pass.length+' 刷）')
+function mkTopKp(list,n){
+  const m={}
+  ;(list||[]).forEach(function(x){const key=((x.subject||'')?x.subject+'·':'')+(x.kp||'未标注知识点');m[key]=(m[key]||0)+1})
+  return Object.keys(m).map(function(k){return {key:k,n:m[k]}}).sort(function(a,b){return b.n-a.n||(a.key<b.key?-1:1)}).slice(0,n||5)
 }
 function mkDel(id){D.mistakes=mkList().filter(function(x){return x.id!==id});actLog('删除错题','');sv(D);render();ts('已删除')}
-function mkRow(it){
+function mkRow(it,showSub){
   const row=h('div',{style:'border-bottom:1px solid var(--border);padding:10px 0'})
   const top=h('div',{style:'display:flex;gap:8px;align-items:flex-start'})
   const left=h('div',{style:'flex:1;min-width:0'})
   const tags=h('div',{style:'display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:4px'})
+  if(showSub&&it.subject)tags.appendChild(h('span',{style:'font-size:12px;padding:1px 7px;border-radius:8px;background:var(--bg-elev);border:1px solid var(--border);color:var(--muted)'},it.subject))
   tags.appendChild(h('span',{style:'font-size:12px;padding:1px 7px;border-radius:8px;background:var(--primary-weak);border:1px solid var(--primary-border);color:var(--primary-hover)'},it.kp||'未标注知识点'))
   if(it.why)tags.appendChild(h('span',{style:'font-size:12px;padding:1px 7px;border-radius:8px;background:var(--warning-weak);border:1px solid var(--warning-border);color:var(--warning)'},it.why))
-  if(mkDue(it))tags.appendChild(h('span',{style:'font-size:12px;padding:1px 7px;border-radius:8px;background:var(--danger-weak);border:1px solid var(--danger-border);color:var(--danger)'},'该重做了'))
-  else if((it.pass||[]).length>=5)tags.appendChild(h('span',{style:'font-size:12px;padding:1px 7px;border-radius:8px;background:var(--success-weak);border:1px solid var(--success-border);color:var(--success)'},'已通关'))
   left.appendChild(tags)
   if(it.stem)left.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);line-height:1.6'},it.stem))
-  left.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:3px'},fd(it.date)+' · 已重做 '+((it.pass||[]).length)+' 次'))
+  left.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:3px'},'📅 '+fd(it.date)+' 记录'))
   top.appendChild(left)
   if((it.imgs||[]).length){
     const ir=h('div',{style:'display:flex;gap:4px;flex-wrap:wrap;max-width:120px'})
@@ -818,62 +804,22 @@ function mkRow(it){
     top.appendChild(ir)
   }
   row.appendChild(top)
-  const br=h('div',{style:'display:flex;gap:6px;margin-top:7px;flex-wrap:wrap'})
-  br.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){mkPass(it.id)}},'\u2705 重做对了'))
   if(!VW){
+    const br=h('div',{style:'display:flex;gap:6px;margin-top:7px;flex-wrap:wrap'})
     br.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){
       const s2=prompt('归到哪个科目？\n'+MK_SUBJECTS.join(' / '),it.subject||'')||''
       if(s2){it.subject=s2.trim().slice(0,6);sv(D);render()}
     }},'改科目'))
     br.appendChild(h('button',{className:'btn btn-danger btn-sm',onClick:function(){if(confirm('删除这道错题？'))mkDel(it.id)}},'删'))
+    row.appendChild(br)
   }
-  row.appendChild(br)
   return row
 }
-function rckMkDrill(){
-  const d=_mkDrill
-  const it=d&&d.list&&d.list[d.i]
-  if(!it){_mkDrill=null;return rckMk()}
-  const c=h('div',{className:'card'})
-  c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'\u270d\ufe0f'}),'重做模式 · '+d.sub+'　第 '+(d.i+1)+'/'+d.list.length+' 道'))
-  const q=h('div',{style:'background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px'})
-  q.appendChild(h('div',{style:'font-size:12.5px;color:var(--muted);margin-bottom:6px'},it.kp||'（未标注知识点）'))
-  q.appendChild(h('div',{style:'font-size:15px;line-height:1.75;white-space:pre-wrap'},it.stem||'（没识别出题干，看下面的照片）'))
-  if((it.imgs||[]).length){
-    const ir=h('div',{style:'display:flex;gap:6px;flex-wrap:wrap;margin-top:8px'})
-    it.imgs.forEach(function(b){ir.appendChild(photoImg(b,it.imgs,'max-width:100%;border-radius:8px;border:1px solid var(--border);cursor:pointer'))})
-    q.appendChild(ir)
-  }
-  c.appendChild(q)
-  if(!d.show){
-    c.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-bottom:10px;line-height:1.7'},'先自己在纸上做一遍，做完再点「看思路」。'))
-  }else{
-    const a=h('div',{style:'background:var(--success-weak);border:1px solid var(--success-border);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:14px;line-height:1.75;color:var(--text)'})
-    a.appendChild(h('div',null,'当时的错因：'+(it.why||'未标注')))
-    a.appendChild(h('div',{style:'margin-top:4px'},'做完自己对一下答案，再点「做对了」。'))
-    c.appendChild(a)
-  }
-  const br=h('div',{style:'display:flex;gap:8px;flex-wrap:wrap'})
-  if(!d.show)br.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){d.show=true;render()}},'👀 看思路 / 错因'))
-  br.appendChild(h('button',{className:'btn btn-success btn-sm',onClick:function(){
-    mkPass(it.id);d.i++;d.show=false
-    if(d.i>=d.list.length){_mkDrill=null;ts('🎉 这一轮重做完了');render()}else render()
-  }},'\u2705 做对了，下一道'))
-  if(d.show)br.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){
-    d.i++;d.show=false
-    if(d.i>=d.list.length){_mkDrill=null;ts('这轮先到这');render()}else render()
-  }},'再想想，下一道'))
-  br.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_mkDrill=null;render()}},'退出'))
-  c.appendChild(br)
-  $c.appendChild(c)
-}
 function rckMk(){
-  if(_mkDrill)return rckMkDrill()
   const all=mkList()
-  const dueN=all.filter(mkDue).length
   const c=h('div',{className:'card'})
-  c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📕'}),'错题本（'+all.length+' 道）'))
-  c.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-bottom:10px;line-height:1.7'},'拍一张错题 → 小搭自动认科目、抓知识点、说清错在哪，然后归到对应科目的数字题库里。'+(dueN?('\u3000\u26a0\ufe0f 今天有 '+dueN+' 道该重做了'):'')))
+  c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📕'}),'错题记录（'+all.length+' 道）'))
+  c.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-bottom:10px;line-height:1.7'},'拍一张错题 → 小搭自动认科目、抓知识点、说清错在哪，存到对应科目里。记下来就行，不用重做。'))
   c.appendChild(h('button',{className:'btn btn-primary',onClick:mkAdd},'📷 拍错题（可多张）'))
   $c.appendChild(c)
   const _pb=pendBanner();if(_pb)$c.appendChild(_pb)
@@ -884,23 +830,42 @@ function rckMk(){
   }
   if(_mkView==='总览'||_mkView==='全部'||MK_SUBJECTS.concat(['其他']).indexOf(_mkView)<0){
     const box=h('div',{className:'card'})
-    box.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📚'}),'各科数字题库（点科目进入）'))
+    box.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📚'}),'各科错题（点科目进入）'))
     const g=h('div',{style:'display:grid;grid-template-columns:repeat(3,1fr);gap:8px'})
     MK_SUBJECTS.concat(['其他']).forEach(function(sb){
       const list=all.filter(function(x){return (x.subject||'')===sb})
-      const due=mkDueCount(list)
       const card=h('div',{style:'cursor:pointer;background:var(--bg-elev);border:1px solid '+(list.length?'var(--border-strong)':'var(--border)')+';border-radius:10px;padding:9px 6px;text-align:center;opacity:'+(list.length?1:0.45),onClick:function(){if(!list.length)return;_mkView=sb;render()}})
       card.appendChild(h('div',{style:'font-size:14px;font-weight:600'},sb))
       card.appendChild(h('div',{style:'font-size:12.5px;color:var(--muted);margin-top:3px'},list.length+' 道'))
-      if(due)card.appendChild(h('div',{style:'font-size:11.5px;color:var(--danger);margin-top:2px'},due+' 待重做'))
+      if(list.length){
+        const last=list.slice().sort(function(a,b){return (b.ts||0)-(a.ts||0)})[0]
+        card.appendChild(h('div',{style:'font-size:11.5px;color:var(--faint);margin-top:2px'},'最近 '+fd(last.date)))
+      }
       g.appendChild(card)
     })
     box.appendChild(g)
     box.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:8px;line-height:1.6'},'灰色的科目还没有错题。「其他」是 AI 认不出科目时先放的，家长可以改到具体科目。'))
     $c.appendChild(box)
+    if(!VW){
+      const top=mkTopKp(all,5)
+      if(top.length){
+        const tc=h('div',{className:'card'})
+        tc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔍'}),'常错知识点（帮你找规律）'))
+        const gt=h('div',{style:'display:flex;flex-direction:column;gap:6px'})
+        top.forEach(function(o){
+          const r=h('div',{style:'display:flex;align-items:center;gap:8px'})
+          r.appendChild(h('div',{style:'flex:1;font-size:13.5px'},o.key))
+          r.appendChild(h('div',{style:'font-size:13px;color:var(--danger);font-weight:600'},o.n+' 道'))
+          gt.appendChild(r)
+        })
+        tc.appendChild(gt)
+        tc.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:8px;line-height:1.6'},'同一个地方反复错，说明这个知识点还没通。翻错题记录时重点看这几处。'))
+        $c.appendChild(tc)
+      }
+    }
     const rec=h('div',{className:'card'})
     rec.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🕐'}),'最近上传（'+Math.min(5,all.length)+' 道）'))
-    all.slice(0,5).forEach(function(it){rec.appendChild(mkRow(it))})
+    all.slice(0,5).forEach(function(it){rec.appendChild(mkRow(it,true))})
     $c.appendChild(rec)
     return
   }
@@ -908,14 +873,10 @@ function rckMk(){
   const list=all.filter(function(x){return (x.subject||'')===_mkView})
   const head=h('div',{className:'card'})
   const hb=h('div',{style:'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px'})
-  hb.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_mkView='总览';_mkDrill=null;render()}},'\u2190 各科'))
-  hb.appendChild(h('div',{style:'font-size:15px;font-weight:600'},_mkView+' 题库（'+list.length+' 道）'))
+  hb.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_mkView='总览';render()}},'\u2190 各科'))
+  hb.appendChild(h('div',{style:'font-size:15px;font-weight:600'},_mkView+' 错题记录（'+list.length+' 道）'))
   head.appendChild(hb)
-  const due=mkDueCount(list)
   const br=h('div',{style:'display:flex;gap:8px;flex-wrap:wrap'})
-  br.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){
-    _mkDrill={sub:_mkView,list:list.slice(),i:0,show:false};render()
-  }},'\u270d\ufe0f 开始重做'+(due?('（'+due+' 道该重做）'):('（'+list.length+' 道）'))))
   br.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){
     try{
       const t=_mkView+' 错题库（'+list.length+' 道）\n\n'+list.map(function(x,i2){
@@ -933,7 +894,7 @@ function rckMk(){
   Object.keys(byKp).forEach(function(k){
     const box=h('div',{className:'card'})
     box.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔖'}),k+'（'+byKp[k].length+' 道）'))
-    byKp[k].forEach(function(it){box.appendChild(mkRow(it))})
+    byKp[k].slice().sort(function(a,b){return (b.ts||0)-(a.ts||0)}).forEach(function(it){box.appendChild(mkRow(it))})
     $c.appendChild(box)
   })
 }
@@ -1086,7 +1047,7 @@ function chatSnapshot(){
   if(tds.length)L.push('· 他自己列了今天要做：'+tds.join('、'))
   // 错题本
   const _mkN=(D.mistakes||[]).length
-  if(_mkN)L.push('\u00b7 错题本：共 '+_mkN+' 道'+(function(){try{const d=(D.mistakes||[]).filter(mkDue).length;return d?('\uff0c\u4eca\u5929\u6709 '+d+' \u9053\u8be5\u91cd\u505a'):''}catch(e){return ''}})())
+  if(_mkN)L.push('\u00b7 错题记录：共 '+_mkN+' 道'+(function(){try{const t=mkTopKp(D.mistakes,3);return t.length?('\uff0c错得比较多的：'+t.map(function(o){return o.key+' '+o.n+' 道'}).join('\u3001')):''}catch(e){return ''}})())
   // 硬笔字作品
   const _hwN=(D.handwritings||[]).length
   if(_hwN)L.push('· 硬笔字：作品墙已有 '+_hwN+' 幅'+(hwStreak()>=2?('，连着 '+hwStreak()+' 天有作品'):''))
@@ -1335,7 +1296,6 @@ function ensureChatOpener(){
 
 /* ---- 给他看「小搭记得的事」，不对的他自己删 ---- */
 let _mkView='总览'
-let _mkDrill=null
 let _todayMore=false
 let _memOpen=false
 let _chatShow=40
