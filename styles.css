@@ -542,3 +542,16 @@ html[data-polish="1"] *{transition-timing-function:var(--ease)}
 .guide-d{font-size:var(--fs-14);color:var(--muted);line-height:1.75}
 .guide-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
 .guide-hi{position:relative;z-index:9998}
+
+/* ===== 顶部等级徽章（在「阿勒学习驾驶舱」右边）===== */
+.lv-badge{display:inline-flex;align-items:center;gap:6px;margin-left:10px;margin-right:auto;padding:2px 11px;border-radius:999px;
+  background:var(--primary-weak);border:1px solid var(--primary-border);white-space:nowrap;flex:0 0 auto;cursor:default}
+.lv-badge b{font-family:var(--font-num);font-size:var(--fs-12);font-weight:700;color:var(--primary-hover);letter-spacing:.02em}
+.lv-badge i{font-style:normal;font-size:var(--fs-12);color:var(--text);opacity:.92}
+.lv-badge:empty{display:none}
+@media (max-width:560px){
+  .lv-badge{margin-left:7px;padding:2px 9px}
+  .lv-badge i{display:none}
+}
+/* 我的舱卡片里的“距离下一级” */
+.ck-go{font-size:var(--fs-14);font-weight:600}
