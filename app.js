@@ -2867,7 +2867,11 @@ function rset(){
   const _isAnd=/Android/.test(_ua)
   const _isWX=/MicroMessenger/i.test(_ua)
   const gc=h('div',{className:'card edit-only'})
-  gc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📱'}),'装到手机桌面（像 App 一样打开）'))
+  gc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📱'}),'装成应用（像 App 一样打开）'))
+  const _instBar=h('div',{style:'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px'})
+  _instBar.appendChild(h('span',{style:'font-size:13.5px;color:'+(pwaInstalled()?'var(--success)':'var(--muted)')},pwaInstalled()?'✅ 已经装好了（正在以应用方式打开）':'还没装成应用'))
+  if(!pwaInstalled()&&!_isWX&&!_isIOS)_instBar.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:pwaInstall},'📲 一键安装'))
+  gc.appendChild(_instBar)
   let _title='', _steps=[]
   if(_isWX){
     _title='你现在是在微信里打开的，微信里不能添加'
@@ -3631,6 +3635,18 @@ window.addEventListener('beforeunload',function(e){if(_dirty){e.preventDefault()
 document.addEventListener('visibilitychange',function(){
   if(document.visibilityState==='visible'&&Date.now()-_lastVisCheck>120000){_lastVisCheck=Date.now();checkCloudNewer()}
 })
+/* ================= PWA：注册 Service Worker + 安卓“一键安装” ================= */
+let _installEv=null
+window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();_installEv=e;try{if(tb==='settings')render()}catch(err){}})
+function pwaInstall(){
+  try{
+    if(_installEv){_installEv.prompt();if(_installEv.userChoice)_installEv.userChoice.then(function(){_installEv=null});return}
+    ts('请在浏览器菜单里选「添加到主屏幕 / 安装应用」')
+  }catch(e){ts('请在浏览器菜单里选「添加到主屏幕」')}
+}
+function pwaInstalled(){try{return window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}}
+try{ if('serviceWorker' in navigator && location.protocol==='https:'){ navigator.serviceWorker.register('sw.js').catch(function(){}) } }catch(e){}
+
 initAuth()
 ;(async function boot(){
   const _tip=document.createElement('div');_tip.id='bootTip';_tip.textContent='☁️ 正在同步云端数据…';document.body.appendChild(_tip)
