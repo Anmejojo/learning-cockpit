@@ -41,7 +41,15 @@ function setCloudStatus(txt,ok){
   const el=document.getElementById('cloudBadge')
   if(el){el.innerHTML=txt;el.style.color=ok?'#6ee7b7':'#fbbf24'}
 }
-function markSynced(t){_syncT=t||Date.now();_dirty=false;_failNotified=false;if(_retryTimer){clearTimeout(_retryTimer);_retryTimer=null}setCloudStatus('☁️ 已同步 '+fmtHM(_syncT),true)}
+function _saveWarn(msg){
+  try{
+    let el=document.getElementById('saveWarn')
+    if(!el){el=document.createElement('div');el.id='saveWarn';el.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:9999;background:#7f1d1d;color:#fff;padding:9px 12px;font-size:13.5px;text-align:center;line-height:1.5';document.body.appendChild(el)}
+    el.textContent=msg
+  }catch(e){}
+}
+function _saveWarnClear(){try{const el=document.getElementById('saveWarn');if(el)el.remove()}catch(e){}}
+function markSynced(t){_syncT=t||Date.now();_dirty=false;_failNotified=false;if(_retryTimer){clearTimeout(_retryTimer);_retryTimer=null}_saveWarnClear();setCloudStatus('☁️ 已同步 '+fmtHM(_syncT),true)}
 function markDirty(){_dirty=true;setCloudStatus('⏳ 待上传（点此重试）',false);scheduleRetry()}
 function scheduleRetry(){
   if(_retryTimer||!cloudReady)return
@@ -134,6 +142,7 @@ async function saveCloud(d){
     console.error('云端写入失败',JSON.stringify(e))
     markDirty()
     if(!_failNotified){_failNotified=true;ts('⚠️ 云端保存失败，数据已存本机，会自动重试')}
+    _saveWarn('⚠️ 云端没存上（网络或数据过大）：已存本机，联网后会自动重试。别关页面。')
     return false
   }
 }
@@ -164,9 +173,11 @@ function sv(d){
       localStorage.setItem(SK,JSON.stringify(slim));localStorage.setItem(SK+'_t',String(Date.now()))
       ok=true
       if(!_quotaWarned){_quotaWarned=true;ts('⚠️ 本机缓存已满，照片改为只存云端（数据没丢）')}
+      _saveWarn('⚠️ 本机存放已满：照片只存云端了。请联网让它上传，上传完成前别关页面。')
     }catch(e2){}
   }
   if(!ok&&!_quotaWarned){_quotaWarned=true;ts('⚠️ 本机已无法保存，请到「设置」导出备份')}
+  if(!ok)_saveWarn('⚠️ 本机已无法保存！请联网，并到「设置」导出备份。')
   maybeSnapshot()
   if(!cloudReady)return
   if(_offline){markDirty();return}
@@ -1949,13 +1960,13 @@ function compressImage(file,cb){
     reader.onload=function(e){
       const img=new Image()
       img.onload=function(){
-        const maxW=700
+        const maxW=560
         const scale=Math.min(1,maxW/img.width)
         const cv=document.createElement('canvas')
         cv.width=Math.round(img.width*scale)
         cv.height=Math.round(img.height*scale)
         cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height)
-        cb(cv.toDataURL('image/jpeg',0.6))
+        cb(cv.toDataURL('image/jpeg',0.5))
       }
       img.onerror=function(){cb(null)}
       img.src=e.target.result
@@ -3453,7 +3464,11 @@ initAuth()
       _dirty=true;scheduleRetry()
     }else if(cd){
       const localT=parseInt(localStorage.getItem(SK+'_t')||'0',10)
-      const localNewer=localT>_cloudTs+5000&&!D._slim
+      /* 谁更全：云端明显比本机空时，宁可保留本机（并上传），避免"刷新后记录消失" */
+      const _rich=function(x){return (x.checks||[]).length*3+(x.exams||[]).length*3+(x.points||[]).length+(x.msgs||[]).length+(x.handwritings||[]).length+Object.keys(x.dailyChecks||{}).length}
+      const _lr=_rich(D),_cr=_rich(cd)
+      const _cloudThin=(_cr>0)?(_lr>_cr*2.5):(_lr>5)
+      const localNewer=(localT>_cloudTs+5000)||_cloudThin
       if(!localNewer){
         D=normalize(cd)
         if(!D.dailyChecks[td]){const ds={};for(const it of (D.dci||defData().dci))ds[it.key]=false;D.dailyChecks[td]=ds}
