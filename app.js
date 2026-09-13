@@ -1007,6 +1007,10 @@ function chatPersona(){
   '如果你看到“下次大考还有 N 天”：7 天以内不提“复习”“冲刺”“拓紧”“要不要多刷题”，也别问“准备得怎么样”。',
   '他要学就陪他学；不主动加压力。考完当天不提分数。',
   '',
+  '【他问“怎么学/怎么背/怎么复盘”的时候】',
+  '你手里有一张方法卡（下面会给）。一次只给一步，用你自己的话说，说完就让他现在做那一步。',
+  '禁止把方法列成清单、禁止“你要养成好习惯”这种空话；他想听第二步会自己问。',
+  '',
   '【上课时间】',
   '如果他在工作日的 8:00-11:30 或 14:00-17:00 发消息，先顺口问一句“这会儿在上课吧？”，提醒他“下课再说”，',
   '别讲题、别聊长的；他说不在上课（请假/在家）就正常聊。',
@@ -1145,6 +1149,63 @@ function chatSpeak(t,id){
   }catch(e){_speakId=null}
 }
 function chatSpeakStop(){try{_speakId=null;if(window.speechSynthesis)speechSynthesis.cancel()}catch(e){}}
+/* ================= 学习方法卡（预习 / 复习 / 复盘）=================
+   科学内核：间隔复习取 FSRS/艾宾浩斯节奏；费曼输出倒逼输入；错题归因分类。
+   原则：一次只给一步、落在他的实际题目上、说完就让他做。================= */
+const LEARN_METHODS=[
+ {id:'pre1',cat:'\u9884\u4e60',name:'\u4e94\u5206\u949f\u9884\u626b',kw:['\u9884\u4e60','\u8bfe\u524d','\u4e0a\u8bfe\u524d','\u660e\u5929\u8bb2','\u9884\u4e60\u65b9\u6cd5'],
+  why:'\u4e0a\u8bfe\u524d\u77e5\u9053\u5728\u8bb2\u4ec0\u4e48\uff0c\u542c\u8bfe\u5c31\u4e0d\u662f\u5929\u4e66',
+  how:'\u2460\u7ffb\u4e00\u904d\u6807\u9898\u3001\u56fe\u548c\u7ed3\u8bba\uff1b\u2461\u7528\u4e00\u53e5\u8bdd\u5199\u4e0b\u201c\u8fd9\u8282\u5927\u6982\u8bb2\u4ec0\u4e48\u201d\uff1b\u2462\u627e\u51fa 1~2 \u5904\u770b\u4e0d\u61c2\u7684\uff0c\u4e0a\u8bfe\u53ea\u76ef\u8fd9\u4e24\u5904',
+  when:'\u4e0a\u8bfe\u524d\u4e00\u665a\u6216\u8bfe\u524d 5 \u5206\u949f'},
+ {id:'pre2',cat:'\u9884\u4e60',name:'\u628a\u6807\u9898\u53d8\u6210\u95ee\u9898',kw:['\u9884\u4e60','\u600e\u4e48\u9884\u4e60','\u5e26\u7740\u95ee\u9898','\u4e0a\u8bfe\u542c\u4e0d\u61c2'],
+  why:'\u5e26\u7740\u95ee\u9898\u542c\u8bfe\uff0c\u6ce8\u610f\u529b\u4f1a\u81ea\u5df1\u627e\u7b54\u6848',
+  how:'\u628a\u8bfe\u672c\u6807\u9898\u6539\u6210\u4e00\u4e2a\u95ee\u9898\uff08\u5982\u201c\u4e3a\u4ec0\u4e48\u8981\u56e0\u5f0f\u5206\u89e3\u201d\uff09\uff0c\u4e0a\u8bfe\u5c31\u7b49\u8fd9\u4e2a\u7b54\u6848',
+  when:'\u9884\u4e60\u4e00\u8282\u65b0\u8bfe\u65f6'},
+ {id:'pre3',cat:'\u9884\u4e60',name:'\u5148\u505a\u4e00\u9053\u4f8b\u9898',kw:['\u9884\u4e60','\u4f8b\u9898','\u770b\u4e0d\u61c2','\u4e0d\u4f1a\u505a'],
+  why:'\u81ea\u5df1\u5361\u8fc7\u4e00\u6b21\uff0c\u8001\u5e08\u8bb2\u7684\u65f6\u5019\u624d\u542c\u5f97\u8fdb\u53bb',
+  how:'\u5148\u770b\u4e00\u9053\u4f8b\u9898\u81ea\u5df1\u505a\uff08\u505a\u4e0d\u51fa\u6765\u6b63\u5e38\uff09\uff0c\u628a\u5361\u4f4f\u7684\u90a3\u4e00\u6b65\u6807\u51fa\u6765',
+  when:'\u9884\u4e60\u6570\u5b66\u3001\u7269\u7406\u8fd9\u79cd\u6709\u4f8b\u9898\u7684\u79d1\u76ee'},
+ {id:'rev1',cat:'\u590d\u4e60',name:'\u95f4\u9694\u590d\u4e60\uff08\u7b2c1/2/4/7/15\u5929\uff09',kw:['\u590d\u4e60','\u8bb0\u4e0d\u4f4f','\u5fd8\u4e86','\u80cc\u4e0d\u4e0b','\u8bb0\u4e0d\u7262','\u591a\u4e45\u590d\u4e60','\u80cc\u5355\u8bcd','\u9ed8\u5199'],
+  why:'\u5fd8\u8bb0\u662f\u6b63\u5e38\u7684\uff0c\u5173\u952e\u662f\u5728\u5feb\u5fd8\u7684\u65f6\u5019\u518d\u78b0\u4e00\u6b21\uff08FSRS/\u827e\u5bbe\u6d69\u65af\uff09',
+  how:'\u540c\u4e00\u4efd\u5185\u5bb9\uff0c\u5f53\u5929\u4e00\u6b21\u3001\u7b2c2\u5929\u3001\u7b2c4\u5929\u3001\u7b2c7\u5929\u3001\u7b2c15\u5929\u5404 5 \u5206\u949f\uff1b\u6bcf\u6b21\u53ea\u770b\u9519\u7684\u548c\u4e0d\u719f\u7684',
+  when:'\u80cc\u5355\u8bcd\u3001\u53e4\u8bd7\u3001\u516c\u5f0f\u8fd9\u7c7b\u8981\u8bb0\u4f4f\u7684\u4e1c\u897f'},
+ {id:'rev2',cat:'\u590d\u4e60',name:'\u8bb2\u7ed9\u522b\u4eba\u542c\uff08\u8d39\u66fc\uff09',kw:['\u590d\u4e60','\u5b66\u4e0d\u4f1a','\u61c2\u4e0d\u900f','\u8bb2\u4e00\u904d','\u6559\u522b\u4eba','\u8bf4\u4e0d\u660e\u767d','\u4e0d\u77e5\u9053\u81ea\u5df1\u4f1a\u4e0d\u4f1a'],
+  why:'\u8bb2\u5f97\u51fa\u6765\u624d\u7b97\u771f\u61c2\uff1b\u8bb2\u4e0d\u901a\u7684\u5730\u65b9\u5c31\u662f\u6ca1\u61c2\u7684\u5730\u65b9',
+  how:'\u5408\u4e0a\u4e66\uff0c\u7528\u4e09\u53e5\u8bdd\u628a\u4eca\u5929\u5b66\u7684\u8bb2\u7ed9\u6211\uff08\u5c0f\u642d\uff09\u542c\uff0c\u5361\u4f4f\u7684\u5730\u65b9\u5c31\u662f\u8981\u56de\u53bb\u770b\u7684',
+  when:'\u81ea\u5df1\u89c9\u5f97\u201c\u597d\u50cf\u4f1a\u4e86\u201d\u7684\u65f6\u5019'},
+ {id:'rev3',cat:'\u590d\u4e60',name:'\u5408\u4e0a\u4e66\u9ed8\u5199',kw:['\u590d\u4e60','\u516c\u5f0f','\u9ed8\u5199','\u80cc\u4e0d\u4f4f','\u4e00\u8003\u5c31\u5fd8'],
+  why:'\u8fb9\u770b\u8fb9\u6284\u662f\u5047\u4f1a\uff0c\u80cc\u7740\u5199\u624d\u80fd\u66b4\u9732\u771f\u5b9e\u6c34\u5e73',
+  how:'\u5408\u4e0a\u4e66\uff0c\u628a\u516c\u5f0f/\u6b65\u9aa4\u9ed8\u5199\u4e00\u904d\uff0c\u518d\u5bf9\u7b54\u6848\uff1b\u53ea\u6539\u9519\u7684\u90a3\u51e0\u4e2a',
+  when:'\u6570\u5b66\u516c\u5f0f\u3001\u82f1\u8bed\u53e5\u578b\u3001\u5386\u53f2\u5e74\u4ee3'},
+ {id:'sum1',cat:'\u590d\u76d8',name:'\u9519\u9898\u5f52\u56e0\u56db\u9009\u4e00',kw:['\u9519\u9898','\u590d\u76d8','\u603b\u7ed3','\u5f52\u7eb3','\u8003\u5b8c','\u8003\u7cdf\u4e86','\u4e3a\u4ec0\u4e48\u8001\u9519','\u7c97\u5fc3'],
+  why:'\u9519\u9898\u4e0d\u5206\u7c7b\uff0c\u5237\u518d\u591a\u4e5f\u5728\u540c\u4e00\u4e2a\u5751\u91cc\u8dcc',
+  how:'\u6bcf\u9053\u9519\u9898\u53ea\u5728\u56db\u7c7b\u91cc\u9009\u4e00\u4e2a\uff1a\u770b\u4e0d\u61c2\u9898 / \u5ba1\u9898\u6f0f\u6761\u4ef6 / \u7b97\u9519\u5199\u9519 / \u6839\u672c\u4e0d\u4f1a\uff1b\u4e0b\u5468\u53ea\u9489\u6700\u591a\u7684\u90a3\u4e00\u7c7b',
+  when:'\u6574\u7406\u9519\u9898\u672c\u3001\u8003\u5377\u53d1\u4e0b\u6765'},
+ {id:'sum2',cat:'\u590d\u76d8',name:'\u6bcf\u5468\u4e09\u95ee',kw:['\u590d\u76d8','\u603b\u7ed3','\u4e00\u5468','\u8fd9\u5468','\u6539\u8fdb','\u8ba1\u5212','\u76ee\u6807'],
+  why:'\u4e00\u5468\u53ea\u6539\u4e00\u4ef6\u4e8b\uff0c\u624d\u771f\u6b63\u6539\u5f97\u52a8',
+  how:'\u4e09\u4e2a\u95ee\u9898\uff1a\u8fd9\u5468\u6700\u987a\u7684\u4e00\u4ef6\u4e8b\uff1f\u6700\u5361\u7684\u4e00\u4ef6\u4e8b\uff1f\u4e0b\u5468\u53ea\u6539\u54ea\u4e00\u4ef6\uff1f',
+  when:'\u5468\u672b\u3001\u6bcf\u5468\u56de\u5934\u770b\u7684\u65f6\u5019'},
+ {id:'sum3',cat:'\u590d\u76d8',name:'\u8003\u540e\u770b\u4e22\u5206\u4e0d\u770b\u5206\u6570',kw:['\u8003\u8bd5','\u6210\u7ee9','\u8003\u5b8c','\u5206\u6570','\u6ca1\u8003\u597d','\u53cd\u601d'],
+  why:'\u5206\u6570\u53ea\u80fd\u770b\uff0c\u4e22\u5206\u624d\u80fd\u6539\uff1b\u201c\u4f1a\u4f46\u9519\u201d\u90a3\u90e8\u5206\u6700\u597d\u6361',
+  how:'\u628a\u4e22\u7684\u5206\u5206\u4e09\u7c7b\uff1a\u4f1a\u4f46\u9519 / \u4e0d\u4f1a / \u6ca1\u505a\u5b8c\uff1b\u5148\u653b\u201c\u4f1a\u4f46\u9519\u201d\uff0c\u5b83\u6700\u597d\u6361',
+  when:'\u8003\u8bd5\u5377\u5b50\u53d1\u4e0b\u6765\u4e4b\u540e'}
+]
+function methodText(t){
+  const s=String(t||'')
+  if(!s)return ''
+  const hit=LEARN_METHODS.filter(function(m){return m.kw.some(function(w){return s.indexOf(w)>=0})})
+  let use=hit
+  if(!use.length&&/(\u600e\u4e48\u5b66|\u5b66\u4e0d\u597d|\u65b9\u6cd5|\u6559\u6211|\u600e\u4e48\u80cc|\u6548\u7387)/.test(s))use=[LEARN_METHODS[3],LEARN_METHODS[6]]
+  if(!use.length)return ''
+  use=use.slice(0,2)
+  return ['\u3010\u5173\u4e8e\u5b66\u4e60\u65b9\u6cd5\uff08\u4f60\u624b\u91cc\u6709\u8fd9\u5f20\u5361\uff0c\u4f46\u4e0d\u5f97\u7167\u5ff5\uff09\u3011',
+    '\u4f60\u53ea\u80fd\u5728\u4ed6\u95ee\u201c\u600e\u4e48\u5b66/\u600e\u4e48\u80cc/\u8bb0\u4e0d\u4f4f/\u600e\u4e48\u590d\u76d8\u201d\u6216\u8005\u6b63\u597d\u7528\u5f97\u4e0a\u65f6\u624d\u7ed9\uff1b\u4e00\u6b21\u53ea\u7ed9\u4e00\u6b65\u3001\u6700\u591a\u4e24\u53e5\u8bdd\u3002',
+    '\u7981\u6b62\uff1a\u4e0d\u8bb8\u5217\u6e05\u5355\u3001\u4e0d\u8bb8\u628a\u4e0b\u9762\u7684\u5361\u5ff5\u51fa\u6765\u3001\u4e0d\u8bb8\u8bf4\u201c\u8981\u517b\u6210\u597d\u4e60\u60ef\u201d\u8fd9\u79cd\u7a7a\u8bdd\uff1b\u6700\u540e\u5fc5\u987b\u8ba9\u4ed6\u73b0\u5728\u5c31\u505a\u90a3\u4e00\u6b65\u3002',
+    '',
+    use.map(function(m){return '\u00b7 '+m.name+'\uff08'+m.cat+'\uff09\uff1a'+m.why+'\u3002\u600e\u4e48\u505a\uff1a'+m.how+'\u3002\u4ec0\u4e48\u65f6\u5019\u7528\uff1a'+m.when}).join('\n')
+  ].join('\n')
+}
+
 function chatSend(imgB64){
   const el=document.getElementById('chatInput')
   const v=(el&&el.value||'').trim()
@@ -1189,7 +1250,7 @@ function chatSend(imgB64){
   const _terse=(!imgB64&&isTerse(v))?TERSE_HINT:''
   const _hist='【最近的对话】\n'+ctx
   const _askSite=looksSite(v)
-  /* 组装提示词：必带段落一定进，可选段落超预算才丢（云函数上限已改 20000，这里 5000 双保险） */
+  /* 组装提示词：必带段落一定进，可选段落超预算才丢（云函数上限已改 20000，这里 5500 双保险） */
   const _blocks=[
     [chatPersona(),0],
     [_askSite?chatSiteMap():'',0],
@@ -1198,6 +1259,7 @@ function chatSend(imgB64){
     ['【说话方式看这几个例子，照着这个长度和口气】\n'+chatExamplesText(),1],
     [_mem,0],
     [careText(),0],
+    [methodText(v||''),0],
     [copeText(v||''),0],
     [slangText(),0],
     [chatStateText(),0],
@@ -1207,7 +1269,7 @@ function chatSend(imgB64){
     [tail,0],
     [chatTailRules(),0]
   ]
-  const _LIMIT=5000
+  const _LIMIT=5500
   let _room=_LIMIT
   _blocks.forEach(function(b){if(b[0]&&b[1]!==1)_room-=(b[0].length+2)})
   const _out=[]
@@ -2572,6 +2634,24 @@ function rset(){
     tv.appendChild(h('button',{className:'btn btn-danger btn-sm',style:'margin-top:8px',onClick:function(){if(confirm('清空回收站？清空后无法恢复。')){D._trash=[];sv(D);render();ts('回收站已清空')}}},'清空回收站'))
     $c.appendChild(tv)
   }
+
+  // 小搭会教的学习方法
+  const _lmc=h('div',{className:'card edit-only'})
+  _lmc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📚'}),'小搭会教的学习方法（'+LEARN_METHODS.length+' 个）'))
+  _lmc.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-bottom:8px'},'小搭不会背给他听——他一次只给一步，并且让他当场做。下面是它手里那张方法卡：'))
+  let _lmOpen=false
+  const _lmBox=h('div',{style:'display:none;margin-top:6px'})
+  LEARN_METHODS.forEach(function(m){
+    const r=h('div',{style:'font-size:13.5px;line-height:1.7;margin-bottom:8px;color:var(--muted)'})
+    r.appendChild(h('div',{style:'font-weight:600;color:var(--text)'},m.name+'（'+m.cat+'）'))
+    r.appendChild(h('div',null,'为什么：'+m.why))
+    r.appendChild(h('div',null,'怎么做：'+m.how))
+    r.appendChild(h('div',null,'什么时候用：'+m.when))
+    _lmBox.appendChild(r)
+  })
+  _lmc.appendChild(_lmBox)
+  _lmc.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_lmOpen=!_lmOpen;_lmBox.style.display=_lmOpen?'':'none';this.innerHTML=_lmOpen?'收起':'展开看看'}},'展开看看'))
+  $c.appendChild(_lmc)
 
   // 数据备份
   const dm=h('div',{className:'card edit-only'})
