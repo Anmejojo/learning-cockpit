@@ -227,6 +227,8 @@ function demoData(){
   ]
   d._mem=[{id:1,text:'数学函数容易卡，看到图就发懵',tags:['函数'],at:Date.now()},{id:2,text:'不喜欢被问成绩',tags:['成绩'],at:Date.now()}]
   d._log=[{ts:Date.now()-3600000,by:'c',act:'提交记录',target:today+' 数学·作业拍照'},{ts:Date.now()-3300000,by:'p',act:'通过记录',target:today+' 数学·作业拍照'}]
+  d._notes=[{ts:Date.now()-1700000,kind:'scan',text:'刚看到你交的数学那张（第 1 张）：第7题（解方程 3x-5=7）、第12题(2)（求三角形面积）还空着。是没做完，还是没拍到？'}]
+  d._mkSummary={n:5,at:Date.now()-3600000,text:'这段时间共记了 5 道错题，数学占 2 道，且都落在「一次函数与x轴交点」这一块；题型上计算题和应用题各一道。说明他公式能背，但一道应用题就不知道怎么套。\n接下来建议做两件小事：一是让他把这两道题的图画出来（画图比算式更容易记住）；二是下次做函数题前，先让他说一句“这题问的是什么”再动笔。'}
   return d
 }
 function demoBar(){
@@ -563,6 +565,7 @@ function chatPushAI(text){
   try{
     const l=chatLog()
     l.push({id:Date.now()+3,date:td,role:'a',text:text,ts:Date.now(),auto:true})
+    noteAdd(text,'scan')
     chatTrim()
     if(typeof tb!=='undefined'&&tb==='chat')render()
   }catch(e){}
@@ -887,6 +890,61 @@ function mkCount(list,keyFn){
 }
 function mkTopKp(list,n){return mkCount(list,function(x){return ((x.subject||'')?x.subject+'·':'')+(x.kp||'未标注知识点')}).slice(0,n||5)}
 function mkTopType(list,n){return mkCount(list,function(x){return x.qtype||'未标注题型'}).slice(0,n||5)}
+/* ===== 小搭提醒归档：不会被聊天记录冲掉 ===== */
+function noteList(){if(!D._notes)D._notes=[];return D._notes}
+function noteAdd(text,kind){
+  try{
+    if(!text)return
+    const l=noteList()
+    const t=String(text).slice(0,200)
+    for(let i=l.length-1;i>=0&&i>=l.length-30;i--){if(l[i]&&l[i].text===t)return}
+    l.push({ts:Date.now(),text:t,kind:kind||'other'})
+    if(l.length>200)D._notes=l.slice(-200)
+  }catch(e){}
+}
+function noteSync(){
+  try{
+    const l=noteList()
+    const have={}
+    l.forEach(function(n){if(n)have[n.text]=1})
+    ;(D._chat||[]).forEach(function(m){
+      if(m&&m.role==='a'&&m.auto&&m.text&&!have[m.text]){l.push({ts:m.ts||Date.now(),text:String(m.text).slice(0,200),kind:'scan'});have[m.text]=1}
+    })
+  }catch(e){}
+}
+/* ===== 错题汇总 + AI 总结 ===== */
+function mkSummaryData(){
+  const all=mkList()
+  const bySub=MK_SUBJECTS.concat(['其他']).map(function(sb){
+    return {s:sb,n:all.filter(function(x){return (x.subject||'')===sb}).length}
+  }).filter(function(o){return o.n})
+  return {n:all.length,bySub:bySub,kp:mkTopKp(all,6),ty:mkTopType(all,6)}
+}
+function mkSummaryPrompt(){
+  const d=mkSummaryData()
+  return ['你是初中老师，也是家长的参谋。下面是孩子的错题记录统计，请用中文写一段总结（180 字以内，直接说内容，不要客套）：',
+    '① 他主要卡在哪（必须引用具体数据）；',
+    '② 这说明什么；',
+    '③ 接下来最该做的 1~2 件小事（家长能做的具体动作，不要空话）。',
+    '不喊口号、不鸡汤；数据太少就直说“记录还不够”。',
+    '',
+    '【错题统计】共 '+d.n+' 道',
+    '· 各科：'+d.bySub.map(function(o){return o.s+' '+o.n}).join('、'),
+    '· 常错知识点：'+d.kp.map(function(o){return o.key+' '+o.n+' 道'}).join('、'),
+    '· 常错题型：'+d.ty.map(function(o){return o.key+' '+o.n}).join('、')
+  ].join('\n')
+}
+function mkSummaryRun(){
+  const d=mkSummaryData()
+  if(!d.n){ts('还没有错题，先拍几道');return}
+  ts('🤖 正在总结…')
+  aiCall(mkSummaryPrompt(),'','').then(function(r){
+    if(!r||!r.ok){ts('生成失败：'+((r&&r.err)||'稍后再试'));return}
+    D._mkSummary={text:String(r.text||'').slice(0,800),at:Date.now(),n:d.n}
+    noteAdd('【AI 总结】'+String(r.text||'').slice(0,120),'summary')
+    sv(D);render();ts('✅ 已生成总结')
+  })
+}
 function mkDel(id){D.mistakes=mkList().filter(function(x){return x.id!==id});actLog('删除错题','');sv(D);render();ts('已删除')}
 function mkRow(it,showSub){
   const row=h('div',{style:'border-bottom:1px solid var(--border);padding:10px 0'})
@@ -960,29 +1018,74 @@ function rckMk(){
     box.appendChild(g)
     box.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:8px;line-height:1.6'},'灰色的科目还没有错题。「其他」是 AI 认不出科目时先放的，家长可以改到具体科目。'))
     $c.appendChild(box)
-    if(!VW){
-      const top=mkTopKp(all,5)
-      if(top.length){
-        const tc=h('div',{className:'card'})
-        tc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔍'}),'常错知识点（帮你找规律）'))
-        const gt=h('div',{style:'display:flex;flex-direction:column;gap:6px'})
-        top.forEach(function(o){
+    // ===== 错题汇总（有个固定地方，不靠聊天记）=====
+    if(all.length){
+      const bySub=MK_SUBJECTS.concat(['其他']).map(function(sb){
+        return {s:sb,n:all.filter(function(x){return (x.subject||'')===sb}).length}
+      }).filter(function(o){return o.n})
+      const ty=mkTopType(all,6)
+      const kp=mkTopKp(all,6)
+      const sc=h('div',{className:'card'})
+      sc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📊'}),'错题汇总（共 '+all.length+' 道）'))
+      if(bySub.length){
+        sc.appendChild(h('div',{style:'font-size:13px;font-weight:600;margin:2px 0 6px'},'各科'))
+        const g1=h('div',{style:'display:flex;gap:6px;flex-wrap:wrap'})
+        bySub.forEach(function(o){g1.appendChild(h('span',{style:'font-size:12px;padding:2px 8px;border-radius:8px;background:var(--bg-elev);border:1px solid var(--border)'},o.s+' '+o.n))})
+        sc.appendChild(g1)
+      }
+      if(ty.length){
+        sc.appendChild(h('div',{style:'font-size:13px;font-weight:600;margin:12px 0 6px'},'常错题型'))
+        const g2=h('div',{style:'display:flex;gap:6px;flex-wrap:wrap'})
+        ty.forEach(function(o){g2.appendChild(h('span',{style:'font-size:12px;padding:2px 8px;border-radius:8px;background:var(--bg-elev);border:1px solid var(--border-strong)'},o.key+' '+o.n))})
+        sc.appendChild(g2)
+      }
+      if(!VW&&kp.length){
+        sc.appendChild(h('div',{style:'font-size:13px;font-weight:600;margin:12px 0 6px'},'常错知识点'))
+        const g3=h('div',{style:'display:flex;flex-direction:column;gap:5px'})
+        kp.forEach(function(o){
           const r=h('div',{style:'display:flex;align-items:center;gap:8px'})
           r.appendChild(h('div',{style:'flex:1;font-size:13.5px'},o.key))
           r.appendChild(h('div',{style:'font-size:13px;color:var(--danger);font-weight:600'},o.n+' 道'))
-          gt.appendChild(r)
+          g3.appendChild(r)
         })
-        tc.appendChild(gt)
-        const ty=mkTopType(all,5)
-        if(ty.length){
-          tc.appendChild(h('div',{style:'font-size:13px;font-weight:600;margin:12px 0 6px'},'常错题型'))
-          const g2=h('div',{style:'display:flex;gap:6px;flex-wrap:wrap'})
-          ty.forEach(function(o){g2.appendChild(h('span',{style:'font-size:12px;padding:2px 8px;border-radius:8px;background:var(--bg-elev);border:1px solid var(--border)'},o.key+' '+o.n))})
-          tc.appendChild(g2)
-        }
-        tc.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:8px;line-height:1.6'},'同一个地方反复错，说明这个知识点还没通。翻错题记录时重点看这几处。'))
-        $c.appendChild(tc)
+        sc.appendChild(g3)
       }
+      $c.appendChild(sc)
+
+      // ===== AI 总结（存在这里，不会被聊天冲掉）=====
+      if(!VW){
+      const sm=D._mkSummary
+      const ac=h('div',{className:'card'})
+      ac.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🤖'}),'AI 总结'))
+      if(sm&&sm.text){
+        ac.appendChild(h('div',{style:'font-size:14px;line-height:1.9;white-space:pre-wrap'},sm.text))
+        ac.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:8px'},'生成于 '+fd(ymd(new Date(sm.at||Date.now())))+' '+fmtHM(sm.at||Date.now())+'（当时 '+sm.n+' 道）'))
+      }else{
+        ac.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);line-height:1.8;margin-bottom:8px'},'让 AI 看看这些错题说明什么、接下来该重点看哪块。生成后会一直留在这里。'))
+      }
+      if(!VW){
+        ac.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:mkSummaryRun},(sm&&sm.text)?'🔄 重新生成':'🤖 生成总结'))
+        if(sm&&sm.text)ac.appendChild(h('button',{className:'btn btn-outline btn-sm',style:'margin-left:6px',onClick:function(){if(confirm('删掉这段总结？')){D._mkSummary=null;sv(D);render()}}},'清空'))
+      }
+      $c.appendChild(ac)
+      }
+
+      // ===== 小搭的提醒（归档，不会被聊天覆盖）=====
+      const _notes=noteList().filter(function(n){return n&&n.kind==='scan'})
+      const nc=h('div',{className:'card'})
+      nc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔔'}),'小搭的提醒（'+_notes.length+' 条）'))
+      nc.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-bottom:8px;line-height:1.6'},'小搭在聊天里说过的错题 / 空题提醒，这里都留一份，翻到就能看。'))
+      if(!_notes.length){
+        nc.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted)'},'还没有提醒。以后小搭发现了会自动记在这里。'))
+      }else{
+        _notes.slice().reverse().slice(0,15).forEach(function(n){
+          const row=h('div',{style:'border-bottom:1px solid var(--border);padding:7px 0'})
+          row.appendChild(h('div',{style:'font-size:13.5px;line-height:1.75'},n.text))
+          row.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:3px'},fd(ymd(new Date(n.ts||Date.now())))+' '+fmtHM(n.ts||Date.now())))
+          nc.appendChild(row)
+        })
+      }
+      $c.appendChild(nc)
     }
     const rec=h('div',{className:'card'})
     rec.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🕐'}),'最近上传（'+Math.min(5,all.length)+' 道）'))
@@ -2743,6 +2846,7 @@ function exportWeekly(data){
 function ps(v){return v.toFixed(1)+'%'}
 
 let D=ld()
+noteSync()
 let tb='today'
 let $c=document.getElementById('appContent')
 const td=ymd()
