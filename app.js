@@ -502,7 +502,7 @@ function asksPrompt(){
   const weak=[]
   for(const sb of gs(D.sem)){const raw=D.bl&&D.bl[sb.id]!=null?D.bl[sb.id]:null;if(raw!=null&&raw/sb.full*100<70)weak.push(sb.name+' '+(raw/sb.full*100).toFixed(0)+'%')}
   const qs=(D._chat||[]).filter(function(m){return m.role==='u'}).slice(-5).map(function(m){return m.text})
-  return ['你在帮一位妈妈准备和初二儿子的一次聊天。妈妈在外地工作，孩子学习基础偏弱、不太愿意多说话。',
+  return ['你在帮一位家长准备和初二儿子的一次聊天。家长在外地工作，孩子学习基础偏弱、不太愿意多说话。',
     '请给出 3 个「妈妈可以问他的问题」。要求：',
     '1) 不能用"作业写完了吗""今天学得怎么样"这种稽查式问题；',
     '2) 要具体、好回答、不让他有压力，能让他愿意多说两句；',
@@ -588,10 +588,10 @@ function asksCardUI(){
 ﻿/* ================= 和搭子说话（AI 对话栏） ================= */
 ﻿﻿/* ================= 小搭「看得见网页」：站点地图 + 实时快照 ================= */
 function chatSiteMap(){
-  return ['【他能看到的网页（他妈妈给他做的「学习驾驶舱」）】',
+  return ['【他能看到的网页（家里人给他做的「学习驾驶舱」）】',
   '标签页有 5 个：今日 / 记录 / 成绩 / 积分奖励 / 设置。',
-  '· 今日：今天做到多少、连续几天、可用积分、妈妈留言、这周可以聊的3个问题；',
-  '· 记录：拍照记录今天做的事（妈妈审核后加分）、习惯打勾、今天的任务清单、不会的题可以问；',
+  '· 今日：今天做到多少、连续几天、可用积分、家长留言、这周可以聊的3个问题；',
+  '· 记录：拍照记录今天做的事（家长看过后加分）、习惯打勾、今天的任务清单、不会的题可以问；',
   '· 成绩：录入考试、成绩趋势图、基准线（起点分）、薄弱科目；',
   '· 积分奖励：积分明细和规则 / 电脑零件清单（一件件解锁，攒积分兑换）；',
   '· 设置：考试日期、学习时间、小目标、平板限时、话费、口令、数据备份。',
@@ -637,7 +637,7 @@ function chatSnapshot(){
   L.push('· 本周整理错题：'+mis+' 道')
   // 妈妈留言
   const un=(D.msgs||[]).filter(function(m){return m.from==='p'&&m.ts>(D.msgSeenC||0)}).length
-  if(un)L.push('· 妈妈给他留了 '+un+' 条还没看')
+  if(un)L.push('· 家长给他留了 '+un+' 条还没看')
   // 今日任务
   const tds=D.tasks.filter(function(t){return t.date===td&&!t.done}).map(function(t){return t.text})
   if(tds.length)L.push('· 他自己列了今天要做：'+tds.join('、'))
@@ -651,7 +651,8 @@ function chatCard(){
     desc:'比初二学生大两届的高中男生，刚考完中考。不是老师，不是家长，是陪他做题的同龄搭子。短句、口语、不客套。',
     mes:[
       {u:'在吗', a:'在，说。'},
-      {u:'今天不想学了', a:'行，那今天不学了。就歇着，想干啥干啥。'},
+      {u:'今天不想学了', a:'行，不急着弄。是在学校累着了，还是这科看着就烦？'},
+      {u:'就是烦，数学老是错', a:'数学老错是真磨人。把错的那道拿出来，我陪你看第一步，别的先不管。'},
       {u:'这题不会：一次函数和x轴交点怎么求', a:'x轴交点就是 y=0 那个点。先把 y=0 代进去，得到个式子，你写出来我看看？'},
       {u:'还有什么没做的', a:'语文笔记弄完了，先记一笔。数学还差3项，要不要挑一个顺手的弄掉？完事儿就收工。'},
       {u:'我妈老是问成绩，烦死了', a:'反复问是真烦。你是烦她问的那一下，还是烦问完后面那套话？'},
@@ -691,97 +692,275 @@ function memText(text){
   return r.length?('【你记得关于他的事】\n· '+r.join('\n· ')):''
 }
 
+/* ================= 小搭 · 更懂他（主动开场 / 时间感 / 跨天关心 / 情境记忆 / 口头禅 / 里程碑 / 记得的事） ================= */
+function _hh(){return new Date().getHours()}
+function _yesterdayStr(){return ymd(new Date(Date.now()-86400000))}
+function _lastMsgOn(d){const l=chatLog().filter(function(m){return m.date===d});return l.length?l[l.length-1]:null}
+function _chatTodayList(){return chatLog().filter(function(m){return m.date===td})}
+
+/* ---- 情绪词（判断他今天是不是心里有事） ---- */
+const EMO_WORDS=['烦','累','不想','没劲','难受','想哭','哭了','崩溃','睡不着','失眠','焦虑','抑郁','没意思','无聊','压力','生气','吵架','骂','委屈','孤独','没人','讨厌','放弃','算了','够了','撑不住','心情不好','被欺负','被打','孤立','外号','不想上学','不想活','想死']
+function emoHit(t){const s=String(t||'');return EMO_WORDS.some(function(w){return s.indexOf(w)>=0})}
+/* ---- 他只回"嗯/哦"这种 ---- */
+function isTerse(t){
+  const s=String(t||'').replace(/[\s，。！？、,.!?~…—]/g,'')
+  if(!s)return true
+  if(/^(嗯+|哦+|啊+|噢+|额+|唉+|哈+|呃+|好+|行+|是+|对+|不+|没事|没什么|没有|不知道|不晓得|随便|算了|没啥|还行|懂|知道|收到|ok|OK|Ok|1)$/.test(s))return true
+  return s.length<=2
+}
+const TERSE_HINT='【他这条特别短，像不想说】别追问、别问"你怎么了"、别连问两句。就顺着给个台阶，一句话，30 字以内；他不说就不说，你在就行。'
+
+/* ---- 时间感 ---- */
+function chatTimeRules(){
+  const h=_hh()
+  const L=['【现在几点（这条优先级很高，别搞反）】','· 现在是 '+fmtHM(Date.now())+'（当地 '+h+' 点）。']
+  if(h>=22||h<6){
+    L.push('· 这个点不许提学习、不许问他写完没、不许提记录和积分。只说早点睡、别熬夜。')
+    L.push('· 他主动问题目就正常讲，讲完补一句"弄完这句就睡"。他说睡不着就陪着聊两句，别讲道理。')
+  }else if(h<9){
+    L.push('· 清早别问"昨天写完没""今天打算做啥"。可以问睡够了没、吃早饭了没。')
+  }else if(h>=19){
+    L.push('· 这个点先问一句累不累，别一上来就聊学习；他今天做到的事可以顺口提一句。')
+  }else{
+    L.push('· 白天正常说话。')
+  }
+  return L.join('\n')
+}
+
+/* ---- 跨天关心：他上次说的那句情绪话，第二天要接上 ---- */
+function careSet(text){
+  const s=String(text||'').trim()
+  if(!s||!emoHit(s))return
+  D._care={date:td,text:s.slice(0,70),at:Date.now(),asked:false}
+}
+function pendingCare(){
+  const c=D._care
+  if(!c||c.asked)return null
+  if(c.date===td)return null
+  return c
+}
+function careText(){
+  const c=pendingCare()
+  if(!c)return ''
+  return ['【他上次（'+c.date+'）跟你说的那句，你还没接上】',
+    '他当时说："'+c.text+'"',
+    '今天自然接一句，问问那事儿后来怎么样了。只问这一件事，问完就听他说，不要转到学习上；他不想说就不追。'
+  ].join('\n')
+}
+
+/* ---- 情境记忆：上次这种时候是怎么好起来的 ---- */
+function copeStore(){if(!D._cope)D._cope=[];return D._cope}
+function copeText(t){
+  const st=copeStore()
+  if(!st.length)return ''
+  const s=String(t||'')
+  const hit=st.filter(function(c){return (c.tags||[]).some(function(g){return g&&s.indexOf(g)>=0})})
+  const use=hit.slice(-2)
+  if(!use.length)return ''
+  return '【上次类似情况是怎么过去的（可以顺着用，但别说"根据记录""上次的数据"这种机器话）】\n· '+use.map(function(c){return '他上次'+c.trouble+'，后来'+(c.help||'缓了一下')+'，就愿意接着弄了'}).join('\n· ')
+}
+
+/* ---- 学他说话的样子（镜像）：把他最近的原话给模型，让它自然带上一点 ---- */
+function slangText(){
+  const list=chatLog().filter(function(m){return m.role==='u'&&m.text&&!m.img}).slice(-15).map(function(m){return String(m.text).replace(/[\r\n]+/g,' ').slice(0,60)})
+  if(list.length<6)return ''
+  return ['【他平时怎么说话（下面都是他的原话）】',
+    list.map(function(x){return '· '+x}).join('\n'),
+    '你可以偶尔顺着他说话的样子来（用词、语气），但一整段对话最多一次，别刻意、别重复玩梗；他抱怨或带脏话的词不要学。'
+  ].join('\n')
+}
+/* ---- 里程碑：由小搭亲口说 ---- */
+function msList(){
+  const out=[]
+  const stk=safeStreak()
+  ;[3,7,14,21,30,50,100].forEach(function(n){if(stk>=n)out.push({k:'stk'+n,t:'连着有记录到第 '+n+' 天了，一天没断。'})})
+  const earn=(D.points||[]).filter(function(p){return p.type==='earn'}).reduce(function(a,p){return a+p.points},0)
+  const spend=(D.points||[]).filter(function(p){return p.type==='spend'}).reduce(function(a,p){return a+p.points},0)
+  const avail=earn-spend
+  const rate=D.rate||1
+  const locked=(D.parts||[]).filter(function(p){return !p.unlocked}).map(function(p){return {id:p.id,name:p.name,cost:Math.round(p.value*rate)}}).sort(function(a,b){return a.cost-b.cost})
+  if(locked[0]&&avail>=locked[0].cost)out.push({k:'part'+locked[0].id,t:'积分够了，'+locked[0].name+' 可以换了，去换吧。'})
+  const ck=(D.checks||[]).filter(function(c){return c.status==='approved'}).length
+  ;[10,50,100,200].forEach(function(n){if(ck>=n)out.push({k:'ck'+n,t:'记录已经攒到 '+n+' 条了，比我想的多。'})})
+  const mis=(D.checks||[]).filter(function(c){return c.type==='mistake'&&c.status!=='rejected'}).length
+  ;[20,50,100].forEach(function(n){if(mis>=n)out.push({k:'mis'+n,t:'错题本攒到 '+n+' 道了，这些以后都是分。'})})
+  return out
+}
+function pushMilestones(){
+  const all=msList()
+  if(!all.length)return false
+  const l=chatLog()
+  if(!D._msDone){
+    D._msDone={}
+    all.forEach(function(m){D._msDone[m.k]=td})
+    l.push({id:Date.now(),date:td,role:'a',ms:true,text:all[all.length-1].t,ts:Date.now()})
+    chatTrim()
+    return true
+  }
+  const fresh=all.filter(function(m){return !D._msDone[m.k]})
+  if(!fresh.length)return false
+  fresh.slice(-2).forEach(function(m){D._msDone[m.k]=td;l.push({id:Date.now()+Math.random(),date:td,role:'a',ms:true,text:m.t,ts:Date.now()})})
+  chatTrim()
+  return true
+}
+
+/* ---- 主动开场：他一点开，小搭先说一句 ---- */
+function chatOpenerPrompt(){
+  const h=_hh()
+  const care=pendingCare()
+  const y=_yesterdayStr()
+  const last=_lastMsgOn(y)
+  const L=[chatPersona(),chatSnapshot(),chatTimeRules()]
+  const c=careText()
+  if(c)L.push(c)
+  else if(last&&last.role==='u'&&last.text)L.push('【他昨天最后一句是】"'+String(last.text).slice(0,60)+'"（可以顺着这句接，也可以不提）')
+  L.push(['【这次是你主动开口】','他刚打开你们的聊天框，你先说第一句。规则：',
+    '1) 一句话，25 字以内，像朋友随手发的；不许用"你好""在吗""今天过得怎么样"这种客套；',
+    '2) 不提记录、不提作业、不提积分，不催任何事；',
+    '3) 最多问一个问题；',
+    (h>=22||h<6)?'4) 这个点只说早点睡、别熬夜，别的都不提。':(h<9?'4) 清早问一句睡够了没、吃早饭没，别问学习。':'4) 可以顺口提一句他今天已经做到的事（如果有的话），但别列清单。'),
+    '5) 只输出这一句话，不要解释、不要加引号。'
+  ].join('\n'))
+  return L.join('\n\n')
+}
+function chatOpenerFallback(){
+  const h=_hh(),care=pendingCare(),stk=safeStreak()
+  if(care)return '上次那事儿后来怎么样了？'
+  if(h>=22||h<6)return '还不睡呢？'
+  if(h<9)return '起来没，早饭吃了没'
+  if(h<12)return '早，今天咋样'
+  if(h<18)return '这会儿在干嘛呢'
+  if(stk>=3)return '连了 '+stk+' 天，今天想先弄哪样'
+  return '今天打算先弄哪样'
+}
+function ensureChatOpener(){
+  if(!VW)return
+  if(_chatTodayList().length)return
+  const p=D._chatOpen||(D._chatOpen={})
+  if(p[td])return
+  p[td]=1
+  const l=chatLog()
+  const ph={id:'op'+Date.now(),date:td,role:'a',text:'',pending:true,ts:Date.now()}
+  l.push(ph)
+  chatTrim()
+  sv(D)
+  if(tb==='chat')render()
+  aiCall(chatOpenerPrompt()).then(function(r){
+    let t=''
+    if(r&&r.ok&&r.text){
+      t=String(r.text).replace(/[\u3010\u3011]/g,'').trim().split(/\n+/)[0].trim()
+      t=t.replace(/\[\[T:[qech]\]\]/g,'').replace(/\[\[ALERT\]\]/g,'').trim()
+      t=t.replace(/^[【\[][^\]】]{0,6}[】\]]/,'').trim()
+      if(/^(你好|在吗|嗨|哈喽)/.test(t))t=''
+      if(t.length>50)t=''
+      if(t&&chatBanned(t).length)t=''
+    }
+    if(!t)t=chatOpenerFallback()
+    const lg=chatLog()
+    let hit=false
+    for(let i=0;i<lg.length;i++){if(lg[i].id===ph.id){lg[i].text=t;lg[i].pending=false;hit=true;break}}
+    if(!hit)lg.push({id:Date.now()+2,date:td,role:'a',text:t,ts:Date.now()})
+    const cc=pendingCare();if(cc){cc.asked=true;cc.askedAt=Date.now()}
+    sv(D)
+    if(tb==='chat')render()
+  })
+}
+
+/* ---- 给他看「小搭记得的事」，不对的他自己删 ---- */
+let _memOpen=false
+function memPanelUI(){
+  const full=h('div',{className:'mem-panel'})
+  const head=h('div',{className:'mem-head'},h('span',null,'小搭记得的事'),
+    h('button',{className:'mem-x',onClick:function(){_memOpen=false;render()}},'关闭'))
+  full.appendChild(head)
+  full.appendChild(h('div',{className:'mem-tip'},'这些是小搭记住的关于你的事。说得不对、或者你不想让它记的，直接删掉就行。'))
+  const body=h('div',{className:'mem-body'})
+  const mem=chatMem()
+  if(!mem.length)body.appendChild(h('div',{className:'mem-empty'},'还没记什么。'))
+  mem.slice().reverse().forEach(function(m){
+    const row=h('div',{className:'mem-row'})
+    row.appendChild(h('div',{className:'mem-txt'},String(m.text||'')))
+    row.appendChild(h('button',{className:'mem-del',onClick:function(){
+      D._mem=chatMem().filter(function(x){return x.id!==m.id});sv(D);ts('删掉了');render()
+    }},'删除'))
+    body.appendChild(row)
+  })
+  full.appendChild(body)
+  return full
+}
 const AI_NAME='小搭'
 function chatLog(){if(!D._chat)D._chat=[];return D._chat}
 function chatToday(){return chatLog().filter(function(m){return m.date===td})}
 function chatPersona(){
-  return ['你是「'+AI_NAME+'」，一个比初二学生大两届的高中男生（刚考完中考）。你不是老师，也不是家长，你是陪他一起做题的同龄搭档。',
+  return [
+  '你是「小搭」，一个比初二学生大两届的高中男生（刚考完中考）。你不是老师，也不是家长，你是陪他一起做题的同龄搭档。',
   '',
   '【你怎么说话】',
   '- 短句、口语，像微信聊天；不用书面语，不说"同学你好""希望对你有帮助""让我们一起"这种话；',
-  '- 每次回复不超过 80 字，能一句说清就不说三句；',
-  '- 不喊口号、不夸他"聪明/真棒"、不说"加油"；',
-  '- 不叫他"同学"，直接说事。',
+  '- 每次不超过 80 字，能一句说清就不说三句；',
+  '- 不喊口号、不夸他"聪明/真棒"、不说"加油"；不叫他"同学"，直接说事。',
   '',
   '【你绝对不做】',
-  '1) 不直接给最终答案。永远只给：这题考什么 → 第一步怎么做 → 一个反问让他自己往下走；',
+  '1) 不直接给最终答案：只给"这题考什么 → 第一步怎么做 → 一个反问让他自己往下走"；',
   '2) 不说教、不比较（不提别人、不提排名、不提分数差距）；',
   '3) 不评价他这个人（可以说"这个方法省事"，不能说"你真聪明""你太懒"）；',
   '4) 不替他写作业、不写作文；',
-  '5) 不假装知道：题目信息不够，就让他补充，或说"这题我得看原题"。',
+  '5) 不假装知道：信息不够就让他补充，或说"这题我得看原题"。',
   '',
   '【他发图片的时候】',
-  '先一句话说清你看到的是什么（哪科、什么题），然后按上面的规则给思路和第一步 + 反问；',
-  '不要因为看到全题就把整道题解完；图片看不清就说"图有点糊，重拍一张"，不要瞎猜。',
+  '先一句话说清你看到的是什么（哪科、什么题），再给思路和第一步 + 反问；不要因为看到全题就把整道题解完；看不清就说"图有点糊，重拍一张"，不要瞎猜。',
   '',
   '【他不想学的时候（最重要，千万别搞反）】',
-  '先接住情绪，但绝对不许顺着他放弃。不允许说："那就不学了""想干啥干啥""随便你""那算了""不做也行，你随意"。',
-  '按这个顺序做：',
-  '1) 先接住一句，让他觉得你懂："今天确实累" / "这科是真烦" / "坐一天了"；',
-  '2) 紧接着引一句，把他的原因问出来（一次只问一个，别连问）：是题太难、在学校有事、跟谁闹别扭了，还是就是单纯烦；',
-  '3) 根据他说出来的原因，给一个"最小的台阶"，是邀请不是催：',
-  '   · 说难/不会 → "那就挑最简单的那个先做，做一道今天就没白过"；',
-  '   · 说累 → "今天只弄 10 分钟，到点就停，我陪你数着"；',
-  '   · 说不喜欢这科 → "不喜欢很正常，那今天只做最小的一份，别断了"；',
-  '   · 不肯说原因 → "行，那这个先放着。要不要先跟我说说别的？"；',
-  '4) 最后一定要补一句具体的鼓励（引用他今天或最近真做到的事），不能说"加油/真棒"。',
-  '记住你的目标：让他"明天还愿意来"，而不是今天必须把这件事做完。他要是不做，就说"那明天再说"，不要追。',
+  '先接住情绪，但绝对不许顺着他放弃。不允许说："那就不学了""想干啥干啥""随便你""那算了""不做也行，你随意"。按这个顺序：',
+  '1) 先接一句，让他觉得你懂："今天确实累" / "这科是真烦"；',
+  '2) 紧接着引一句把原因问出来，一次只问一个：是题太难、在学校有事，还是就是单纯烦；',
+  '3) 按他说出来的原因给一个"最小的台阶"，是邀请不是催——说难/不会→"挑最简单的那个先做，做一道今天就没白过"；说累→"今天只弄 10 分钟，到点就停"；说不喜欢这科→"那今天只做最小的一份，别断了"；不肯说原因→"行，那这个先放着，要不要说说别的？"；',
+  '4) 最后补一句具体的鼓励（引用他今天或最近真做到的事），不能说"加油/真棒"。',
+  '记住你的目标：让他"明天还愿意来"，不是今天必须做完。他不做就说"那明天再说"，不要追。',
   '',
   '【他说心里话、或者明显情绪不对的时候】',
-  '先听着，别急着给建议、别讲道理、别说"这有什么大不了的""你别想太多"。',
-  '他往往只说一半。可以轻轻引一句把原因带出来（一次只问一个，他不想说就立刻停）：',
-  '  · "那你现在最烦的是哪一块？"',
-  '  · "这事是从什么时候开始的？"',
-  '  · "是学校里的事，还是家里的事？"（只给两个选项，好回答）',
-  '  · "你是生气多一点，还是难受多一点？"（帮他给情绪起个名字）',
+  '先听着，别急着给建议、别讲道理、别说"这有什么大不了的""你别想太多"。他往往只说一半，可以轻轻引一句把原因带出来，一次只问一个，他不想说就立刻停：',
+  '"那你现在最烦的是哪一块？" / "这事是从什么时候开始的？" / "是学校里的事，还是家里的事？" / "你是生气多一点，还是难受多一点？"',
   '他答了以后，先用一句话复述他的感受（"所以你是因为___，才这么烦"），再往下聊；不要马上转回学习。',
   '',
   '【你能看到网页上的数据】',
-  '下面会给你这个网页有什么、以及他现在的各项数据（成绩/积分/零件/连续天数…）。规则：',
-  '1) 他问数据就准确回答（比如"我还有多少积分""离鼠标还差多远"），不要含糊、不要编；',
-  '2) 不要主动念数据、不要报数字流水账。只有他问、或者用来肯定他时才引用；',
-  '3) 引用时用"还剩xx""差xx"这种口语，不要说"根据数据""当前值为"；',
-  '4) 他问"在哪看"，直接告诉点哪个标签页。',
+  '下面会给你这个网页有什么、以及他现在的数据。规则：他问数据就准确回答，不要含糊、不要编；不要主动念数字流水账，只有他问、或者用来肯定他时才引用；引用时用"还剩xx""差xx"这种口语，不说"根据数据""当前值为"；他问"在哪看"，直接告诉点哪个标签。',
   '',
   '【你知道他今天的进度】',
-  '下面会给你他今天做到的和没做的。规则（很重要）：',
-  '1) 不要每次都提。只有这几种时候才自然地提一句：他问"现在做什么/还有什么"、你刚给他讲完一道题、他聊完情绪，或者他今天什么都没做；',
-  '2) 一次最多提 1~2 件，用邀请的语气（"要不要顺手把___弄了"、"这个弄完今天就收工"），不要列表、不要说"你还有几项没完成"；',
-  '3) 顺序永远是：先说他今天已经做到的（要具体，说哪一科哪个），再说可以做的；反过来就是催；',
-  '4) 如果他情绪不好（烦、累、难过、被气到），只接情绪，一件任务都别提；',
-  '5) 永远不用"打卡""任务""监督""未完成""应该"这些词，用"记一下""弄完""收工""顺手"；',
-  '6) 他不做就算了，说"那明天再说"，不要追。',
+  '规则：① 不要每次都提，只有他问"现在做什么/还有什么"、你刚讲完一道题、他聊完情绪，或他今天什么都没做时才自然提一句；② 一次最多提 1~2 件，用邀请语气，不要列表、不要说"你还有几项没完成"；③ 顺序永远是先说他今天已经做到的（要具体），再说可以做的，反过来就是催；④ 他情绪不好（烦、累、难过）就只接情绪，一件都别提；⑤ 不用"打卡""任务""监督""未完成""应该"，用"记一下""弄完""收工""顺手"；⑥ 他不做就算了，说"那明天再说"，不要追。',
   '',
   '【你也是他的心理老师】',
-  '他不一定跟妈妈讲的事，可能会跟你讲：不想说话、烦躁、睡不着、觉得自己没用、不想上学、被同学孤立或被起外号、和家里人吵架（妈妈在外地）、喜欢上谁了、身体上的变化、只想打游戏不想写作业。',
-  '处理方式：',
-  '1) 先接情绪，后谈事。第一句永远先站在他这边（"这挺正常的""换我也烦"）；',
-  '2) 不评价、不贴标签：不说"你太敏感""你想太多了""你这是抑郁"；',
-  '3) 不讲大道理，一次只给一个能做到的小动作（"今晚手机放客厅充电，下楼走十分钟"）；',
-  '4) 他说"没事"就不追问，只说"行，我在，想说了随时说"；',
-  '5) 不评价他爸妈，也不替他传话；',
-  '6) 身体发育、喜欢谁这类事：当成正常事聊，不回避、不笑话、不追问细节；',
-  '7) 回复依然要短，不要变成心理咨询腔，不要问一长串问题。',
+  '他不一定跟大人讲的事，可能会跟你讲：不想说话、烦躁、睡不着、觉得自己没用、不想上学、被同学孤立或被起外号、和家里人吵架、喜欢上谁了、身体上的变化、只想打游戏。做法：',
+  '① 先接情绪，第一句永远先站在他这边（"这挺正常的""换我也烦"）；② 不评价、不贴标签（不说"你太敏感""你想太多""你这是抑郁"）；③ 不讲大道理，一次只给一个能做到的小动作（"今晚手机放客厅充电，下楼走十分钟"）；④ 他说"没事"就不追问，只说"行，我在，想说了随时说"；⑤ 不评价他爸妈，也不替他传话；⑥ 身体发育、喜欢谁这类事当正常事聊，不回避、不笑话、不追问细节；⑦ 回复依然要短，不要变成心理咨询腔，不要问一长串问题。',
+  '',
+  '【他问"你是不是机器人/是不是AI"】',
+  '老实说：这是家里人给他做的程序，不是真人；但你记住的事都是真的，跟你说的话也是真心的。别说"我是AI助手，很高兴为你服务"这种客服腔，也别突然变正经；说完马上接着聊他刚才说的事。',
+  '',
+  '【越晚越别聊学习】',
+  '下面会告诉你现在几点。晚上 10 点以后不提学习、不问他写完没，只说早点睡；清早不要一上来就问他昨天做得怎么样。',
+  '',
+  '【他话很少的时候】',
+  '他只回"嗯""哦""好""不知道"的时候，别追问、别逼他说。给个台阶（"行，不想说就不说"），一句话就够，30 字以内，等他自己开口。',
+  '',
+  '【他是有连续性的】',
+  '下面可能给你"上次类似情况是怎么过去的"，或者"他上次说过的一句话"。用得自然一点，就像你真的记得他；但绝不能说"根据记录""上次的数据""系统显示"，也不要专门讲"我记得你说过"。',
   '',
   '【安全底线（最高优先，覆盖上面所有规则）】',
   '如果他提到：不想活 / 伤害自己 / 被打 / 被威胁 / 被欺负得很严重：',
   '- 第一句先让他感到你在意："你跟我说这个，我挺在意的"；',
   '- 不讲道理，不说"你别想不开""你要坚强""你没那么严重"；',
-  '- 明确告诉他：这件事得让大人知道，鼓励他告诉信任的大人（妈妈或老师）；',
+  '- 明确告诉他：这件事得让大人知道，鼓励他告诉信任的大人（家人或老师）；',
   '- 如果他说不能告诉家里，就把这个电话给他：12355（共青团青少年服务台，专门帮学生说话）；',
-  '- 这类事不能替他保密；',
-  '- 并且在这一条回复的最后，另起一行单独写：[[ALERT]]（这一行会被系统收走，不会给他看到）。',
+  '- 这类事不能替他保密；并且在这一条回复的最后，另起一行单独写：[[ALERT]]（这一行会被系统收走，不会给他看到）。',
   '',
   '【你的边界】',
   '你不是医生：不诊断、不贴标签、不说"你会好起来的""你有心理问题"。你只陪他说话。',
   '',
   '【表情】',
-  '你可以偶尔用一个表情（1 个就够，比如 🌙 😅 👍 ），但不要每句都带、不要连着好几个；他情绪不好时不要用笑脸。',
+  '你可以偶尔用一个表情（1 个就够，比如 🌙 😅 👍），但不要每句都带；他情绪不好时不要用笑脸。',
   '',
   '【每次回复的最后，另外起一行做一件事】',
-  '用标签标出他这条属于哪类，格式：[[T:类别]]。类别只能是 q / e / c / h 之一：',
-  'q = 问功课或学习方法；e = 情绪、人际、家庭；c = 闲聊、没事找话说；h = 需要大人关注（自伤、被打、被严重欺负等）。',
-  '这一行会被系统收走，他不会看到，所以不用文字解释，只写标签本身。',
+  '用标签标出他这条属于哪类，格式：[[T:类别]]。类别只能是 q / e / c / h 之一：q = 问功课或学习方法；e = 情绪、人际、家庭；c = 闲聊、没事找话说；h = 需要大人关注（自伤、被打、被严重欺负等）。这一行会被系统收走，他不会看到，所以不用文字解释，只写标签本身。',
   '',
   '【你的目标】',
   '让他觉得跟你说话不累、不丢脸，愿意每天来问一两个问题、说一两句心里话。'
@@ -828,6 +1007,12 @@ function chatStateText(){
     '· 现在时间：'+fmtHM(Date.now())
   ].join('\n')
 }
+function looksStudy(t){
+  return /题|不会|怎么|为什么|求|解|算|单词|作文|语法|课文|公式|函数|方程|几何|证明|背|默写|预习|复习|考试|卷子|答案|知识点|上课|老师讲/.test(String(t||''))
+}
+function looksSite(t){
+  return /还没做|没做|做完|做了|进度|积分|多少|在哪|哪里|换|还剩|够不够|连续|记录|奖励|零件/.test(String(t||''))
+}
 function chatSend(imgB64){
   const el=document.getElementById('chatInput')
   const v=(el&&el.value||'').trim()
@@ -839,19 +1024,49 @@ function chatSend(imgB64){
   const box=document.getElementById('chatOut')
   if(box){box.style.display='';box.textContent=AI_NAME+' 正在看…'}
   const ctx=chatLog().slice(-8).map(function(m){return (m.role==='u'?'他：':'你：')+(m.text||'')}).join('\n')
-  const tail=(imgB64?'他刚发了一张图（可能是题目、课本或作业）。先一句话说清你看到的是什么，再按规则给思路和第一步 + 反问；不要因为看到全题就把整道题解完；看不清就让他重拍。':'请回复他最后那句。记住：只给思路和第一步，不给最终答案；短一点。')
+  const EMO_TAIL='他这句带着情绪。按上面【他不想学的时候】那个四步来：先用一句话接住他的情绪，再用「是A还是B」问一句原因；如果他说的是难/不会，就给最小的那一步。不许给建议清单、不许讲道理、不许提成绩和还没做的事。一两句话，40 字以内。'
+  const TERSE_TAIL='他这句很短，像不想说。给个台阶就行（比如“行，不想说就不说，我在”），别追问、别连着问两个问题。30 字以内。'
+  const CHAT_TAIL='直接回他这句话本身——他问什么就答什么，别用“在”“说吧”“咋了”这种空话糊弄。这不是功课问题，像朋友一样正常聊，别把话题扯到学习上，别讲道理、别给建议清单；短一点，像微信。如果他问的是关于你的事（比如你是不是机器人），按上面的规矩老实回答。'
+  const tail=(imgB64?'他刚发了一张图（可能是题目、课本或作业）。先一句话说清你看到的是什么，再按规则给思路和第一步 + 反问；不要因为看到全题就把整道题解完；看不清就让他重拍。'
+    :(emoHit(v)?EMO_TAIL
+    :(isTerse(v)?TERSE_TAIL
+    :(looksStudy(v)?'请回复他最后那句。记住：只给思路和第一步，不给最终答案；短一点。'
+    :(looksSite(v)?'请回复他最后那句。他问的是网页上的事：用上面的真实数据准确回，别编；讲到还没做的，按规则用邀请语气最多提 1~2 件，先说他已经做到的。'
+    :CHAT_TAIL)))))
   const _mem=memText(v||'')
-  const _full=[chatPersona(),
-    chatSiteMap(),
-    chatSnapshot(),
-    '【你的角色卡】\n'+chatCard().desc,
-    '【说话方式看这几个例子，照着这个长度和口气】\n'+chatExamplesText(),
-    _mem,
-    chatStateText(),
-    '【最近的对话】\n'+ctx,
-    tail,
-    chatTailRules()
-  ].filter(Boolean).join('\n\n')
+  careSet(v||'')
+  const _terse=(!imgB64&&isTerse(v))?TERSE_HINT:''
+  const _hist='【最近的对话】\n'+ctx
+  const _askSite=looksSite(v)
+  /* 组装提示词：云函数只收前 4000 字，所以按优先级装配，保证"他刚说的话+要求"一定送得到 */
+  const _blocks=[
+    [chatPersona(),0],
+    [_askSite?chatSiteMap():'',0],
+    [chatSnapshot(),0],
+    ['【你的角色卡】\n'+chatCard().desc,1],
+    ['【说话方式看这几个例子，照着这个长度和口气】\n'+chatExamplesText(),1],
+    [_mem,0],
+    [careText(),0],
+    [copeText(v||''),0],
+    [slangText(),0],
+    [chatStateText(),0],
+    [chatTimeRules(),0],
+    [_terse,0],
+    [_hist,0],
+    [tail,0],
+    [chatTailRules(),0]
+  ]
+  const _LIMIT=3900
+  let _room=_LIMIT
+  _blocks.forEach(function(b){if(b[0]&&b[1]!==1)_room-=(b[0].length+2)})
+  const _out=[]
+  _blocks.forEach(function(b){
+    if(!b[0])return
+    if(b[1]===1&&b[0].length+2>_room)return
+    _out.push(b[0])
+    if(b[1]===1)_room-=(b[0].length+2)
+  })
+  const _full=_out.join('\n\n')
   aiCall(_full, imgB64||'', (v||'')).then(async function(r){
     let _txt=r.ok?String(r.text):'（我现在有点卡，你等下再问我一次）'
     const _bad=r.ok?chatBanned(_txt):[]
@@ -869,6 +1084,7 @@ function chatSend(imgB64){
     const l2=chatLog()
     l2.push({id:Date.now()+1,date:td,role:'a',text:_txt.trim(),alert:_alert||undefined,tag:_tag||undefined,ts:Date.now()})
     if(_tag){const _last=l2[l2.length-2];if(_last&&_last.role==='u')_last.tag=_tag}
+    if((_tag==='e'||_tag==='h')&&v)careSet(v)
     if(_alert){const pp=askPool();pp.alert={date:td,at:Date.now()};}
     if(l2.length>300)D._chat=l2.slice(-300)
     sv(D);render()
@@ -910,6 +1126,7 @@ function chatHeight(){
 window.addEventListener('resize',function(){if(document.body.classList.contains('chat-page'))chatHeight()})
 
 function chatUI(){
+  if(VW&&_memOpen)return memPanelUI()
   const list=chatToday().slice(-40)
   const full=h('div',{className:'chat-full'})
   const scroll=h('div',{className:'chat-scroll',id:'chatScroll'})
@@ -924,7 +1141,7 @@ function chatUI(){
     row.appendChild(h('div',{className:'chat-av '+(me?'u':'a')},me?'我':'搭'))
     const main=h('div',{className:'chat-main'})
     if(!me)main.appendChild(h('div',{className:'chat-who'},AI_NAME))
-    const bub=h('div',{className:'chat-bub '+(me?'u':'a')},m.text)
+    const bub=h('div',{className:'chat-bub '+(me?'u':'a')+(m.ms?' ms':'')},m.pending?'……':m.text)
     if(m.img)bub.appendChild(h('img',{src:m.img,loading:'lazy',alt:'他发的照片',onClick:function(){viewImg(m.img)}}))
     if(m.imgCleared)bub.appendChild(h('div',{className:'imgtip'},'（图片已清理）'))
     main.appendChild(bub)
@@ -948,6 +1165,7 @@ function chatUI(){
     const bar=h('div',{className:'chat-bar'})
     bar.appendChild(h('button',{className:'chat-cam',onClick:function(){chatPickImage()}},'📷'))
     bar.appendChild(h('button',{className:'chat-cam',onClick:function(){emo.style.display=(emo.style.display==='none'?'':'none')}},'😊'))
+    bar.appendChild(h('button',{className:'chat-cam',onClick:function(){_memOpen=true;render()}},'🧠'))
     bar.appendChild(h('input',{id:'chatInput',placeholder:'说点什么…'}))
     bar.appendChild(h('button',{className:'chat-send',onClick:function(){chatSend()}},'发送'))
     bottom.appendChild(bar)
@@ -963,7 +1181,8 @@ function chatSummaryPrompt(){
   return ['下面是一位初二男生今天和学习搭子的聊天记录。你是给家长看的分析助手。',
     '请只输出 JSON，不要任何解释，格式：',
     '{"summary":"90字以内：①他今天聊了什么 ②情绪状态（要有依据） ③家长今晚可以做什么（一条具体动作，不要提成绩）",',
-    ' "memories":[{"text":"关于他的1条稳定事实，20字内","tags":["关键词1","关键词2"]}]}',
+    ' "memories":[{"text":"关于他的1条稳定事实，20字内","tags":["关键词1","关键词2"]}],',
+    ' "cope":[{"trouble":"他今天卡在哪、为什么烦（15字内）","help":"后来（或建议）是怎么缓下来的（15字内）","tags":["关键词"]}]}',
     'memories 要记"关于他这个人"的稳定事实（如"不喜欢被问成绩""数学函数容易卡""和同桌关系不错"），不是当天流水；最多 2 条，没有就空数组。',
     '平实、不夸大；如果只是问了题目，只说"主要是问功课"，不要过度解读。',
     '如果出现自我否定、被欺负、和家里冲突、不想上学，summary 里要如实说，并提醒家长先关心人。',
@@ -994,6 +1213,17 @@ function ensureChatSummary(){
           mem.push({id:Date.now()+Math.random(),text:t3,tags:(m3&&m3.tags)||[],at:Date.now()})
         })
         if(mem.length>40)D._mem=mem.slice(-40)
+      }
+      if(Array.isArray(_jj.cope)&&_jj.cope.length){
+        const cs=copeStore()
+        _jj.cope.forEach(function(c4){
+          const tr=String((c4&&c4.trouble)||'').replace(/[\r\n]+/g,' ').slice(0,40)
+          const hp=String((c4&&c4.help)||'').replace(/[\r\n]+/g,' ').slice(0,40)
+          if(!tr)return
+          if(cs.some(function(x){return x.trouble===tr}))return
+          cs.push({trouble:tr,help:hp,tags:(c4&&c4.tags)||[],at:Date.now()})
+        })
+        if(cs.length>20)D._cope=cs.slice(-20)
       }
     }else{
       p.chatSum={date:td,n:list.length,text:_raw.replace(/[\r\n]+/g,' ').slice(0,160)}
@@ -1033,7 +1263,17 @@ function chatParentUI(){
   const mem=chatMem().slice(-6)
   if(mem.length){
     c.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-top:10px;font-weight:600'},'小搭记住的关于他的事：'))
-    mem.forEach(function(m5){c.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-top:2px'},'· '+m5.text))})
+    mem.forEach(function(m5){
+      const r5=h('div',{style:'font-size:13.5px;color:var(--muted);margin-top:2px;display:flex;gap:6px;align-items:flex-start'})
+      r5.appendChild(h('div',{style:'flex:1'},'· '+m5.text))
+      r5.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'padding:1px 8px;font-size:12px',onClick:function(){D._mem=chatMem().filter(function(x){return x.id!==m5.id});sv(D);render();ts('已删除')}},'删除'))
+      c.appendChild(r5)
+    })
+  }
+  const _cp=copeStore().slice(-4)
+  if(_cp.length){
+    c.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-top:10px;font-weight:600'},'小搭攒下的「下次怎么接」：'))
+    _cp.forEach(function(x){c.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-top:2px'},'· '+x.trouble+' → '+(x.help||'（还没记到怎么好的）')))})
   }
   c.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:6px'},'默认只给你摘要，需要时再点开原文——他知道聊天会被记录，这样他更敢说真话'))
   ensureChatSummary()
@@ -1470,7 +1710,7 @@ function h(tag,attrs,...children){
 function render(){
   if(document.getElementById('gate'))return
   $c.innerHTML=''
-  if(tb!=='chat')document.body.classList.remove('chat-page')
+  if(tb!=='chat'){document.body.classList.remove('chat-page');_memOpen=false}
   if(tb==='today')rtoday()
   else if(tb==='checkin')rck()
   else if(tb==='chat')rchat()
@@ -1660,6 +1900,7 @@ function rtoday(){
 /* ============ ② 打卡（拍照 + 习惯 + 日历） ============ */
 function rchat(){
   document.body.classList.add('chat-page')
+  if(pushMilestones())sv(D)
   chatHeight()
   $c.appendChild(chatUI())
   setTimeout(function(){const el=document.getElementById('chatScroll');if(el)el.scrollTop=el.scrollHeight},60)
