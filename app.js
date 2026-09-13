@@ -1288,7 +1288,7 @@ function chatUI(){
     scroll.appendChild(h('div',{className:'chat-time'},'⬆️ 以前的聊天'))
   }
   if(!list.length){
-    scroll.appendChild(h('div',{className:'chat-empty'},'不会的题、不想学的时候，\n都可以跟他说一句'))
+    scroll.appendChild(h('div',{className:'chat-empty'},'不会的题、不想学的时候，\n都可以跟他说一句'+(srSupported()?'\n\uff08不想打字就点 🎤 说话，说完点发送）':'')))
   }
   let prevTs=0
   list.forEach(function(m){
@@ -1337,6 +1337,7 @@ function chatUI(){
     bar.appendChild(_inp)
     bar.appendChild(h('button',{className:'chat-send',onClick:function(){chatSend()}},'发送'))
     bottom.appendChild(bar)
+    if(!srSupported())bottom.appendChild(h('div',{style:'font-size:12px;color:var(--faint);text-align:center;margin-top:6px;line-height:1.5'},'🎤 想说话就说：用 Chrome 或 Safari 打开这个网址（微信里打开的不支持语音）'))
   }else{
     bottom.appendChild(h('div',{style:'font-size:13px;color:var(--muted);line-height:1.75'},'这是他在手机上看到的界面（微信式，整页）。这里是他和小搭的私人对话——你可以看，但不建议替他发言；有话想跟他说，用「留言」更合适。'))
   }
