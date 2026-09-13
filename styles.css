@@ -313,6 +313,8 @@ body.chat-page .chat-bar .chat-cam{padding:8px 9px;font-size:15px;border-radius:
 .hw-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 .hw-item{background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:6px}
 .hw-item img{width:100%;display:block;border-radius:6px;cursor:pointer}
+.hw-imgs img{margin-bottom:5px}
+.hw-imgs img:last-child{margin-bottom:0}
 .hw-bar{display:flex;align-items:center;gap:6px;margin-top:5px;font-size:12px;color:var(--muted)}
 .hw-date{flex:0 0 auto}
 .hw-del{margin-left:auto;background:transparent;border:1px solid var(--border-strong);color:var(--danger);border-radius:10px;padding:1px 8px;font-size:12px;cursor:pointer;font-family:inherit}
