@@ -1911,34 +1911,99 @@ function voicePickCard(){
   const cur=voiceNow()
   const box=h('div',{className:'card'})
   box.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔊'}),'小搭的声音'))
-  if(!l.length){
-    box.appendChild(h('div',{className:'t-muted'},'这台设备暂时读不到中文语音包。点下面的按钮试试；还是没有的话，告诉家长。'))
-    box.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){voiceTry(null)}},'🔊 试听一下'))
-    return box
-  }
-  box.appendChild(h('div',{className:'t-muted mb8'},'不用装任何东西，就在这台设备已有的语音里挑一个顺耳的。点一下试听，选中了就存下来。'))
-  l.forEach(function(v,i){
-    const on=cur&&(cur.name===v.name||cur.voiceURI===v.voiceURI)
+
+  // 云端声音（推荐）
+  box.appendChild(h('div',{style:'font-size:var(--fs-15);font-weight:600;margin:2px 0 4px'},'☁️ 云端声音（推荐）'))
+  box.appendChild(h('div',{className:'t-muted mb8'},'不用装任何东西、不挑设备；所有设备听到的都是同一个声音，网不通时会自动用设备语音。'))
+  CLOUD_VOICES.forEach(function(v){
+    const on=(D._vcloud===v.id)
     const row=h('div',{style:'display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)'})
-    const nm=h('div',{style:'flex:1;min-width:0;font-size:var(--fs-15)'},String(v.name||'语音'+i))
-    if(v.lang)nm.appendChild(h('span',{className:'t-faint',style:'margin-left:6px'},String(v.lang)))
-    row.appendChild(nm)
-    row.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){voiceTry(v)}},'🔊 试听'))
-    row.appendChild(h('button',{className:'btn btn-sm '+(on?'btn-primary':'btn-outline'),onClick:function(){D._voice=v.name;sv(D);render();ts('✅ 小搭就用「'+v.name+'」')}},(on?'✓ 用中':'用这个')))
+    row.appendChild(h('div',{style:'flex:1;min-width:0;font-size:var(--fs-15)'},v.name))
+    row.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){speakCloud('乐乐，这句是我说的话，你听听顺不顺耳。',null,v.id)}},'🔊 试听'))
+    row.appendChild(h('button',{className:'btn btn-sm '+(on?'btn-primary':'btn-outline'),onClick:function(){D._vcloud=v.id;sv(D);render();ts('✅ 小搭就用「'+v.name+'」')}},(on?'✓ 用中':'用这个')))
     box.appendChild(row)
   })
-  if(cur)box.appendChild(h('button',{className:'btn btn-outline btn-sm mt8',onClick:function(){D._voice='';sv(D);render();ts('已改回默认')}},'恢复默认'))
+
+  // 本机声音
+  box.appendChild(h('div',{style:'font-size:var(--fs-15);font-weight:600;margin:14px 0 4px'},'📱 本机声音（只在这台设备上）'))
+  if(!l.length){
+    box.appendChild(h('div',{className:'t-muted'},'这台设备暂时读不到中文语音包。不影响上面的云端声音。'))
+    box.appendChild(h('button',{className:'btn btn-outline btn-sm mt8',onClick:function(){voiceTry(null)}},'🔊 试听一下'))
+  }else{
+    box.appendChild(h('div',{className:'t-muted mb8'},'走不了网络时用的备胎。点一下试听，选中了就存下来。'))
+    l.forEach(function(v,i){
+      const on=(!D._vcloud)&&cur&&(cur.name===v.name||cur.voiceURI===v.voiceURI)
+      const row=h('div',{style:'display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)'})
+      const nm=h('div',{style:'flex:1;min-width:0;font-size:var(--fs-15)'},String(v.name||'语音'+i))
+      if(v.lang)nm.appendChild(h('span',{className:'t-faint',style:'margin-left:6px'},String(v.lang)))
+      row.appendChild(nm)
+      row.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){voiceTry(v)}},'🔊 试听'))
+      row.appendChild(h('button',{className:'btn btn-sm '+(on?'btn-primary':'btn-outline'),onClick:function(){D._vcloud='';D._voice=v.name;sv(D);render();ts('✅ 小搭就用「'+v.name+'」')}},(on?'✓ 用中':'用这个')))
+      box.appendChild(row)
+    })
+  }
+  if(D._vcloud||D._voice)box.appendChild(h('button',{className:'btn btn-outline btn-sm mt8',onClick:function(){D._vcloud='';D._voice='';sv(D);render();ts('已恢复默认')}},'恢复默认'))
   return box
+}
+const CLOUD_VOICES=[{id:'david',name:'david（男声）'},{id:'diana',name:'diana（女声）'}]
+function ttsClean(t){
+  return Array.from(String(t||'')).filter(function(ch){
+    const c=ch.codePointAt(0)
+    return !(c>=0x1F000&&c<=0x1FAFF)&&!(c>=0x2600&&c<=0x27BF)&&c!==0xFE0F&&c!==0x200D
+  }).join('').replace(/[\s]+/g,' ').trim()
+}
+let _audioEl=null
+const TTS_CACHE={}
+async function aiPost(payload){
+  const r=await fetch(AI_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(Object.assign({token:aiToken()},payload))})
+  const txt=await r.text()
+  let j=null;try{j=JSON.parse(txt)}catch(e){}
+  if(j&&j.ok)return j
+  if(j&&j.err)return {ok:false,err:j.err}
+  return {ok:false,err:'返回异常(HTTP '+r.status+')'}
+}
+function cloudVoiceName(v){return v==='diana'?'diana（女声）':'david（男声）'}
+async function speakCloud(t,id,vv){
+  const s=ttsClean(t)
+  if(!s)return
+  const voice=vv||D._vcloud||'david'
+  try{
+    chatSpeakStop()
+    _speakId=id||null
+    if(tb==='chat')render()
+    const key=voice+'|'+s
+    let url=TTS_CACHE[key]
+    if(!url){
+      const r=await aiPost({type:'tts',text:s.slice(0,220),voice:voice})
+      if(!r||!r.ok||!r.audio)throw new Error((r&&r.err)||'语音服务不可用')
+      url='data:'+(r.mime||'audio/mpeg')+';base64,'+r.audio
+      TTS_CACHE[key]=url
+    }
+    _audioEl=new Audio(url)
+    _audioEl.onended=function(){_speakId=null;if(tb==='chat')render()}
+    _audioEl.onerror=function(){_speakId=null;if(tb==='chat')render()}
+    await _audioEl.play()
+  }catch(e){
+    _speakId=null
+    if(vv){try{ts('云端语音暂时不可用')}catch(e0){};return}
+    try{ts('云端语音暂时不可用，先用设备语音')}catch(e0){}
+    try{chatSpeakDevice(t,id)}catch(e1){}
+  }
 }
 function chatSpeak(t,id){
   try{
     if(D._tts===false)return
+    if(id&&_speakId===id){chatSpeakStop();if(tb==='chat')render();return}
+    if(D._vcloud){speakCloud(t,id);return}
+    chatSpeakDevice(t,id)
+  }catch(e){_speakId=null}
+}
+function chatSpeakDevice(t,id){
+  try{
+    if(D._tts===false)return
     if(!window.speechSynthesis)return
-    if(id&&_speakId===id){chatSpeakStop();_speakId=null;if(tb==='chat')render();return}
-    const s=Array.from(String(t||'')).filter(function(ch){
-      const c=ch.codePointAt(0)
-      return !(c>=0x1F000&&c<=0x1FAFF)&&!(c>=0x2600&&c<=0x27BF)&&c!==0xFE0F&&c!==0x200D
-    }).join('').replace(/[\s]+/g,' ').trim()
+    const s=ttsClean(t)
     if(!s)return
     speechSynthesis.cancel()
     const u=new SpeechSynthesisUtterance(s)
@@ -1950,7 +2015,7 @@ function chatSpeak(t,id){
     speechSynthesis.speak(u)
   }catch(e){_speakId=null}
 }
-function chatSpeakStop(){try{_speakId=null;if(window.speechSynthesis)speechSynthesis.cancel()}catch(e){}}
+function chatSpeakStop(){try{_speakId=null;if(_audioEl){try{_audioEl.pause()}catch(e){};_audioEl=null}if(window.speechSynthesis)speechSynthesis.cancel()}catch(e){}}
 /* ================= 学习方法卡（预习 / 复习 / 复盘）=================
    科学内核：间隔复习取 FSRS/艾宾浩斯节奏；费曼输出倒逼输入；错题归因分类。
    原则：一次只给一步、落在他的实际题目上、说完就让他做。================= */
