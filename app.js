@@ -2488,6 +2488,14 @@ function approveExams(list){
   if(n){actLog('批量通过成绩',n+' 条');sv(D);render();ts('✅ 已通过 '+n+' 条成绩')}
 }
 function updateTabBadges(){
+  try{
+    const b=document.getElementById('lvBadge')
+    if(b){
+      const L=myLv()
+      b.innerHTML='<b>Lv.'+L.lv+'</b><i>'+lvTitle(L.lv)+'</i>'
+      b.title='经验 '+L.total+'，再攒 '+(L.need-L.exp)+' 分升 Lv.'+(L.lv+1)
+    }
+  }catch(e){}
   const pendChecks=(D.checks||[]).filter(function(c){return c.status==='pending'}).length
   const pendExams=(D.exams||[]).filter(function(e){return e.status==='pending'}).length
   const _mine=ROLE.firstPerson?'c':'p'
@@ -2996,16 +3004,15 @@ function cockpitCard(){
   const L=myLv(), pc=pcProgress()
   const c=h('div',{className:'card cockpit'})
   const top=h('div',{className:'ck-top'})
-  top.appendChild(h('span',{className:'ck-lv'},'Lv.'+L.lv))
-  top.appendChild(h('span',{className:'ck-title'},lvTitle(L.lv)))
-  top.appendChild(h('span',{className:'ck-exp'},'经验 '+L.total))
+  top.appendChild(h('span',{className:'ck-go'},'距离 Lv.'+(L.lv+1)+'　'+lvTitle(L.lv+1)))
+  top.appendChild(h('span',{className:'ck-exp'},'还差 '+(L.need-L.exp)+' 分'))
   c.appendChild(top)
   const bar=h('div',{className:'ck-bar'})
   const fill=h('div',{className:'ck-bar-fill'})
   fill.style.width=Math.max(4,Math.min(100,Math.round(L.exp/L.need*100)))+'%'
   bar.appendChild(fill)
   c.appendChild(bar)
-  c.appendChild(h('div',{className:'ck-sub'},'再攒 '+(L.need-L.exp)+' 分 → Lv.'+(L.lv+1)+'　'+lvTitle(L.lv+1)))
+  c.appendChild(h('div',{className:'ck-sub'},'经验 '+L.exp+' / '+L.need+'　·　累计 '+L.total))
   const pcRow=h('div',{className:'ck-pc'})
   pcRow.appendChild(h('span',{className:'ck-pc-t'},'🖥 我的电脑 '+pc.un+'/'+pc.total))
   if(pc.next)pcRow.appendChild(h('span',{className:'ck-pc-n'},'下一个 '+pc.next.icon+' '+pc.next.name))
