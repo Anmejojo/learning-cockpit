@@ -2912,6 +2912,18 @@ function rset(){
   }
   $c.appendChild(pec)
 
+  // 顶部留白（防摄像头/刘海遮挡，本机设置）
+  const _tp=h('div',{className:'card edit-only'})
+  _tp.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📐'}),'顶部留白（防摄像头 / 刘海遮挡）'))
+  _tp.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-bottom:8px;line-height:1.7'},'最上面那行被摄像头或刘海挡住一点？点「+10」往下挪，直到完全露出来。本机设置，只影响这台设备，不影响孩子那台。'))
+  const _tpBar=h('div',{style:'display:flex;gap:8px;align-items:center;flex-wrap:wrap'})
+  _tpBar.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){setTopPad(topPad()-10)}},'−10 px'))
+  _tpBar.appendChild(h('span',{style:'font-size:14px;min-width:62px;text-align:center;font-weight:600'},topPad()+' px'))
+  _tpBar.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){setTopPad(topPad()+10)}},'+10 px'))
+  _tpBar.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){setTopPad(0)}},'归零'))
+  _tp.appendChild(_tpBar)
+  $c.appendChild(_tp)
+
   // 添加到主屏指引（按设备自动识别）
   const _ua=(navigator.userAgent||'')
   const _isIOS=/iPad|iPhone|iPod/.test(_ua)
@@ -3696,11 +3708,18 @@ function pwaInstall(){
   }catch(e){ts('请在浏览器菜单里选「添加到主屏幕」')}
 }
 /* 全屏/应用模式下，再给顶部多留一点（防刘海、摄像头遮挡） */
+function topPad(){try{return parseInt(localStorage.getItem('lc_toppad')||'0',10)||0}catch(e){return 0}}
+function setTopPad(v){
+  try{localStorage.setItem('lc_toppad',String(Math.max(0,Math.min(120,v||0))))}catch(e){}
+  applyTopPad();render();ts('顶部留白 '+topPad()+'px')
+}
+function applyTopPad(){try{document.documentElement.style.setProperty('--top-pad',topPad()+'px')}catch(e){}}
 function safePad(){
+  applyTopPad()
   try{
     const fsBig=(window.innerHeight>=(screen.height-2)&&window.innerWidth>=(screen.width-2))
     const stand=pwaInstalled()
-    document.documentElement.style.setProperty('--safe-extra',(fsBig&&!stand)?'16px':'0px')
+    document.documentElement.style.setProperty('--safe-extra',(fsBig&&!stand)?'34px':'0px')
   }catch(e){}
 }
 window.addEventListener('resize',function(){safePad()})
