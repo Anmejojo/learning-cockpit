@@ -20,7 +20,7 @@ const EXAM_TYPES=[{id:'quiz',name:'小测试',big:false},{id:'mid',name:'期中'
 function defData(){
   return {
     exams:[],parts:JSON.parse(JSON.stringify(PT)),dailyChecks:{},checkImgs:{},checks:[],points:[],sem:'初二上',
-    rate:10,nick:'乐乐',
+    rate:10,nick:'乐乐',_vcloud:'diana',
     bl:{chinese:99,math:115,english:70,geo:67,history:81,dao:63,bio:58,physics:null,pe:null,chem:null},
     handwritings:[],_noGate:false,phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,examDate:null,examTopic:'',mistakes:[],tasks:[],ritualTime:'20:00',smallGoals:[],mistakeMilestones:[],mistakeLog:{},
     dci:[{key:'videoCall',icon:'📞',label:'视频通话',pts:2},{key:'askTeacher',icon:'🙋',label:'主动问老师',pts:3},{key:'noSkipStep',icon:'✅',label:'解题不跳步',pts:2},{key:'reciteMethod',icon:'🧠',label:'背英语用方法',pts:2},{key:'onTimeStudy',icon:'⏰',label:'按时开始学习',pts:2},{key:'water',icon:'💧',label:'喝水',pts:2},{key:'sport',icon:'🏃',label:'运动',pts:3},{key:'sleep',icon:'🌙',label:'按时作息（早睡早起）',pts:2}]
@@ -90,6 +90,7 @@ function normalize(d){
   if(d.dci&&Array.isArray(d.dci)){const dd=defData().dci;for(const item of dd){if(!d.dci.some(function(x){return x.key===item.key})){d.dci.push(item)}}}
   if(!d.mistakeLog)d.mistakeLog={}
   if(!d.nick)d.nick='乐乐'
+  if(d._vcloud===undefined||d._vcloud===null)d._vcloud='diana'
   return d
 }
 const CLOUD_SDK_URL='https://static.cloudbase.net/cloudbase-js-sdk/latest/cloudbase.full.js'
@@ -1920,7 +1921,7 @@ function voicePickCard(){
     const row=h('div',{style:'display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)'})
     row.appendChild(h('div',{style:'flex:1;min-width:0;font-size:var(--fs-15)'},v.name))
     row.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){speakCloud('乐乐，这句是我说的话，你听听顺不顺耳。',null,v.id)}},'🔊 试听'))
-    row.appendChild(h('button',{className:'btn btn-sm '+(on?'btn-primary':'btn-outline'),onClick:function(){D._vcloud=v.id;sv(D);render();ts('✅ 小搭就用「'+v.name+'」')}},(on?'✓ 用中':'用这个')))
+    row.appendChild(h('button',{className:'btn btn-sm '+(on?'btn-primary':'btn-outline'),onClick:function(){D._vcloud=v.id;D._ttsFail=0;sv(D);render();ts('✅ 小搭就用「'+v.name+'」')}},(on?'✓ 用中':'用这个')))
     box.appendChild(row)
   })
 
@@ -1967,7 +1968,9 @@ function cloudVoiceName(v){return v==='diana'?'diana（女声）':'david（男�
 async function speakCloud(t,id,vv){
   const s=ttsClean(t)
   if(!s)return
-  const voice=vv||D._vcloud||'david'
+  // 云端刚失败过（5 分钟内）：直接用设备语音，不重复报错
+  if(!vv&&D._ttsFail&&(Date.now()-D._ttsFail)<300000){chatSpeakDevice(t,id);return}
+  const voice=vv||D._vcloud||'diana'
   try{
     chatSpeakStop()
     _speakId=id||null
@@ -1987,6 +1990,7 @@ async function speakCloud(t,id,vv){
   }catch(e){
     _speakId=null
     if(vv){try{ts('云端语音用不了：'+String((e&&e.message)||e).slice(0,60))}catch(e0){};return}
+    try{D._ttsFail=Date.now()}catch(e0){}
     try{ts('云端语音暂时不可用，先用设备语音')}catch(e0){}
     try{chatSpeakDevice(t,id)}catch(e1){}
   }
