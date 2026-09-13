@@ -454,7 +454,7 @@ function checkImgs(c){
   if(c.img)return [c.img]
   return []
 }
-function submitCheck(typeId,subject,imgsArr){
+function submitCheck(typeId,subject,imgsArr,append){
   const type=CHECK_TYPES.find(function(t){return t.id===typeId})
   if(!type)return
   if(!D.checks)D.checks=[]
@@ -463,7 +463,8 @@ function submitCheck(typeId,subject,imgsArr){
   const old=(D.checks||[]).find(function(c){return c.date===_ds&&c.subject===_sub&&c.type===typeId})
   const _lbl=(_sub?_sub+'·':'')+type.name
   if(old&&old.status!=='approved'){
-    old.imgs=imgsArr||[];old.status='pending';old.ts=Date.now();old.pts=type.pts
+    old.imgs=(append?((old.imgs||[]).concat(imgsArr||[])):(imgsArr||[])).slice(0,6)
+    old.status='pending';old.ts=Date.now();old.pts=type.pts
     old.noteSubmit=encTake()
     sv(D);render();ts('✅ 已更新 · '+old.noteSubmit)
     return
@@ -623,11 +624,11 @@ function hwStreak(){
   }catch(e){return 0}
 }
 function hwAdd(){
-  ts('📷 拍今天的字（可多选，最多 3 张）')
+  ts('📷 拍今天的字（可多张，也可以一张一张加）')
   const inp=document.createElement('input')
   inp.type='file';inp.accept='image/*';inp.multiple=true
   inp.onchange=function(e){
-    const files=Array.from(e.target.files||[]).slice(0,3)
+    const files=Array.from(e.target.files||[]).slice(0,9)
     if(!files.length)return
     ts('⏳ 正在处理 '+files.length+' 张…')
     const out=[];let done=0
@@ -637,9 +638,16 @@ function hwAdd(){
         if(b64)out.push(b64)
         if(done===files.length){
           if(!out.length){ts('照片处理失败，重拍一张');return}
-          hwList().unshift({id:Date.now(),date:td,imgs:out,ts:Date.now()})
-          D.points.push({date:td,source:'硬笔字打卡',points:1,type:'earn'})
-          sv(D);render();ts('✅ 上墙了 +1 分')
+          const _l=hwList()
+          const _tw=_l.filter(function(x){return x.date===td})[0]
+          if(_tw){
+            _tw.imgs=(_tw.imgs||[]).concat(out).slice(0,9)
+            sv(D);render();ts('✅ 又加上 '+out.length+' 张（今天共 '+_tw.imgs.length+' 张）')
+          }else{
+            _l.unshift({id:Date.now(),date:td,imgs:out,ts:Date.now()})
+            D.points.push({date:td,source:'硬笔字打卡',points:1,type:'earn'})
+            sv(D);render();ts('✅ 上墙了 +1 分')
+          }
         }
       })
     })
@@ -667,7 +675,11 @@ function rwrite(){
   list.forEach(function(it){
     const fig=h('div',{className:'hw-item'})
     const imgs=(it.imgs||[])
-    if(imgs[0])fig.appendChild(h('img',{src:imgs[0],loading:'lazy',alt:'硬笔字作品',onClick:function(){viewImg(imgs[0],imgs)}}))
+    if(imgs.length){
+      const ig=h('div',{className:'hw-imgs'})
+      imgs.forEach(function(b){ig.appendChild(h('img',{src:b,loading:'lazy',alt:'硬笔字作品',onClick:function(){viewImg(b,imgs)}}))})
+      fig.appendChild(ig)
+    }
     const bar=h('div',{className:'hw-bar'})
     const _d=String(it.date||'').split('-')
     bar.appendChild(h('div',{className:'hw-date'},_d.length>2?(_d[1]+'/'+_d[2]):String(it.date||'')))
@@ -1890,8 +1902,8 @@ function updateTabBadges(){
     sp.textContent=n>99?'99+':String(n)
   })
 }
-function pickAndSubmit(type,subject){
-  ts('📷 请拍照或选择图片（可多张）')
+function pickAndSubmit(type,subject,append){
+  ts('📷 请拍照或选择图片（可多张，也可以一张一张加）')
   const inp=document.createElement('input')
   inp.type='file';inp.accept='image/*';inp.multiple=true
   inp.onchange=function(e){
@@ -1905,7 +1917,7 @@ function pickAndSubmit(type,subject){
         done++
         if(b64)collected.push(b64)
         if(done===files.length){
-          if(collected.length)submitCheck(type.id,subject,collected)
+          if(collected.length)submitCheck(type.id,subject,collected,append)
           else ts('⚠️ 照片处理失败，请重试')
         }
       })
@@ -2413,7 +2425,10 @@ function rckList(){
       const sc2=rec.status==='pending'?'var(--warning)':rec.status==='approved'?'var(--success)':'var(--muted)'
       card.appendChild(h('div',{style:'font-size:14px;margin-top:5px;color:'+sc2+';font-weight:600'},st+(rec.ts?' · '+fmtHM(rec.ts)+' 提交':'')))
       if(VW&&rec.status==='pending'){
-        card.appendChild(h('button',{className:'btn btn-outline btn-sm',style:'margin-top:6px',onClick:function(){startCheck(type,subj)}},'📷 重新上传'))
+        const br2=h('div',{style:'margin-top:6px;display:flex;gap:5px;justify-content:center;flex-wrap:wrap'})
+        br2.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){pickAndSubmit(type,subj,true)}},'📷 再加一张'))
+        if(rImgs.length)br2.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){pickAndSubmit(type,subj,false)}},'🗑 重拍替换'))
+        card.appendChild(br2)
       }
       if(!VW&&rec.status==='pending'){
         const br=h('div',{style:'margin-top:6px;display:flex;gap:5px;justify-content:center'})
