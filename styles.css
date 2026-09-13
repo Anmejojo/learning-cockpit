@@ -318,3 +318,15 @@ body.chat-page .chat-bar .chat-cam{padding:8px 9px;font-size:15px;border-radius:
 .hw-bar{display:flex;align-items:center;gap:6px;margin-top:5px;font-size:12px;color:var(--muted)}
 .hw-date{flex:0 0 auto}
 .hw-del{margin-left:auto;background:transparent;border:1px solid var(--border-strong);color:var(--danger);border-radius:10px;padding:1px 8px;font-size:12px;cursor:pointer;font-family:inherit}
+
+/* ===== 工具类：从 JS 内联样式抽出来的高频写法（外观不变） ===== */
+.mt6{margin-top:6px}
+.mt8{margin-top:8px}
+.mt10{margin-top:10px}
+.mb8{margin-bottom:8px}
+.ml6{margin-left:6px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row-mid{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.grow{flex:1;min-width:0}
+.t-muted{font-size:13.5px;color:var(--muted)}
+.t-faint{font-size:12px;color:var(--faint)}
