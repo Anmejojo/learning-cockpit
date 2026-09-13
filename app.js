@@ -23,7 +23,7 @@ function defData(){
     exams:[],parts:JSON.parse(JSON.stringify(PT)),dailyChecks:{},checkImgs:{},checks:[],points:[],sem:'初二上',
     rate:10,
     bl:{chinese:99,math:115,english:70,geo:67,history:81,dao:63,bio:58,physics:null,pe:null,chem:null},
-    phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,examDate:null,examTopic:'',mistakes:[],tasks:[],ritualTime:'20:00',smallGoals:[],mistakeMilestones:[],mistakeLog:{},
+    handwritings:[],phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,examDate:null,examTopic:'',mistakes:[],tasks:[],ritualTime:'20:00',smallGoals:[],mistakeMilestones:[],mistakeLog:{},
     dci:[{key:'videoCall',icon:'📞',label:'视频通话',pts:2},{key:'askTeacher',icon:'🙋',label:'主动问老师',pts:3},{key:'noSkipStep',icon:'✅',label:'解题不跳步',pts:2},{key:'reciteMethod',icon:'🧠',label:'背英语用方法',pts:2},{key:'onTimeStudy',icon:'⏰',label:'按时开始学习',pts:2}]
   }
 }
@@ -598,6 +598,77 @@ function asksCardUI(){
 
 ﻿/* ================= 和搭子说话（AI 对话栏） ================= */
 ﻿﻿/* ================= 小搭「看得见网页」：站点地图 + 实时快照 ================= */
+/* ================= 硬笔字（打卡 + 作品墙） ================= */
+function hwList(){if(!D.handwritings)D.handwritings=[];return D.handwritings}
+function hwStreak(){
+  try{
+    const days={};hwList().forEach(function(x){days[x.date]=1})
+    let n=0;const d=new Date()
+    if(!days[ymd(d)])d.setDate(d.getDate()-1)
+    for(let i=0;i<400;i++){const k=ymd(d);if(days[k]){n++;d.setDate(d.getDate()-1)}else break}
+    return n
+  }catch(e){return 0}
+}
+function hwAdd(){
+  ts('📷 拍今天的字（可多选，最多 3 张）')
+  const inp=document.createElement('input')
+  inp.type='file';inp.accept='image/*';inp.multiple=true
+  inp.onchange=function(e){
+    const files=Array.from(e.target.files||[]).slice(0,3)
+    if(!files.length)return
+    ts('⏳ 正在处理 '+files.length+' 张…')
+    const out=[];let done=0
+    files.forEach(function(f){
+      compressImage(f,function(b64){
+        done++
+        if(b64)out.push(b64)
+        if(done===files.length){
+          if(!out.length){ts('照片处理失败，重拍一张');return}
+          hwList().unshift({id:Date.now(),date:td,imgs:out,ts:Date.now()})
+          D.points.push({date:td,source:'硬笔字打卡',points:1,type:'earn'})
+          sv(D);render();ts('✅ 上墙了 +1 分')
+        }
+      })
+    })
+  }
+  inp.click()
+}
+function rwrite(){
+  const list=hwList()
+  const stk=hwStreak()
+  const c=h('div',{className:'card'})
+  c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'✍️'}),'硬笔字 · 作品墙'))
+  c.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-bottom:10px'},'已经上墙 '+list.length+' 幅；连着 '+stk+' 天有作品'))
+  c.appendChild(h('button',{className:'btn btn-primary',onClick:hwAdd},'📷 拍今天的字'))
+  c.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:8px;line-height:1.6'},'一张一张拍，拍清楚点；提交后就上墙，家里人都能看到'))
+  $c.appendChild(c)
+  if(!list.length){
+    const e=h('div',{className:'card'})
+    e.appendChild(h('div',{style:'text-align:center;color:var(--muted);font-size:14px;padding:18px 8px;line-height:1.8'},'还没有作品。'+"\n"+'今天写一页，拍上来当第一幅。'))
+    $c.appendChild(e)
+    return
+  }
+  const wall=h('div',{className:'card'})
+  wall.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🖼'}),'作品（'+list.length+'）'))
+  const grid=h('div',{className:'hw-grid'})
+  list.forEach(function(it){
+    const fig=h('div',{className:'hw-item'})
+    const imgs=(it.imgs||[])
+    if(imgs[0])fig.appendChild(h('img',{src:imgs[0],loading:'lazy',alt:'硬笔字作品',onClick:function(){viewImg(imgs[0],imgs)}}))
+    const bar=h('div',{className:'hw-bar'})
+    const _d=String(it.date||'').split('-')
+    bar.appendChild(h('div',{className:'hw-date'},_d.length>2?(_d[1]+'/'+_d[2]):String(it.date||'')))
+    if(imgs.length>1)bar.appendChild(h('div',{className:'hw-date'},imgs.length+'张'))
+    if(!VW)bar.appendChild(h('button',{className:'hw-del',onClick:function(){
+      if(!confirm('删掉这幅作品？'))return
+      D.handwritings=hwList().filter(function(x){return x.id!==it.id});sv(D);render();ts('已删除')
+    }},'删'))
+    fig.appendChild(bar)
+    grid.appendChild(fig)
+  })
+  wall.appendChild(grid)
+  $c.appendChild(wall)
+}
 function chatSiteMap(){
   return ['【他能看到的网页（家里人给他做的「学习驾驶舱」）】',
   '标签页有 5 个：今日 / 记录 / 成绩 / 积分奖励 / 设置。',
@@ -668,6 +739,9 @@ function chatSnapshot(){
   // 今日任务
   const tds=D.tasks.filter(function(t){return t.date===td&&!t.done}).map(function(t){return t.text})
   if(tds.length)L.push('· 他自己列了今天要做：'+tds.join('、'))
+  // 硬笔字作品
+  const _hwN=(D.handwritings||[]).length
+  if(_hwN)L.push('· 硬笔字：作品墙已有 '+_hwN+' 幅'+(hwStreak()>=2?('，连着 '+hwStreak()+' 天有作品'):''))
   return L.join('\n')
 }
 
@@ -1188,8 +1262,56 @@ const LEARN_METHODS=[
  {id:'sum3',cat:'\u590d\u76d8',name:'\u8003\u540e\u770b\u4e22\u5206\u4e0d\u770b\u5206\u6570',kw:['\u8003\u8bd5','\u6210\u7ee9','\u8003\u5b8c','\u5206\u6570','\u6ca1\u8003\u597d','\u53cd\u601d'],
   why:'\u5206\u6570\u53ea\u80fd\u770b\uff0c\u4e22\u5206\u624d\u80fd\u6539\uff1b\u201c\u4f1a\u4f46\u9519\u201d\u90a3\u90e8\u5206\u6700\u597d\u6361',
   how:'\u628a\u4e22\u7684\u5206\u5206\u4e09\u7c7b\uff1a\u4f1a\u4f46\u9519 / \u4e0d\u4f1a / \u6ca1\u505a\u5b8c\uff1b\u5148\u653b\u201c\u4f1a\u4f46\u9519\u201d\uff0c\u5b83\u6700\u597d\u6361',
-  when:'\u8003\u8bd5\u5377\u5b50\u53d1\u4e0b\u6765\u4e4b\u540e'}
+  when:'\u8003\u8bd5\u5377\u5b50\u53d1\u4e0b\u6765\u4e4b\u540e'},
+ {id:'nb1',cat:'错题本',name:'错题三栏写法',kw:['错题本','错题','怎么整理错题','整理错题','错题本怎么做','抄错题'],
+  why:'错题本的用处不是"抄题"，是让下次的你一眼看出当时怎么错的',
+  how:'三栏：①只写关键条件和问什么（不抄整道题）②写"我错在哪一步"（一句话）③写正确思路（不抄老师全文）',
+  when:'每天整理错题时，一道题三行就够'},
+ {id:'nb2',cat:'错题本',name:'按错因分类，不按时间',kw:['错题本','错题','怎么整理','分类','归类'],
+  why:'按日期堆在一起，错题本就变成"错题报"；按错因分类才能看出你的毛病',
+  how:'活页本或贴标签，分成"看不懂题 / 审题漏条件 / 算错写错 / 根本不会"四摞，同一类放一起',
+  when:'每次收错题时顺手分类'},
+ {id:'nb3',cat:'错题本',name:'错题三刷',kw:['错题本','错题','重做','三刷','考前'],
+  why:'错题不重做，等于没整理；重做才知道真懂没懂',
+  how:'当天改一次 → 一周后重做一次 → 一个月后再做一次；三次都对的，划掉不再管',
+  when:'周末、考前两天'},
+ {id:'en1',cat:'英语背诵',name:'单词：连词块和例句一起记',kw:['背单词','英语单词','单词记不住','背英语','记单词'],
+  why:'孤立背单词，记得快忘得也快；连着短语、例句才存得住',
+  how:'一次只背 8~10 个：先看一个例句 → 把单词代进去读一遍 → 再把例句读到不打结',
+  when:'每天固定 10 分钟'},
+ {id:'en2',cat:'英语背诵',name:'遮住中文写英文（错词卡）',kw:['背单词','默写','单词记不住','背英语','内默'],
+  why:'背得怎么样，默一遍就知道；错的那几个才是真正要花力气的',
+  how:'先过一遍 → 遮住中文默写英文 → 错的写到"错词卡"；第二天只看错词卡',
+  when:'背完一组单词后当场默一次'},
+ {id:'en3',cat:'英语背诵',name:'课文三遍法',kw:['背课文','背英语','课文','背诵','句型','背不下'],
+  why:'光读不背、光背不听，都记不牢；听、读、说三道才进得去',
+  how:'①先听一遍（看着课文）②大声跟读一遍 ③合上书，用自己的话把意思说一遍',
+  when:'背课文、背重点句型时'}
 ]
+function _mTeachText(t){
+  try{
+    if(String(t||'').length<2)return ''
+    if(methodText(t))return ''                    // 他自己问了方法，就不用主动提
+    if(emoHit(t))return ''                        // 他情绪不好，不提
+    const p2=D._mTeach
+    if(p2&&p2.date===td&&p2.n>0)return ''         // 今天已经提过一次
+    const ds=dayStats(td),hs=habStats(td)
+    const did=[]
+    if(ds.done||hs.done)did.push('今天已经有 '+((ds.done+hs.done))+' 项记录')
+    const mis=(D.checks||[]).filter(function(c){return c.date===td&&c.type==='mistake'&&c.status!=='rejected'}).length
+    if(mis)did.push('今天收了 '+mis+' 道错题')
+    if((D.handwritings||[]).some(function(x){return x.date===td}))did.push('今天上传了硬笔字作品')
+    const _kw=(D._chat||[]).filter(function(m){return m.role==='u'&&m.k&&m.date===td})
+    if(_kw.length)did.push('今天问过：'+_kw[_kw.length-1].k)
+    if(!did.length)return ''
+    return ['【今天可以顺口带一句方法（只此一次）】',
+      '他'+did.join('；')+'。',
+      '如果这会儿聊得顺、他没在情绪上，可以顺口教“一步”方法（优先：错题本怎么写 / 英语怎么背），必须引用他今天真做过的事。',
+      '例：“你刚收的那道错题，别抄整道题，只写‘我错在哪一步’——下次一眼就看出来。”',
+      '规则：一句到两句；说完就停，不追第二条；他没接话就算了，今天不再提。'
+    ].join('\n')
+  }catch(e){return ''}
+}
 function methodText(t){
   const s=String(t||'')
   if(!s)return ''
@@ -1250,6 +1372,7 @@ function chatSend(imgB64){
   const _terse=(!imgB64&&isTerse(v))?TERSE_HINT:''
   const _hist='【最近的对话】\n'+ctx
   const _askSite=looksSite(v)
+  const _mt=_mTeachText(v)
   /* 组装提示词：必带段落一定进，可选段落超预算才丢（云函数上限已改 20000，这里 5500 双保险） */
   const _blocks=[
     [chatPersona(),0],
@@ -1260,6 +1383,7 @@ function chatSend(imgB64){
     [_mem,0],
     [careText(),0],
     [methodText(v||''),0],
+    [_mt,0],
     [copeText(v||''),0],
     [slangText(),0],
     [chatStateText(),0],
@@ -1321,6 +1445,7 @@ function chatSend(imgB64){
     if(l2.length>300)D._chat=l2.slice(-300)
     sv(D);render()
     _aiBusy=false
+    if(_mt)D._mTeach={date:td,n:((D._mTeach&&D._mTeach.date===td)?(D._mTeach.n||0):0)+1}
     setTimeout(function(){const el=document.getElementById('chatScroll');if(el)el.scrollTop=el.scrollHeight},60)
   }).catch(function(){_aiBusy=false})
 }
@@ -2009,6 +2134,7 @@ function render(){
   if(tb!=='chat'){document.body.classList.remove('chat-page');_memOpen=false}
   if(tb==='today')rtoday()
   else if(tb==='checkin')rck()
+  else if(tb==='write')rwrite()
   else if(tb==='chat')rchat()
   else if(tb==='scores')rsc()
   else if(tb==='points')rpk()
