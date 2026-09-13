@@ -927,6 +927,10 @@ function chatOpenerPrompt(){
   const c=careText()
   if(c)L.push(c)
   else if(last&&last.role==='u'&&last.text)L.push('【他昨天最后一句是】"'+String(last.text).slice(0,60)+'"（可以顺着这句接，也可以不提）')
+  if(weekAskDue())L.push(['【这次不是闲聊，是你该问的那一句】',
+    '今天是周末（或周一），你主动问他一句：“这周最卡的是哪件事？”（用你自己的话说，别照拄）。',
+    '只问这一个，不许一次问三个；他答了就先陪他把那件事说完，别马上转到学习或下一步。',
+    '他不想说就算了，说“行，想说再说”。'].join('\n'))
   L.push(['【这次是你主动开口】','他刚打开你们的聊天框，你先说第一句。规则：',
     '1) 一句话，25 字以内，像朋友随手发的；不许用"你好""在吗""今天过得怎么样"这种客套；',
     '2) 不提记录、不提作业、不提积分，不催任何事；',
@@ -939,6 +943,7 @@ function chatOpenerPrompt(){
 function chatOpenerFallback(){
   const h=_hh(),care=pendingCare(),stk=safeStreak()
   if(care)return '上次那事儿后来怎么样了？'
+  if(weekAskDue())return '这周最卡的是哪件事？'
   if(h>=22||h<6)return '还不睡呢？'
   if(h<9)return '起来没，早饭吃了没'
   if(h<12)return '早，今天咋样'
@@ -974,6 +979,7 @@ function ensureChatOpener(){
     for(let i=0;i<lg.length;i++){if(lg[i].id===ph.id){lg[i].text=t;lg[i].pending=false;hit=true;break}}
     if(!hit)lg.push({id:Date.now()+2,date:td,role:'a',text:t,ts:Date.now()})
     const cc=pendingCare();if(cc){cc.asked=true;cc.askedAt=Date.now()}
+    if(weekAskDue())D._wkAsk={week:weekKey(),date:td,at:Date.now()}
     sv(D)
     if(tb==='chat')render()
   })
@@ -984,6 +990,14 @@ let _memOpen=false
 let _chatShow=40
 let _aiBusy=false
 let _draft=''
+/* 每周日（含周一补问）小搭主动问一句“这周最卡的是哪件事” */
+function weekAskDue(){
+  try{
+    const wd=new Date().getDay()
+    if(!(wd===0||wd===1))return false
+    return !(D._wkAsk&&D._wkAsk.week===weekKey())
+  }catch(e){return false}
+}
 let _sr=null,_srOn=false,_srBase='',_srUsed=false
 let _speakId=null
 let _srPrev='',_srTimer=null
@@ -1084,6 +1098,11 @@ function chatPersona(){
   '【他问“怎么学/怎么背/怎么复盘”的时候】',
   '你手里有一张方法卡（下面会给）。一次只给一步，用你自己的话说，说完就让他现在做那一步。',
   '禁止把方法列成清单、禁止“你要养成好习惯”这种空话；他想听第二步会自己问。',
+  '',
+  '【每周那一问】',
+  '周末或周一，你会主动问他“这周最卡的是哪件事”。只问这一个，别一次问三个。',
+  '他答了，先陪他把那件事说完（该接情绪就接情绪）；等他说完了，再顺口问一句“那下周想先改哪一件？”（一次只问一个）。',
+  '仞不代他总结、不讲大道理；他说不出来就给两个选项帮他选。',
   '',
   '【上课时间】',
   '如果他在工作日的 8:00-11:30 或 14:00-17:00 发消息，先顺口问一句“这会儿在上课吧？”，提醒他“下课再说”，',
