@@ -898,6 +898,7 @@ let _aiBusy=false
 let _draft=''
 let _sr=null,_srOn=false,_srBase='',_srUsed=false
 let _speakId=null
+let _srPrev='',_srTimer=null
 function memPanelUI(){
   const full=h('div',{className:'mem-panel'})
   const head=h('div',{className:'mem-head'},h('span',null,'小搭记得的事'),
@@ -1074,24 +1075,34 @@ function chatVoice(){
   if(_srOn){try{_sr.stop()}catch(e){}return}
   try{
     _sr=new SR()
-    _sr.lang='zh-CN';_sr.interimResults=true;_sr.continuous=false;_sr.maxAlternatives=1
+    _sr.lang='zh-CN';_sr.interimResults=true;_sr.continuous=true;_sr.maxAlternatives=1
     _srBase=(document.getElementById('chatInput')||{}).value||''
-    _sr.onstart=function(){_srOn=true;render();ts('🎤 说吧，说完自动填进输入框')}
+    if(_srPrev&&_srBase.trim()===_srPrev.trim())_srBase=''   // 上一次也是语音转的：直接重说，不追加
+    _sr.onstart=function(){_srOn=true;render();ts('🎤 说吧；中间停顿也没事，说完点右边的 ⏹')}
+    try{_srTimer=setTimeout(function(){try{_sr.stop()}catch(e){}},60000)}catch(e){}
     _sr.onresult=function(e){
       let txt=''
       for(let i=0;i<e.results.length;i++){txt+=e.results[i][0].transcript}
       _draft=(_srBase?(_srBase+' '):'')+txt
+      _srPrev=_draft
       const el=document.getElementById('chatInput')
       if(el){el.value=_draft;el.focus()}
-      if(e.results[e.results.length-1].isFinal){_srUsed=true;ts('说完了，点「发送」')}
+      if(e.results[e.results.length-1].isFinal){_srUsed=true}
     }
     _sr.onerror=function(e){
       _srOn=false
+      try{if(_srTimer){clearTimeout(_srTimer);_srTimer=null}}catch(x){}
       const _m={'not-allowed':'没拿到麦克风权限，允许一下再试','no-speech':'没听清，再说一次','audio-capture':'没找到麦克风','network':'网络不太好，语音暂时用不了','aborted':''}[e.error]
       if(_m)ts('🎤 '+_m)
       render()
     }
-    _sr.onend=function(){_srOn=false;render()}
+    _sr.onend=function(){
+      _srOn=false
+      try{if(_srTimer){clearTimeout(_srTimer);_srTimer=null}}catch(x){}
+      render()
+      const el=document.getElementById('chatInput')
+      if(el&&String(el.value||'').trim())ts('听到了，不对就改一改，然后点「发送」')
+    }
     _srOn=true;_sr.start();render()
   }catch(e){_srOn=false;ts('语音启动失败：'+String(e.message||e).slice(0,40));render()}
 }
