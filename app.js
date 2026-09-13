@@ -3644,7 +3644,17 @@ function pwaInstall(){
     ts('请在浏览器菜单里选「添加到主屏幕 / 安装应用」')
   }catch(e){ts('请在浏览器菜单里选「添加到主屏幕」')}
 }
+/* 全屏/应用模式下，再给顶部多留一点（防刘海、摄像头遮挡） */
+function safePad(){
+  try{
+    const fsBig=(window.innerHeight>=(screen.height-2)&&window.innerWidth>=(screen.width-2))
+    const stand=pwaInstalled()
+    document.documentElement.style.setProperty('--safe-extra',(fsBig&&!stand)?'16px':'0px')
+  }catch(e){}
+}
+window.addEventListener('resize',function(){safePad()})
 function pwaInstalled(){try{return window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}}
+safePad()
 try{ if('serviceWorker' in navigator && location.protocol==='https:'){ navigator.serviceWorker.register('sw.js').catch(function(){}) } }catch(e){}
 
 initAuth()
