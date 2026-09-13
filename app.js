@@ -20,7 +20,7 @@ const EXAM_TYPES=[{id:'quiz',name:'小测试',big:false},{id:'mid',name:'期中'
 function defData(){
   return {
     exams:[],parts:JSON.parse(JSON.stringify(PT)),dailyChecks:{},checkImgs:{},checks:[],points:[],sem:'初二上',
-    rate:10,
+    rate:10,nick:'乐乐',
     bl:{chinese:99,math:115,english:70,geo:67,history:81,dao:63,bio:58,physics:null,pe:null,chem:null},
     handwritings:[],_noGate:false,phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,examDate:null,examTopic:'',mistakes:[],tasks:[],ritualTime:'20:00',smallGoals:[],mistakeMilestones:[],mistakeLog:{},
     dci:[{key:'videoCall',icon:'📞',label:'视频通话',pts:2},{key:'askTeacher',icon:'🙋',label:'主动问老师',pts:3},{key:'noSkipStep',icon:'✅',label:'解题不跳步',pts:2},{key:'reciteMethod',icon:'🧠',label:'背英语用方法',pts:2},{key:'onTimeStudy',icon:'⏰',label:'按时开始学习',pts:2},{key:'water',icon:'💧',label:'喝水',pts:2},{key:'sport',icon:'🏃',label:'运动',pts:3},{key:'sleep',icon:'🌙',label:'按时作息（早睡早起）',pts:2}]
@@ -89,6 +89,7 @@ function normalize(d){
   if(d.dci&&Array.isArray(d.dci)){d.dci=d.dci.filter(function(it){return _DEP.indexOf(it.key)<0})}
   if(d.dci&&Array.isArray(d.dci)){const dd=defData().dci;for(const item of dd){if(!d.dci.some(function(x){return x.key===item.key})){d.dci.push(item)}}}
   if(!d.mistakeLog)d.mistakeLog={}
+  if(!d.nick)d.nick='乐乐'
   return d
 }
 const CLOUD_SDK_URL='https://static.cloudbase.net/cloudbase-js-sdk/latest/cloudbase.full.js'
@@ -630,7 +631,7 @@ async function scanCheck(recId,urls){
         return (b.no||'某题')+t
       })
       const rest=bad.length>1?('，另外第'+bad[1].i+'张'+(bad[1].subject?('·'+bad[1].subject):'')+'也有空题'):''
-      const say='刚看到你交的'+(one.subject||'作业')+'那张（第 '+one.i+' 张）：'+parts.join('、')+'还空着'+rest+'。是没做完，还是没拍到？'
+      const say=nickName()+'，刚看到你交的'+(one.subject||'作业')+'那张（第 '+one.i+' 张）：'+parts.join('、')+'还空着'+rest+'。是没做完，还是没拍到？'
       rec.say=say
       rec.needLook=true
       chatPushAI(say)
@@ -1655,6 +1656,10 @@ function chatPersona(){
   '- 短句、口语，像微信聊天；不用书面语，不说"同学你好""希望对你有帮助""让我们一起"这种话；',
   '- 每次不超过 80 字，能一句说清就不说三句；',
   '- 不喊口号、不夸他"聪明/真棒"、不说"加油"；不叫他"同学"，直接说事。',
+  '',
+  '【怎么称呼他】',
+  '- 他叫「'+nickName()+'」。偶尔叫一下名字——比如他有点泄气、你想认真跟他说一句的时候；',
+  '- 不要每句都叫，也不要每次提问都加名字——那像念稿子。其余时候直接说事，用"你"。',
   '',
   '【你绝对不做】',
   '1) 不直接给最终答案：只给"这题考什么 → 第一步怎么做 → 一个反问让他自己往下走"；',
@@ -2968,6 +2973,7 @@ function rtoday(){
 }
 /* ===== 我的舱：等级 / 称号 / 经验 / 装机进度 ===== */
 const LV_TITLES=['见习机长','启动引擎','稳定巡航','熟练操作','老练机长','王牌驾驶员','精英机长','王牌教官','传奇机长','驾驶舱长']
+function nickName(){try{return (D&&D.nick)||'乐乐'}catch(e){return '乐乐'}}
 function myExp(){
   try{return (D.points||[]).filter(function(p){return p.type==='earn'}).reduce(function(a,p){return a+(p.points||0)},0)}catch(e){return 0}
 }
@@ -3554,7 +3560,7 @@ function rset(){
   const _host=$c, _tmp=h('div',null)
   $c=_tmp
   try{ _rsetBody() } finally { $c=_host }
-  const _g1=['下次大考','固定学习时间','小目标','平板','话费'];
+  const _g1=['下次大考','固定学习时间','小目标','平板','话费','称呼'];
   const _g2=['积分兑换率','习惯打卡项','零件清单','学习方法'];
   const grpOf=function(t){
     for(const k of _g1)if(t.indexOf(k)>=0)return 'info';
@@ -3582,6 +3588,19 @@ function _rsetBody(){
   ec.appendChild(erow)
   ec.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){D.examDate=document.getElementById('examDateInput').value||null;D.examTopic=document.getElementById('examTopicInput').value.trim();sv(D);render();ts('✅ 考试信息已保存')}},'💾 保存'))
   $c.appendChild(ec)
+
+  // 小搭怎么称呼他
+  const nk=h('div',{className:'card edit-only'})
+  nk.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🏷️'}),'小搭怎么称呼他'))
+  nk.appendChild(h('div',{className:'t-muted mb8'},'小搭聊天时偶尔会叫他名字（不会叫名字叫上瘾，也不会每句都叫）。'))
+  const nrow=h('div',{className:'row-mid'})
+  nrow.innerHTML='<input type="text" id="nickInput" maxlength="8" placeholder="如：乐乐" style="width:140px" value="'+(D.nick||'乐乐')+'">'
+  nrow.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){
+    const v=(document.getElementById('nickInput').value||'').trim().slice(0,8)
+    D.nick=v||'乐乐';sv(D);render();ts('✅ 小搭会叫他「'+D.nick+'」')
+  }},'💾 保存'))
+  nk.appendChild(nrow)
+  $c.appendChild(nk)
 
   // 固定学习时间
   const rt=D.ritualTime||'20:00'
