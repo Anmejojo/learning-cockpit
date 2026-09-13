@@ -235,12 +235,23 @@ function applyLv(lv){
     if(b){b.textContent='👀 查看模式';b.className='badge view';b.style.display=''}
   }
 }
+let _authPending=false
 function initAuth(){
   const saved=localStorage.getItem('lc_lv')||''
-  if(!(D._auth&&D._auth.p)){showSetup();return}
+  if(!(D._auth&&D._auth.p)){_authPending=true;return}   // 本机没存过口令：先别急着让人"设置"，等读完云端再判定（否则新设备会覆盖家里口令）
   if(saved==='c'&&D._auth.t&&localStorage.getItem('lc_tok')!==D._auth.t)localStorage.setItem('lc_tok',D._auth.t)
   if(saved==='p'||saved==='c'){applyLv(saved);render();return}
   showGate()
+}
+/* 读完云端数据后再决定：已设置过 -> 输口令；真没设置过 -> 才引导设置 */
+function authGateAfterLoad(){
+  if(!_authPending)return
+  _authPending=false
+  const saved=localStorage.getItem('lc_lv')||''
+  if(D._auth&&D._auth.p){
+    if(saved==='p'||saved==='c'){applyLv(saved);render()}
+    else showGate()
+  }else showSetup()
 }
 function logout(){
   localStorage.removeItem('lc_lv');localStorage.removeItem('lc_tok')
@@ -3432,4 +3443,5 @@ initAuth()
   }
   const _t2=document.getElementById('bootTip');if(_t2)_t2.remove()
   await authTokenSync()
+  authGateAfterLoad()
 })()
