@@ -1962,12 +1962,28 @@ function _b64ToBlob(b64){
   for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i)
   return new Blob([arr],{type:'image/jpeg'})
 }
+function _ensureAuth(cb){
+  try{
+    if(!cloudApp||!cloudApp.auth)return cb()
+    const au=cloudApp.auth()
+    try{ if(au.hasLoginState&&au.hasLoginState())return cb() }catch(e){}
+    au.signInAnonymously().then(function(){cb()}).catch(function(e){console.warn('匿名登录失败',e);cb()})
+  }catch(e){cb()}
+}
 function uploadPhoto(file,cb){
   compressImage(file,function(b64){
     if(!b64)return cb(null)
     try{
       if(!cloudApp||!cloudApp.uploadFile)return cb(b64)
       const name='photos/'+ymd()+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,7)+'.jpg'
+      _ensureAuth(function(){ _doUpload(name,b64,cb) })
+      return
+      // eslint-disable-next-line no-unreachable
+    }catch(e){cb(b64)}
+  })
+}
+function _doUpload(name,b64,cb){
+  try{
       cloudApp.uploadFile({cloudPath:name,filePath:_b64ToBlob(b64)}).then(function(res){
         const fid=res&&(res.fileID||res.fileId)
         if(fid){_photoOK=true;cb(fid)}
@@ -1977,8 +1993,7 @@ function uploadPhoto(file,cb){
         if(!_photoWarned){_photoWarned=true;ts('⚠️ 云存储暂时用不了，照片先存在本机')}
         cb(b64)
       })
-    }catch(e){cb(b64)}
-  })
+  }catch(e){cb(b64)}
 }
 const _urlCache={}
 function photoURL(v,cb){
