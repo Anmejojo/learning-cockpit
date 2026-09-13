@@ -1223,14 +1223,35 @@ function rwrite(){
   wall.appendChild(grid)
   $c.appendChild(wall)
 }
+/* ===== 全站悬浮小搭：任何页面点一下就能问它 ===== */
+let _ctxTab=''   // 他刚刚在看哪一页（切到聊天时记下）
+const TAB_NAME={today:'今日',chat:'小搭',checkin:'打卡',mistake:'错题本',write:'硬笔字',scores:'成绩',points:'积分奖励',settings:'设置'}
+function fabEnsure(){
+  try{
+    let b=document.getElementById('fabChat')
+    if(!b||!b.classList||!b.classList.contains('fab-chat')){
+      b=document.createElement('button')
+      b.id='fabChat';b.type='button';b.className='fab-chat'
+      b.title='问小搭'
+      b.textContent='搭'
+      b.onclick=function(){try{sw('chat')}catch(e){}}
+      document.body.appendChild(b)
+    }
+    b.style.display=(tb==='chat')?'none':''
+  }catch(e){}
+}
 function chatSiteMap(){
   return ['【他能看到的网页（家里人给他做的「学习驾驶舱」）】',
-  '标签页有 5 个：今日 / 记录 / 成绩 / 积分奖励 / 设置。',
-  '· 今日：今天做到多少、连续几天、可用积分、家长留言、这周可以聊的3个问题；',
-  '· 记录：拍照记录今天做的事（家长看过后加分）、习惯打勾、今天的任务清单、不会的题可以问；',
+  '标签页共 8 个：今日 / 小搭 / 打卡 / 错题本 / 硬笔字 / 成绩 / 积分奖励 / 设置。',
+  '· 今日：今天做到多少、连续几天、可用积分、家长留言、这周可以聊的问题；',
+  '· 小搭：就是你，他在这里跟你说话；',
+  '· 打卡：拍照记录今天做的事（家长看过后加分）、习惯打勾、今天的任务清单；',
+  '· 错题本：拍错题→你自动认科目、认题型、抓知识点；按科目存着，是「记录」不是「重做」；下面还有错题汇总、你写过的总结、你说过的提醒；',
+  '· 硬笔字：拍今天写的字，攒成作品墙；',
   '· 成绩：录入考试、成绩趋势图、基准线（起点分）、薄弱科目；',
   '· 积分奖励：积分明细和规则 / 电脑零件清单（一件件解锁，攒积分兑换）；',
   '· 设置：考试日期、学习时间、小目标、平板限时、话费、口令、数据备份。',
+  '每个页面右下角都有一个圆圆的「搭」按钮，点一下就回到你这儿。',
   '他问"我在哪看xxx"时，直接告诉他点哪个标签、大概在页面什么位置，别让他自己找。'
   ].join('\n')
 }
@@ -1299,6 +1320,24 @@ function chatSnapshot(){
   // 硬笔字作品
   const _hwN=(D.handwritings||[]).length
   if(_hwN)L.push('· 硬笔字：作品墙已有 '+_hwN+' 幅'+(hwStreak()>=2?('，连着 '+hwStreak()+' 天有作品'):''))
+  // 他刚刚从哪一页点进来的
+  if(_ctxTab&&_ctxTab!=='chat'){
+    let extra=''
+    try{
+      const nm=TAB_NAME[_ctxTab]||_ctxTab
+      if(_ctxTab==='mistake'){
+        const _a=mkList()
+        extra=_a.length?('，里面已记 '+_a.length+' 道，常错的是 '+mkTopKp(_a,2).map(function(o){return o.key+' '+o.n+' 道'}).join('、')):'，里面还没有错题'
+      }
+      else if(_ctxTab==='write'){extra='，他的硬笔字作品墙有 '+hwList().length+' 幅'}
+      else if(_ctxTab==='checkin'){extra='，那里是拍照记录今天做的事'}
+      else if(_ctxTab==='scores'){extra='，那里是成绩趋势和薄弱科目'}
+      else if(_ctxTab==='points'){extra='，那里是积分明细和电脑零件清单'}
+      else if(_ctxTab==='today'){extra='，那里是今天的总览'}
+      else if(_ctxTab==='settings'){extra='，那里是规则和设置'}
+      L.push('· 他刚刚是从「'+nm+'」页点进来的'+extra+'（可以顺着这个开头，但别硬拉；不提也行）')
+    }catch(e){}
+  }
   return L.join('\n')
 }
 
@@ -2874,6 +2913,7 @@ function render(){
   else if(tb==='points')rpk()
   else if(tb==='settings')rset()
   updateTabBadges()
+  try{fabEnsure()}catch(e){}
 }
 
 let _showAlerts=false,_openImg={},_examEdit=false,_openExamForm=false,_ckView='list',_scView='list',_pkView='points',_partEdit=false,_blEdit=false,_ptFilter='all',_exFilter='all'
@@ -2931,7 +2971,7 @@ function _rtodayBody(){
     qrow.appendChild(b)
   }
   tcard.appendChild(qrow)
-  tcard.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-top:8px'},'点科目名直接跳到「记录」页并展开该科'))
+  tcard.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-top:8px'},'点科目名直接跳到「打卡」页并展开该科'))
   $c.appendChild(tcard)
 
   // 考试倒计时
@@ -4280,7 +4320,7 @@ function rwk(){
   $c.appendChild(aiCardUI('report'))
 }
 
-function sw(tab){tb=tab;document.querySelectorAll('.tab-btn').forEach(b=>{const on=b.dataset.tab===tab;b.classList.toggle('active',on);if(on){try{b.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'})}catch(e){}}});render();window.scrollTo({top:0,behavior:'smooth'});if(tab==='chat'){try{ensureChatOpener()}catch(e){}}}
+function sw(tab){const _prev=tb;tb=tab;document.querySelectorAll('.tab-btn').forEach(b=>{const on=b.dataset.tab===tab;b.classList.toggle('active',on);if(on){try{b.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'})}catch(e){}}});render();window.scrollTo({top:0,behavior:'smooth'});if(_prev&&_prev!=='chat'&&tab==='chat')_ctxTab=_prev;if(tab==='chat'){try{ensureChatOpener()}catch(e){}}}
 document.getElementById('tabNav').addEventListener('click',(e)=>{const btn=e.target.closest('.tab-btn');if(btn)sw(btn.dataset.tab)})
 var _cb=document.getElementById('cloudBadge')
 if(_cb){_cb.style.cursor='pointer';_cb.addEventListener('click',function(){if(_dirty||!cloudReady){syncNow()}else{ts('☁️ 数据已同步（'+fmtHM(_syncT)+'）')}})}
