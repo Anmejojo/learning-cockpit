@@ -309,3 +309,10 @@ body.chat-page .chat-bar .chat-cam{padding:8px 9px;font-size:15px;border-radius:
 .chat-play{background:transparent;border:1px solid var(--border-strong);color:var(--muted);border-radius:12px;padding:2px 9px;font-size:12px;cursor:pointer;margin-top:5px;font-family:inherit;align-self:flex-start;line-height:1.5}
 .chat-play:active{opacity:.7}
 .chat-play.on{background:rgba(52,211,153,.15);border-color:rgba(52,211,153,.5);color:#34d399}
+/* ===== 硬笔字 · 作品墙 ===== */
+.hw-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.hw-item{background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:6px}
+.hw-item img{width:100%;display:block;border-radius:6px;cursor:pointer}
+.hw-bar{display:flex;align-items:center;gap:6px;margin-top:5px;font-size:12px;color:var(--muted)}
+.hw-date{flex:0 0 auto}
+.hw-del{margin-left:auto;background:transparent;border:1px solid var(--border-strong);color:var(--danger);border-radius:10px;padding:1px 8px;font-size:12px;cursor:pointer;font-family:inherit}
