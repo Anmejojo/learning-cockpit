@@ -262,6 +262,30 @@ const ROLE={
   get aiSummary(){return !VW},
   get firstPerson(){return VW?'c':'p'}
 }
+
+/* ===== 外观主题（只换配色，数据不受影响）===== */
+const THEMES=[
+  {id:'classic',name:'经典暗紫',bg:'#0b0d12',cl:'#6366f1'},
+  {id:'a',name:'极简暗夜',bg:'#0a0b0d',cl:'#8b8cf0'},
+  {id:'b',name:'深空金属',bg:'#080c10',cl:'#38bdf8'},
+  {id:'c',name:'暖夜书房',bg:'#12100e',cl:'#e0a458'}
+]
+function themeNow(){try{return (D&&D.theme)||'classic'}catch(e){return 'classic'}}
+function applyTheme(){
+  try{
+    const t=themeNow()
+    document.documentElement.setAttribute('data-theme',t)
+    document.documentElement.setAttribute('data-polish',t==='classic'?'0':'1')
+  }catch(e){}
+}
+function setTheme(id){
+  const t=THEMES.filter(function(x){return x.id===id})[0]
+  if(!t)return
+  D.theme=id
+  applyTheme();sv(D);render()
+  ts('🎨 已换成「'+t.name+'」')
+}
+
 const NOCLOUD=up.has('local')||DEMO   // ?demo 时强制本地：绝不读写云端真实数据   // 加 ?local 可强制本地模式（排查问题/离线演示用）
 if(VW){document.body.classList.add('view-only');const b=document.getElementById('modeBadge');b.textContent='👀 查看模式';b.className='badge view';b.style.display=''}
 
@@ -2887,6 +2911,7 @@ function ps(v){return v.toFixed(1)+'%'}
 
 let D=ld()
 noteSync()
+applyTheme()
 let tb='today'
 let $c=document.getElementById('appContent')
 const td=ymd()
@@ -3607,6 +3632,27 @@ function _rsetBody(){
   else if(notifyPerm())_ntBar.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){D._notify={on:true,at:Date.now()};sv(D);render();ts('已开启每日提醒')}},'开启提醒'))
   _nt.appendChild(_ntBar)
   $c.appendChild(_nt)
+
+  // 外观主题
+  const _th=themeNow()
+  const thc=h('div',{className:'card edit-only'})
+  thc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🎨'}),'外观主题'))
+  thc.appendChild(h('div',{className:'t-muted mb8'},'三套高档不花的配色。只换颜色，数据一样；选一个你和他都看得顺眼的。'))
+  const _trow=h('div',{className:'row'})
+  THEMES.forEach(function(t){
+    const on=(_th===t.id)
+    const b=h('div',{className:'theme-pick'+(on?' on':''),onClick:function(){setTheme(t.id)}})
+    const dots=h('div',{className:'tp-dots'})
+    const d1=h('span',{className:'tp-dot'});d1.style.background=t.bg
+    const d2=h('span',{className:'tp-dot'});d2.style.background=t.cl
+    dots.appendChild(d1);dots.appendChild(d2)
+    b.appendChild(dots)
+    b.appendChild(h('div',{className:'tp-name'},t.name))
+    if(on)b.appendChild(h('div',{className:'tp-on'},'✓ 使用中'))
+    _trow.appendChild(b)
+  })
+  thc.appendChild(_trow)
+  $c.appendChild(thc)
 
   // 顶部留白（防摄像头/刘海遮挡，本机设置）
   const _tp=h('div',{className:'card edit-only'})
