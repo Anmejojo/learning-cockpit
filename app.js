@@ -492,6 +492,7 @@ function approveCheck(id){
   const c=(D.checks||[]).find(function(x){return x.id===id})
   if(!c||c.status!=='pending')return
   c.status='approved'
+  c.at=Date.now()
   c.note=encTake()
   actLog('通过记录',(c.date||'')+' '+((c.subject?c.subject+'·':'')+c.typeName))
   D.points.push({date:(c.date||td),source:(c.subject?c.subject+'·':'')+c.typeName,points:c.pts,type:'earn'})
@@ -1898,6 +1899,7 @@ function approveChecks(list){
   for(const c of list){
     if(!c||c.status!=='pending')continue
     c.status='approved'
+    c.at=Date.now()
     c.note=encTake()
     D.points.push({date:(c.date||td),source:(c.subject?c.subject+'·':'')+c.typeName,points:c.pts,type:'earn'})
     n++;pts+=c.pts
@@ -1924,6 +1926,43 @@ function updateTabBadges(){
     if(!sp){sp=document.createElement('span');sp.className='tab-badge';b.appendChild(sp)}
     sp.textContent=n>99?'99+':String(n)
   })
+}
+/* ===== 已通过记录（按时间倒序，家长/孩子都能看）===== */
+function rckDone(){
+  const all=(D.checks||[]).filter(function(c){return c.status==='approved'})
+  const list=all.slice().sort(function(a,b){
+    return String(b.date||'').localeCompare(String(a.date||''))||((b.ts||0)-(a.ts||0))
+  })
+  const pts=list.reduce(function(a,c){return a+(c.pts||0)},0)
+  const head=h('div',{className:'card'})
+  head.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'✅'}),'已通过记录（'+list.length+' 条 · 累计 +'+pts+' 分）'))
+  head.appendChild(h('div',{style:'font-size:13px;color:var(--muted);line-height:1.7'},'按时间倒序：最近通过的在最上面。点照片可看大图。'))
+  $c.appendChild(head)
+  if(!list.length){
+    const e=h('div',{className:'card'})
+    e.appendChild(h('div',{style:'text-align:center;color:var(--muted);font-size:14px;padding:18px 8px'},'还没有已通过的记录'))
+    $c.appendChild(e);return
+  }
+  const box=h('div',{className:'card'})
+  const byDate={}
+  list.forEach(function(c){const d=c.date||'';(byDate[d]=byDate[d]||[]).push(c)})
+  Object.keys(byDate).sort().reverse().forEach(function(d){
+    const day=byDate[d]
+    const sum=day.reduce(function(a,c){return a+(c.pts||0)},0)
+    box.appendChild(h('div',{style:'font-size:14px;font-weight:600;margin:10px 0 6px;color:var(--text)'},fd(d)+'　+'+sum+' 分'))
+    day.forEach(function(c){
+      const row=h('div',{style:'display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--border)'})
+      const imgs=checkImgs(c)
+      row.appendChild(h('div',{style:'flex:1;min-width:0'},h('div',{style:'font-size:14px'},(c.subject?c.subject+'·':'')+(c.typeName||c.type)),h('div',{style:'font-size:12.5px;color:var(--muted);margin-top:2px'},'+'+c.pts+' 分'+(c.ts?(' · '+(c.at?('通过 '+fd(ymd(new Date(c.at)))+' '+fmtHM(c.at)):('提交 '+fmtHM(c.ts)))):''))))
+      if(imgs.length){
+        const ir=h('div',{style:'display:flex;gap:4px;flex-wrap:wrap;max-width:150px'})
+        imgs.slice(0,3).forEach(function(b){ir.appendChild(photoImg(b,imgs,'width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer'))})
+        row.appendChild(ir)
+      }
+      box.appendChild(row)
+    })
+  })
+  $c.appendChild(box)
 }
 function pickAndSubmit(type,subject,append){
   ts('📷 请拍照或选择图片（可多张，也可以一张一张加）')
@@ -2459,12 +2498,13 @@ function rchat(){
 function rck(){
   $c.appendChild(segBar([
     {label:'📷 记录今天',on:_ckView==='list',fn:function(){_ckView='list';render()}},
-    {label:'📅 记录日历',on:_ckView==='cal',fn:function(){_ckView='cal';render()}}
+    {label:'📅 记录日历',on:_ckView==='cal',fn:function(){_ckView='cal';render()}},
+    {label:'✅ 已通过记录',on:_ckView==='done',fn:function(){_ckView='done';render()}}
   ]))
   const box=h('div',null)
   $c.appendChild(box)
   const host=$c; $c=box
-  try{ if(_ckView==='cal')rcal(); else rckList() } finally{ $c=host }
+  try{ if(_ckView==='cal')rcal(); else if(_ckView==='done')rckDone(); else rckList() } finally{ $c=host }
 }
 
 function rckList(){
@@ -2520,6 +2560,7 @@ function rckList(){
       }
       if(rec.status==='rejected')card.appendChild(h('button',{className:'btn btn-outline btn-sm',style:'margin-top:6px',onClick:function(){startCheck(type,subj)}},'📷 重新上传'))
       if(rec.status==='pending'&&rec.noteSubmit)card.appendChild(h('div',{className:'longtext',style:'font-size:14px;line-height:1.7;color:var(--success);margin-top:6px'},'💬 '+rec.noteSubmit))
+      if(rec.status==='approved'&&rec.at)card.appendChild(h('div',{style:'font-size:12.5px;color:var(--muted);margin-top:4px'},'通过时间 '+fmtHM(rec.at)))
       if(rec.status==='approved'&&rec.note)card.appendChild(h('div',{className:'longtext',style:'font-size:14px;line-height:1.7;color:var(--primary);margin-top:6px'},'💬 '+rec.note))
     }else{
       card.appendChild(h('button',{className:'btn btn-primary btn-sm',style:'margin-top:6px',onClick:function(){startCheck(type,subj)}},'📷 记一笔'))
