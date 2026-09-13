@@ -250,6 +250,15 @@ function logout(){
 /* ================= AI 助手（密钥在云函数里，网页端不存） ================= */
 const AI_URL='https://jiajia-study-d6gjyod13d77728d6-1483465315.ap-shanghai.app.tcloudbase.com/ai'
 function aiToken(){return localStorage.getItem('lc_tok')||''}
+/* 家长端开机时把 AI 令牌登记进数据，孩子端才能用同一把令牌（只做一次，不重复上传） */
+async function authTokenSync(){
+  try{
+    const lv=localStorage.getItem('lc_lv')||''
+    const tk=localStorage.getItem('lc_tok')||''
+    if(lv==='p'&&tk&&D._auth&&!D._auth.t){D._auth.t=tk;await saveCloud(D);return true}
+  }catch(e){}
+  return false
+}
 async function aiCall(prompt,image,kbq){
   if(!aiToken())return {ok:false,err:'请先设置口令，再使用 AI'}
   try{
@@ -2971,4 +2980,5 @@ initAuth()
     setCloudStatus('📴 本地模式（未连云端）',false)
   }
   const _t2=document.getElementById('bootTip');if(_t2)_t2.remove()
+  await authTokenSync()
 })()
