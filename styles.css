@@ -330,3 +330,17 @@ body.chat-page .chat-bar .chat-cam{padding:8px 9px;font-size:15px;border-radius:
 .grow{flex:1;min-width:0}
 .t-muted{font-size:13.5px;color:var(--muted)}
 .t-faint{font-size:12px;color:var(--faint)}
+
+/* ===== 全站悬浮小搭按钮（每个页面右下角）===== */
+.fab-chat{
+  position:fixed;right:16px;bottom:calc(18px + env(safe-area-inset-bottom,0px));
+  width:54px;height:54px;border-radius:50%;border:0;cursor:pointer;z-index:9000;
+  background:linear-gradient(135deg,#6c5ce7,#4cc38a);
+  color:#fff;font-size:19px;font-weight:700;font-family:inherit;line-height:1;
+  box-shadow:0 6px 18px rgba(0,0,0,.35);
+  display:flex;align-items:center;justify-content:center;
+  transition:transform .15s ease,box-shadow .15s ease,opacity .15s ease;opacity:.94;
+}
+.fab-chat:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(0,0,0,.45);opacity:1}
+.fab-chat:active{transform:scale(.94)}
+@media (max-width:420px){.fab-chat{width:48px;height:48px;right:12px;font-size:17px}}
