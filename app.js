@@ -218,11 +218,11 @@ function demoData(){
     {id:2,date:today,role:'a',text:'x轴交点就是 y=0 的那个点。先把 y=0 代进去，得到个式子，你写出来我看看？',ts:Date.now()-1790000}
   ]
   d.mistakes=[
-    {id:201,date:today,ts:Date.now()-7200000,by:'c',subject:'数学',kp:'一次函数与x轴交点',stem:'已知 y=2x-3，求它与 x 轴交点的坐标',why:'公式记错',imgs:[],pass:[]},
-    {id:202,date:today,ts:Date.now()-5400000,by:'c',subject:'数学',kp:'一次函数与x轴交点',stem:'求直线 y=-x+4 与两坐标轴围成的三角形面积',why:'审题漏条件',imgs:[],pass:[Date.now()-3600000]},
-    {id:203,date:y1,ts:Date.now()-90000000,by:'c',subject:'英语',kp:'现在完成时',stem:'用括号内动词的适当形式填空：I ___ (finish) my homework already.',why:'公式记错',imgs:[],pass:[]},
-    {id:204,date:y1,ts:Date.now()-88000000,by:'c',subject:'物理',kp:'欧姆定律',stem:'已知 R=10Ω，两端电压 5V，求通过它的电流',why:'计算错误',imgs:[],pass:[Date.now()-80000000,Date.now()-70000000]},
-    {id:205,date:y2,ts:Date.now()-176000000,by:'c',subject:'语文',kp:'文言实词',stem:'解释下面句中「之」的用法与意思',why:'根本不会',imgs:[],pass:[]}
+    {id:201,date:today,ts:Date.now()-7200000,by:'c',subject:'数学',qtype:'计算题',kp:'一次函数与x轴交点',stem:'已知 y=2x-3，求它与 x 轴交点的坐标',why:'公式记错',imgs:[],pass:[]},
+    {id:202,date:today,ts:Date.now()-5400000,by:'c',subject:'数学',qtype:'应用题',kp:'一次函数与x轴交点',stem:'求直线 y=-x+4 与两坐标轴围成的三角形面积',why:'审题漏条件',imgs:[],pass:[Date.now()-3600000]},
+    {id:203,date:y1,ts:Date.now()-90000000,by:'c',subject:'英语',qtype:'词汇语法',kp:'现在完成时',stem:'用括号内动词的适当形式填空：I ___ (finish) my homework already.',why:'公式记错',imgs:[],pass:[]},
+    {id:204,date:y1,ts:Date.now()-88000000,by:'c',subject:'物理',qtype:'计算题',kp:'欧姆定律',stem:'已知 R=10Ω，两端电压 5V，求通过它的电流',why:'计算错误',imgs:[],pass:[Date.now()-80000000,Date.now()-70000000]},
+    {id:205,date:y2,ts:Date.now()-176000000,by:'c',subject:'语文',qtype:'文言文阅读',kp:'文言实词',stem:'解释下面句中「之」的用法与意思',why:'根本不会',imgs:[],pass:[]}
   ]
   d._mem=[{id:1,text:'数学函数容易卡，看到图就发懵',tags:['函数'],at:Date.now()},{id:2,text:'不喜欢被问成绩',tags:['成绩'],at:Date.now()}]
   d._log=[{ts:Date.now()-3600000,by:'c',act:'提交记录',target:today+' 数学·作业拍照'},{ts:Date.now()-3300000,by:'p',act:'通过记录',target:today+' 数学·作业拍照'}]
@@ -731,13 +731,29 @@ function dailyBanner(){
 }
 function mkList(){if(!D.mistakes)D.mistakes=[];return D.mistakes}
 const MK_SUBJECTS=['语文','数学','英语','物理','化学','地理','生物','历史','道法']
+/* 各科题型表（给 AI 选，保证叫法统一，也方便统计） */
+const MK_QTYPES={
+  '语文':['字音字形','词语运用','病句修改','诗文默写','言文文阅读','现代文阅读','名著阅读','综合学习','作文'],
+  '数学':['选择填空','计算题','方程与不等式','几何证明','函数与图像','应用题','统计与概率','动点综合'],
+  '英语':['词汇语法','完形填空','阅读理解','任务型阅读','单词拼写','句型转换','翻译','书面表达'],
+  '物理':['选择填空','实验探究','作图题','计算题'],
+  '化学':['选择填空','实验探究','推断题','计算题'],
+  '地理':['选择填空','读图分析','简答题'],
+  '生物':['选择填空','识图作答','实验探究','简答题'],
+  '历史':['选择填空','材料分析','简答题','列举题'],
+  '道法':['选择填空','情境分析','简答题','辩析题']
+}
+const MK_QTYPE_HINT=Object.keys(MK_QTYPES).map(function(k){return k+'：'+MK_QTYPES[k].join('、')}).join('；')
 function mkRecognize(img,cb){
-  const p=['这是一张初中生的错题 / 作业照片。请识别并只输出 JSON（不要任何解释）：',
-    '{"subject":"科目","kp":"知识点","stem":"题干摘要","why":"错因"}',
-    '· subject 只能填：'+MK_SUBJECTS.join('/')+'（判断不出就填 其他）；',
-    '· kp：最核心的知识点，10 字以内；',
-    '· stem：只写关键条件和问什么，40 字以内；',
-    '· why：从「看不懂题目 / 审题漏条件 / 公式记错 / 计算错误 / 根本不会 / 没做完」里选一个，10 字以内。'
+  const p=['你是初中全科老师，正在帮学生把一张错题照片整理进错题本。',
+    '请先真的读懂题目——看清题干、已知条件、要求什么（数学看清数字和符号，语文/英语看清最后一个小题问什么），',
+    '然后只输出一行 JSON，不要任何解释、不要代码块：',
+    '{"subject":"科目","qtype":"题型","kp":"知识点","stem":"题干摘要","why":"错因"}',
+    '· subject 只能填：'+MK_SUBJECTS.join('/')+'（实在判不出填 其他）；',
+    '· qtype 按科目从这些里选一个：'+MK_QTYPE_HINT+'；',
+    '· kp：这道题真正考的知识点，10 字以内（如“一次函数与x轴交点”，不要只写“函数”这种太笼统的）；',
+    '· stem：关键条件 + 问什么，60 字以内；数学式子和数字要写准（真看不清就写“照片看不清”）；',
+    '· why：从「看不懂题目 / 审题漏条件 / 公式记错 / 计算错误 / 根本不会 / 没做完」里选一个。'
   ].join('\n')
   aiCall(p,img,'').then(function(r){
     if(!r||!r.ok||!r.text)return cb(null)
@@ -746,19 +762,26 @@ function mkRecognize(img,cb){
     cb(j)
   })
 }
+function mkFill(it,j){
+  if(!j||!it)return
+  const sub=(j.subject?String(j.subject).slice(0,6):'')
+  if(sub&&MK_SUBJECTS.indexOf(sub)>=0)it.subject=sub
+  if(j.qtype)it.qtype=String(j.qtype).slice(0,12)
+  if(j.kp)it.kp=String(j.kp).slice(0,20)
+  if(j.stem)it.stem=String(j.stem).slice(0,80)
+  if(j.why)it.why=String(j.why).slice(0,20)
+}
 function mkCommit(urls){
   if(!urls||!urls.length)return
-  ts('🤖 正在识别错题…')
+  ts('🤖 正在认错题…')
   mkRecognize(urls[0],function(j){
     const sub=(j&&j.subject)?String(j.subject).slice(0,6):''
     const it={id:Date.now(),date:td,ts:Date.now(),by:(_lv==='c'?'c':'p'),
       subject:(MK_SUBJECTS.indexOf(sub)>=0?sub:(sub?sub:'')),
-      kp:(j&&j.kp?String(j.kp).slice(0,20):''),
-      stem:(j&&j.stem?String(j.stem).slice(0,80):''),
-      why:(j&&j.why?String(j.why).slice(0,20):''),
-      imgs:urls,pass:[]}
+      qtype:'',kp:'',stem:'',why:'',imgs:urls,pass:[]}
+    mkFill(it,j)
     mkList().unshift(it)
-    ts(j?('\u2705 已归到「'+(it.subject||'待归类')+'」错题本'):'\u26a0\ufe0f 没认出来，先存着（家长可手动改科目）')
+    ts(j?('✅ 已归到「'+(it.subject||'待归类')+'」'+((it.kp||it.qtype)?('·'+(it.kp||'')+(it.qtype?(' '+it.qtype):'')):'')):'⚠️ 没认出来，先存着（家长可手动改科目）')
     actLog('上传错题',(it.subject||'待归类')+(it.kp?('·'+it.kp):''))
     D.points.push({date:td,source:'错题本拍照',points:2,type:'earn'})
     sv(D);render()
@@ -780,11 +803,13 @@ function mkAdd(){
   }
   inp.click()
 }
-function mkTopKp(list,n){
+function mkCount(list,keyFn){
   const m={}
-  ;(list||[]).forEach(function(x){const key=((x.subject||'')?x.subject+'·':'')+(x.kp||'未标注知识点');m[key]=(m[key]||0)+1})
-  return Object.keys(m).map(function(k){return {key:k,n:m[k]}}).sort(function(a,b){return b.n-a.n||(a.key<b.key?-1:1)}).slice(0,n||5)
+  ;(list||[]).forEach(function(x){const k=keyFn(x);m[k]=(m[k]||0)+1})
+  return Object.keys(m).map(function(k){return {key:k,n:m[k]}}).sort(function(a,b){return b.n-a.n||(a.key<b.key?-1:1)})
 }
+function mkTopKp(list,n){return mkCount(list,function(x){return ((x.subject||'')?x.subject+'·':'')+(x.kp||'未标注知识点')}).slice(0,n||5)}
+function mkTopType(list,n){return mkCount(list,function(x){return x.qtype||'未标注题型'}).slice(0,n||5)}
 function mkDel(id){D.mistakes=mkList().filter(function(x){return x.id!==id});actLog('删除错题','');sv(D);render();ts('已删除')}
 function mkRow(it,showSub){
   const row=h('div',{style:'border-bottom:1px solid var(--border);padding:10px 0'})
@@ -793,6 +818,7 @@ function mkRow(it,showSub){
   const tags=h('div',{style:'display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:4px'})
   if(showSub&&it.subject)tags.appendChild(h('span',{style:'font-size:12px;padding:1px 7px;border-radius:8px;background:var(--bg-elev);border:1px solid var(--border);color:var(--muted)'},it.subject))
   tags.appendChild(h('span',{style:'font-size:12px;padding:1px 7px;border-radius:8px;background:var(--primary-weak);border:1px solid var(--primary-border);color:var(--primary-hover)'},it.kp||'未标注知识点'))
+  if(it.qtype)tags.appendChild(h('span',{style:'font-size:12px;padding:1px 7px;border-radius:8px;background:var(--bg-elev);border:1px solid var(--border-strong);color:var(--muted)'},it.qtype))
   if(it.why)tags.appendChild(h('span',{style:'font-size:12px;padding:1px 7px;border-radius:8px;background:var(--warning-weak);border:1px solid var(--warning-border);color:var(--warning)'},it.why))
   left.appendChild(tags)
   if(it.stem)left.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);line-height:1.6'},it.stem))
@@ -806,6 +832,17 @@ function mkRow(it,showSub){
   row.appendChild(top)
   if(!VW){
     const br=h('div',{style:'display:flex;gap:6px;margin-top:7px;flex-wrap:wrap'})
+    if(!it.qtype||!it.kp){
+      br.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){
+        const im=(it.imgs||[])[0]
+        if(!im){ts('这张没有照片，改不了');return}
+        ts('🔎 让 AI 再看一遍…')
+        mkRecognize(im,function(j){
+          if(!j){ts('没认出来，稍后再试');return}
+          mkFill(it,j);sv(D);render();ts('✅ 已补齐：'+(it.subject||'')+(it.qtype?(' · '+it.qtype):''))
+        })
+      }},'🔎 补齐识别'))
+    }
     br.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){
       const s2=prompt('归到哪个科目？\n'+MK_SUBJECTS.join(' / '),it.subject||'')||''
       if(s2){it.subject=s2.trim().slice(0,6);sv(D);render()}
@@ -859,6 +896,13 @@ function rckMk(){
           gt.appendChild(r)
         })
         tc.appendChild(gt)
+        const ty=mkTopType(all,5)
+        if(ty.length){
+          tc.appendChild(h('div',{style:'font-size:13px;font-weight:600;margin:12px 0 6px'},'常错题型'))
+          const g2=h('div',{style:'display:flex;gap:6px;flex-wrap:wrap'})
+          ty.forEach(function(o){g2.appendChild(h('span',{style:'font-size:12px;padding:2px 8px;border-radius:8px;background:var(--bg-elev);border:1px solid var(--border)'},o.key+' '+o.n))})
+          tc.appendChild(g2)
+        }
         tc.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:8px;line-height:1.6'},'同一个地方反复错，说明这个知识点还没通。翻错题记录时重点看这几处。'))
         $c.appendChild(tc)
       }
@@ -876,11 +920,22 @@ function rckMk(){
   hb.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_mkView='总览';render()}},'\u2190 各科'))
   hb.appendChild(h('div',{style:'font-size:15px;font-weight:600'},_mkView+' 错题记录（'+list.length+' 道）'))
   head.appendChild(hb)
+  const _tp=mkTopType(list,20)
+  if(_tp.length){
+    const trow=h('div',{style:'display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px'})
+    trow.appendChild(h('span',{style:'font-size:12.5px;color:var(--muted)'},'题型：'))
+    _tp.forEach(function(o){trow.appendChild(h('span',{style:'font-size:12px;padding:1px 7px;border-radius:8px;background:var(--bg-elev);border:1px solid var(--border);color:var(--muted)'},o.key+' '+o.n))})
+    head.appendChild(trow)
+  }
+  const gr=h('div',{style:'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px'})
+  gr.appendChild(h('button',{className:'btn btn-sm '+(_mkGroup==='kp'?'btn-primary':'btn-outline'),onClick:function(){_mkGroup='kp';render()}},'按知识点'))
+  gr.appendChild(h('button',{className:'btn btn-sm '+(_mkGroup==='type'?'btn-primary':'btn-outline'),onClick:function(){_mkGroup='type';render()}},'按题型'))
+  head.appendChild(gr)
   const br=h('div',{style:'display:flex;gap:8px;flex-wrap:wrap'})
   br.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){
     try{
       const t=_mkView+' 错题库（'+list.length+' 道）\n\n'+list.map(function(x,i2){
-        return (i2+1)+'． 知识点：'+(x.kp||'—')+'\n　　题目：'+(x.stem||'（见照片）')+'\n　　错因：'+(x.why||'—')+'　（'+fd(x.date)+'）\n'
+        return (i2+1)+'． 题型：'+(x.qtype||'—')+'　知识点：'+(x.kp||'—')+'\n　　题目：'+(x.stem||'（见照片）')+'\n　　错因：'+(x.why||'—')+'　（'+fd(x.date)+'）\n'
       }).join('\n')
       const b=new Blob([t],{type:'text/plain;charset=utf-8'})
       const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='错题库_'+_mkView+'_'+td+'.txt';a.click()
@@ -889,12 +944,12 @@ function rckMk(){
   }},'📤 导出'))
   head.appendChild(br)
   $c.appendChild(head)
-  const byKp={}
-  list.forEach(function(x){const k=x.kp||'未标注知识点';(byKp[k]=byKp[k]||[]).push(x)})
-  Object.keys(byKp).forEach(function(k){
+  const byG={}
+  list.forEach(function(x){const k=(_mkGroup==='type')?(x.qtype||'未标注题型'):(x.kp||'未标注知识点');(byG[k]=byG[k]||[]).push(x)})
+  Object.keys(byG).forEach(function(k){
     const box=h('div',{className:'card'})
-    box.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔖'}),k+'（'+byKp[k].length+' 道）'))
-    byKp[k].slice().sort(function(a,b){return (b.ts||0)-(a.ts||0)}).forEach(function(it){box.appendChild(mkRow(it))})
+    box.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔖'}),k+'（'+byG[k].length+' 道）'))
+    byG[k].slice().sort(function(a,b){return (b.ts||0)-(a.ts||0)}).forEach(function(it){box.appendChild(mkRow(it))})
     $c.appendChild(box)
   })
 }
@@ -1296,6 +1351,7 @@ function ensureChatOpener(){
 
 /* ---- 给他看「小搭记得的事」，不对的他自己删 ---- */
 let _mkView='总览'
+let _mkGroup='kp'
 let _todayMore=false
 let _memOpen=false
 let _chatShow=40
