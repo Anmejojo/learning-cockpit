@@ -897,6 +897,7 @@ let _chatShow=40
 let _aiBusy=false
 let _draft=''
 let _sr=null,_srOn=false,_srBase='',_srUsed=false
+let _speakId=null
 function memPanelUI(){
   const full=h('div',{className:'mem-panel'})
   const head=h('div',{className:'mem-head'},h('span',null,'小搭记得的事'),
@@ -1094,10 +1095,12 @@ function chatVoice(){
     _srOn=true;_sr.start();render()
   }catch(e){_srOn=false;ts('语音启动失败：'+String(e.message||e).slice(0,40));render()}
 }
-function chatSpeak(t){
+function ttsSupported(){try{return !!window.speechSynthesis}catch(e){return false}}
+function chatSpeak(t,id){
   try{
-    if(!D._tts)return
+    if(D._tts===false)return
     if(!window.speechSynthesis)return
+    if(id&&_speakId===id){chatSpeakStop();_speakId=null;if(tb==='chat')render();return}
     const s=Array.from(String(t||'')).filter(function(ch){
       const c=ch.codePointAt(0)
       return !(c>=0x1F000&&c<=0x1FAFF)&&!(c>=0x2600&&c<=0x27BF)&&c!==0xFE0F&&c!==0x200D
@@ -1106,10 +1109,13 @@ function chatSpeak(t){
     speechSynthesis.cancel()
     const u=new SpeechSynthesisUtterance(s)
     u.lang='zh-CN';u.rate=1.05;u.pitch=1.0
+    _speakId=id||null
+    u.onend=function(){_speakId=null;if(tb==='chat')render()}
+    u.onerror=function(){_speakId=null;if(tb==='chat')render()}
     speechSynthesis.speak(u)
-  }catch(e){}
+  }catch(e){_speakId=null}
 }
-function chatSpeakStop(){try{if(window.speechSynthesis)speechSynthesis.cancel()}catch(e){}}
+function chatSpeakStop(){try{_speakId=null;if(window.speechSynthesis)speechSynthesis.cancel()}catch(e){}}
 function chatSend(imgB64){
   const el=document.getElementById('chatInput')
   const v=(el&&el.value||'').trim()
@@ -1222,7 +1228,6 @@ function chatSend(imgB64){
     if(l2.length>300)D._chat=l2.slice(-300)
     sv(D);render()
     _aiBusy=false
-    if(!_alert)chatSpeak(_txt)
     setTimeout(function(){const el=document.getElementById('chatScroll');if(el)el.scrollTop=el.scrollHeight},60)
   }).catch(function(){_aiBusy=false})
 }
@@ -1287,6 +1292,9 @@ function chatUI(){
     if(m.imgCleared)bub.appendChild(h('div',{className:'imgtip'},'（图片已清理）'))
     if(m.voice)bub.appendChild(h('span',{style:'font-size:11px;opacity:.65;margin-left:5px'},'🎤'))
     main.appendChild(bub)
+    if(!me&&!m.pending&&m.text&&D._tts!==false&&ttsSupported()){
+      main.appendChild(h('button',{className:'chat-play'+(_speakId===m.id?' on':''),title:'点一下听这句',onClick:function(){chatSpeak(m.text,m.id)}},_speakId===m.id?'⏹':'🔊'))
+    }
     row.appendChild(main)
     scroll.appendChild(row)
     prevTs=m.ts
@@ -1312,7 +1320,7 @@ function chatUI(){
     bar.appendChild(h('button',{className:'chat-cam',onClick:function(){chatPickImage()}},'📷'))
     bar.appendChild(h('button',{className:'chat-cam',onClick:function(){emo.style.display=(emo.style.display==='none'?'':'none')}},'😊'))
     if(srSupported())bar.appendChild(h('button',{className:'chat-cam'+(_srOn?' rec':''),title:'说话自动变文字',onClick:function(){chatVoice()}},_srOn?'⏹':'🎤'))
-    bar.appendChild(h('button',{className:'chat-cam'+(D._tts?' on':''),title:'小搭读出来',onClick:function(){D._tts=!D._tts;sv(D);if(D._tts){chatSpeak('好，我读给你听')}else{chatSpeakStop()}ts(D._tts?'🔊 小搭会读给你听':'🔈 不读了');render()}},(D._tts?'🔊':'🔈')))
+    bar.appendChild(h('button',{className:'chat-cam'+(D._tts!==false?' on':''),title:'小搭的话可以点着听',onClick:function(){D._tts=(D._tts===false);sv(D);if(D._tts===false)chatSpeakStop();ts(D._tts!==false?'🔊 小搭每句话旁边都能点着听':'🔈 已隐藏朗读按钮');render()}},(D._tts!==false?'🔊':'🔈')))
     const _inp=h('input',{id:'chatInput',placeholder:'说点什么…',onInput:function(e){_draft=e.target.value},onKeyDown:function(e){if(e.key==='Enter'){e.preventDefault();chatSend()}}})
     _inp.value=_draft
     bar.appendChild(_inp)
