@@ -2958,7 +2958,6 @@ function rtoday(){
   try{ _rtodayBody() } finally { $c=_host }
   const _kids=Array.prototype.slice.call(_tmp.children||[]);
   const _pb=dailyBanner(); if(_pb)_pb.forEach(function(x){$c.appendChild(x)});
-  try{$c.appendChild(cockpitCard())}catch(e){}
   _kids.slice(0,1).forEach(function(c){$c.appendChild(c)});
   const btn=h('button',{className:'btn btn-outline btn-sm',style:'width:100%;margin-bottom:10px',onClick:function(){_todayMore=!_todayMore;render()}});
   btn.innerHTML=_todayMore?'▲ 收起（只看重点）':'▼ 展开更多（考试倒计时 / 成绩 / 寄语 / 留言）';
@@ -3000,9 +2999,9 @@ function ptBurst(n,label){
   }catch(e){}
 }
 /* 我的舱卡片（今日页顶部一直显示） */
-function cockpitCard(){
+function cockpitStrip(){
   const L=myLv(), pc=pcProgress()
-  const c=h('div',{className:'card cockpit'})
+  const c=h('div',{className:'ck-strip'})
   const top=h('div',{className:'ck-top'})
   top.appendChild(h('span',{className:'ck-go'},'距离 Lv.'+(L.lv+1)+'　'+lvTitle(L.lv+1)))
   top.appendChild(h('span',{className:'ck-exp'},'还差 '+(L.need-L.exp)+' 分'))
@@ -3060,13 +3059,14 @@ function icoEl(name,size){
 
 /* ===== 新手引导（三步，手写探照灯，不引入 driver.js —— 它自带样式会和主题打架） ===== */
 const GUIDE=[
-  {tab:'today',sel:'.cockpit',t:'这是你的驾驶舱',d:'上面是你现在的等级，还有积分积到哪了；下面是你今天的进度。没有人拿这个评价你。'},
+  {tab:'today',sel:'.todo-card',t:'这是你的驾驶舱',d:'上面是今天的进度；最下面是积分积到哪了、电脑装到几件了。没有人拿这个评价你。'},
   {tab:'checkin',sel:'.tabs [data-tab="checkin"]',t:'想记一笔就点这里',d:'拍张照就算记下来了。不用一次做完，也不用写得多好。'},
   {tab:'chat',sel:'.tabs [data-tab="chat"]',t:'有不会的就找小搭',d:'点这个，或者右下角那个圆圆的「搭」。题不会、心情不好，都能跟它说。'}
 ]
 function guideEnd(){
   try{D._guide=1;sv(D)}catch(e){}
   const ov=document.getElementById('guideOv');if(ov)ov.remove()
+  const pp2=document.getElementById('guidePop');if(pp2)pp2.remove()
   document.querySelectorAll('.guide-hi').forEach(function(x){x.classList.remove('guide-hi')})
 }
 function guideShow(i){
@@ -3077,6 +3077,8 @@ function guideShow(i){
     try{
       let ov=document.getElementById('guideOv')
       if(!ov){ov=document.createElement('div');ov.id='guideOv';ov.className='guide-ov';document.body.appendChild(ov)}
+      let pp=document.getElementById('guidePop')
+      if(!pp){pp=document.createElement('div');pp.id='guidePop';pp.className='guide-pop-layer';document.body.appendChild(pp)}
       document.querySelectorAll('.guide-hi').forEach(function(x){x.classList.remove('guide-hi')})
       let el=null
       try{el=document.querySelector(G.sel)}catch(e){}
@@ -3085,15 +3087,17 @@ function guideShow(i){
       if(r&&r.width>4){
         el.classList.add('guide-hi')
         const top=Math.max(8,Math.min(window.innerHeight-190,r.bottom+12))
-        html='<div class="guide-mask" style="top:'+(r.top-4)+'px;left:'+(r.left-4)+'px;width:'+(r.width+8)+'px;height:'+(r.height+8)+'px"></div>'+
-             '<div class="guide-pop" style="top:'+top+'px">'
+        html='<div class="guide-mask" style="top:'+(r.top-4)+'px;left:'+(r.left-4)+'px;width:'+(r.width+8)+'px;height:'+(r.height+8)+'px"></div>'
+        popHtml='<div class="guide-pop" style="top:'+top+'px">'
       }else{
-        html='<div class="guide-mask guide-mask-full"></div><div class="guide-pop" style="top:38%">'
+        html='<div class="guide-mask guide-mask-full"></div>'
+        popHtml='<div class="guide-pop" style="top:38%">'
       }
-      html+='<div class="guide-i">'+(i+1)+' / '+GUIDE.length+'</div><div class="guide-t">'+G.t+'</div><div class="guide-d">'+G.d+'</div>'+
+      popHtml+='<div class="guide-i">'+(i+1)+' / '+GUIDE.length+'</div><div class="guide-t">'+G.t+'</div><div class="guide-d">'+G.d+'</div>'+
             '<div class="guide-btns"><button class="btn btn-outline btn-sm" id="gSkip">不看了</button>'+
             '<button class="btn btn-primary btn-sm" id="gNext">'+(i+1<GUIDE.length?'下一步':'知道了')+'</button></div></div>'
       ov.innerHTML=html
+      pp.innerHTML=popHtml
       const nx=document.getElementById('gNext');if(nx)nx.onclick=function(){guideShow(i+1)}
       const sk=document.getElementById('gSkip');if(sk)sk.onclick=guideEnd
     }catch(e){}
@@ -3147,6 +3151,7 @@ function _rtodayBody(){
   }
   tcard.appendChild(qrow)
   tcard.appendChild(h('div',{style:'font-size:var(--fs-14);color:var(--muted);margin-top:8px'},'点科目名直接跳到「打卡」页并展开该科'))
+  try{tcard.appendChild(cockpitStrip())}catch(e){}
   $c.appendChild(tcard)
 
   // 考试倒计时
