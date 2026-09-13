@@ -27,5 +27,17 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "家长版",
+      "short_name": "家长",
+      "url": "./index.html"
+    },
+    {
+      "name": "孩子版（只看+打卡）",
+      "short_name": "孩子",
+      "url": "./index.html?view"
+    }
   ]
 }
