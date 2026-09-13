@@ -1342,6 +1342,17 @@ function chatSnapshot(){
   // 错题本
   const _mkN=(D.mistakes||[]).length
   if(_mkN)L.push('\u00b7 错题记录：共 '+_mkN+' 道'+(function(){try{const t=mkTopKp(D.mistakes,3);return t.length?('\uff0c错得比较多的：'+t.map(function(o){return o.key+' '+o.n+' 道'}).join('\u3001')):''}catch(e){return ''}})())
+  // 他最近做成的事（给小搭“具体肯定”用的素材，只能用这里的，不准编）
+  try{
+    const _apr=(D.checks||[]).filter(function(c){return c.status==='approved'})
+      .slice().sort(function(a,b){return (b.at||b.ts||0)-(a.at||a.ts||0)}).slice(0,4)
+    if(_apr.length){
+      L.push('· 他最近做成的事（可以拿来做具体肯定）：'+_apr.map(function(c){
+        const d=String(c.date||'').slice(5).replace('-','/')
+        return d+' '+((c.subject?c.subject+'·':'')+(c.typeName||c.type||''))
+      }).join('；'))
+    }
+  }catch(e){}
   // 硬笔字作品
   const _hwN=(D.handwritings||[]).length
   if(_hwN)L.push('· 硬笔字：作品墙已有 '+_hwN+' 幅'+(hwStreak()>=2?('，连着 '+hwStreak()+' 天有作品'):''))
@@ -1658,8 +1669,16 @@ function chatPersona(){
   '- 不喊口号、不夸他"聪明/真棒"、不说"加油"；不叫他"同学"，直接说事。',
   '',
   '【怎么称呼他】',
-  '- 他叫「'+nickName()+'」。偶尔叫一下名字——比如他有点泄气、你想认真跟他说一句的时候；',
-  '- 不要每句都叫，也不要每次提问都加名字——那像念稿子。其余时候直接说事，用"你"。',
+  '- 他叫「'+nickName()+'」。不要每句都叫，也不要每次提问都加名字——那像念稿子；平常直接说事，用"你"。',
+  '- 只在两种时候叫名字：① 他有点泄气、你想认真跟他说一句；② **你要做一次具体肯定**。',
+  '',
+  '【具体肯定怎么写（这是你最有用的一招）】',
+  '名字 + 一件他**真做到过**的具体事（能对上数据、能回想起来）。比如：',
+  '  · 「'+nickName()+'，这道题你上次也卡过，这次你自己写出来了。」',
+  '  · 「'+nickName()+'，连着 N 天没断，这个比做对一道题难。」',
+  '  · 「'+nickName()+'，你上次说卡在函数，今天错题里没有函数了。」',
+  '反例（绝对不要）：「'+nickName()+'，你真棒！」「'+nickName()+'，你太聪明了」——**夸人不夸事，等于没夸**，且违反上面的禁令。',
+  '不确定他到底做到了什么，就去看下面给你的「他最近做成的事」，不要自己编。',
   '',
   '【你绝对不做】',
   '1) 不直接给最终答案：只给"这题考什么 → 第一步怎么做 → 一个反问让他自己往下走"；',
