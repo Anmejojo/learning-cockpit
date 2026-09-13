@@ -678,6 +678,170 @@ function asksCardUI(){
 
 ﻿/* ================= 和搭子说话（AI 对话栏） ================= */
 ﻿﻿/* ================= 小搭「看得见网页」：站点地图 + 实时快照 ================= */
+/* ================= 错题本：拍照 → AI 识别 → 自动归类到科目 ================= */
+/* ================= 每日提醒（打开时提醒 + 可选系统通知） ================= */
+function notifyPerm(){try{return ('Notification' in window)&&Notification.permission==='granted'}catch(e){return false}}
+function notifyAsk(){
+  try{
+    if(!('Notification' in window)){ts('这个浏览器不支持系统通知（不影响使用）');return}
+    Notification.requestPermission().then(function(p){
+      D._notify={on:(p==='granted'),at:Date.now()}
+      sv(D);render()
+      ts(p==='granted'?'✅ 已开启系统通知':'已拒绝（可以随时再来开）')
+    })
+  }catch(e){ts('这个浏览器不支持系统通知')}
+}
+function sysNotify(title,body){try{if(notifyPerm())new Notification(title,{body:body,icon:'icon-192.png'})}catch(e){}}
+function dailyBanner(){
+  const out=[]
+  try{
+    if(VW){
+      const ds=dayStats(td),hs=habStats(td)
+      const doneN=ds.done+hs.done
+      const hh=new Date().getHours()
+      if(doneN===0&&hh>=17)out.push('🌙 今天还一条都没记。等你哪天想弄，就从最小的一件开始。')
+      else if(doneN>0&&hh>=19)out.push('👍 今天已经记了 '+doneN+' 件。剩下的不急，想弄再弄。')
+    }else{
+      const pend=(D.checks||[]).filter(function(c){return c.status==='pending'}).length
+      const al=(D._alerts||[]).filter(function(a){return !a.ack}).length
+      if(al)out.push('🆘 有 '+al+' 条需要你关注的对话提醒，建议今晚打个电话，先别谈成绩。')
+      if(pend)out.push('⏳ 有 '+pend+' 条记录等你审核。')
+    }
+  }catch(e){}
+  if(!out.length)return null
+  if(D._notify&&D._notify.on){
+    const key=td+'|'+out.length
+    if(!D._notify.sentAt||D._notify.sentAt!==key){D._notify.sentAt=key;sv(D);sysNotify('阿勒学习驾驶舱',out.join('\n'))}
+  }
+  return out.map(function(t){
+    const b=h('div',{className:'alert warning',style:'margin-bottom:10px;line-height:1.7'},t)
+    return b
+  })
+}
+function mkList(){if(!D.mistakes)D.mistakes=[];return D.mistakes}
+const MK_SUBJECTS=['语文','数学','英语','物理','化学','地理','生物','历史','道法']
+function mkRecognize(img,cb){
+  const p=['这是一张初中生的错题 / 作业照片。请识别并只输出 JSON（不要任何解释）：',
+    '{"subject":"科目","kp":"知识点","stem":"题干摘要","why":"错因"}',
+    '· subject 只能填：'+MK_SUBJECTS.join('/')+'（判断不出就填 其他）；',
+    '· kp：最核心的知识点，10 字以内；',
+    '· stem：只写关键条件和问什么，40 字以内；',
+    '· why：从「看不懂题目 / 审题漏条件 / 公式记错 / 计算错误 / 根本不会 / 没做完」里选一个，10 字以内。'
+  ].join('\n')
+  aiCall(p,img,'').then(function(r){
+    if(!r||!r.ok||!r.text)return cb(null)
+    let j=null
+    try{const raw=String(r.text).replace(/```json/g,'').replace(/```/g,'');const m=raw.match(/[{][\s\S]*[}]/);j=JSON.parse(m?m[0]:raw)}catch(e){j=null}
+    cb(j)
+  })
+}
+function mkCommit(urls){
+  if(!urls||!urls.length)return
+  ts('\U0001f916 正在识别错题…')
+  mkRecognize(urls[0],function(j){
+    const sub=(j&&j.subject)?String(j.subject).slice(0,6):''
+    const it={id:Date.now(),date:td,ts:Date.now(),by:(_lv==='c'?'c':'p'),
+      subject:(MK_SUBJECTS.indexOf(sub)>=0?sub:(sub?sub:'')),
+      kp:(j&&j.kp?String(j.kp).slice(0,20):''),
+      stem:(j&&j.stem?String(j.stem).slice(0,80):''),
+      why:(j&&j.why?String(j.why).slice(0,20):''),
+      imgs:urls,pass:[]}
+    mkList().unshift(it)
+    ts(j?('\u2705 已归到「'+(it.subject||'待归类')+'」错题本'):'\u26a0\ufe0f 没认出来，先存着（家长可手动改科目）')
+    actLog('上传错题',(it.subject||'待归类')+(it.kp?('·'+it.kp):''))
+    D.points.push({date:td,source:'错题本拍照',points:2,type:'earn'})
+    sv(D);render()
+  })
+}
+function mkAdd(){
+  ts('\U0001f4f7 拍错题（可多张，一张一道，传完自动识别归类）')
+  const inp=document.createElement('input')
+  inp.type='file';inp.accept='image/*';inp.multiple=true
+  inp.onchange=function(e){
+    const files=Array.from(e.target.files||[]).slice(0,9)
+    if(!files.length)return
+    compressAll(files,function(bs){
+      if(!bs.length){ts('照片处理失败，重拍一张');return}
+      bs.forEach(function(d){pendAdd({id:'m'+Date.now()+Math.random().toString(36).slice(2,6),kind:'mk',imgs:[{d:d,u:''}],ts:Date.now()})})
+      ts('\u23f3 正在传 '+bs.length+' 张（传完自动识别、自动归类）')
+      render();pendRun()
+    })
+  }
+  inp.click()
+}
+function mkDue(it){
+  try{
+    const days=[1,2,4,7,15]
+    const n=(it.pass||[]).length
+    if(n>=days.length)return false
+    const d0=new Date(String(it.date||td).replace(/-/g,'/')+' 00:00:00').getTime()
+    return Date.now()>=(d0+days[n]*86400000)
+  }catch(e){return false}
+}
+function mkPass(id){
+  const it=mkList().filter(function(x){return x.id===id})[0]
+  if(!it)return
+  if(!it.pass)it.pass=[]
+  it.pass.push(Date.now())
+  actLog('错题重做对了',(it.subject||'')+' '+(it.kp||''))
+  sv(D);render();ts('\u2705 记一次重做（第 '+it.pass.length+' 刷）')
+}
+function mkDel(id){D.mistakes=mkList().filter(function(x){return x.id!==id});actLog('删除错题','');sv(D);render();ts('已删除')}
+function rckMk(){
+  const all=mkList()
+  const dueN=all.filter(mkDue).length
+  const c=h('div',{className:'card'})
+  c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'\U0001f4d5'}),'错题本（'+all.length+' 道）'))
+  c.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-bottom:10px;line-height:1.7'},'拍一张错题 → 小搭自动认出科目、抓出知识点、说清错在哪，然后归到对应科目的错题本里。'+(dueN?('\u3000\u26a0\ufe0f 今天有 '+dueN+' 道该重做了'):'')))
+  c.appendChild(h('button',{className:'btn btn-primary',onClick:mkAdd},'\U0001f4f7 拍错题（可多张）'))
+  $c.appendChild(c)
+  const _pb=pendBanner();if(_pb)$c.appendChild(_pb)
+  if(!all.length){
+    const e=h('div',{className:'card'})
+    e.appendChild(h('div',{style:'text-align:center;color:var(--muted);font-size:14px;padding:18px 8px;line-height:1.8'},'还没有错题。\n下次哪道题做错了，拍一张上来，小搭帮你归好类。'))
+    $c.appendChild(e);return
+  }
+  const cnts={}
+  all.forEach(function(x){const k=x.subject||'待归类';cnts[k]=(cnts[k]||0)+1})
+  const keys=['全部'].concat(Object.keys(cnts))
+  $c.appendChild(segBar(keys.map(function(k){return {label:k+' '+(k==='全部'?all.length:cnts[k]),on:(_mkView||'全部')===k,fn:function(){_mkView=k;render()}}})))
+  const list=((_mkView||'全部')==='全部')?all:all.filter(function(x){return (x.subject||'待归类')===_mkView})
+  const box=h('div',{className:'card'})
+  list.forEach(function(it){
+    const row=h('div',{style:'border-bottom:1px solid var(--border);padding:10px 0'})
+    const top=h('div',{style:'display:flex;gap:8px;align-items:flex-start'})
+    const left=h('div',{style:'flex:1;min-width:0'})
+    const tags=h('div',{style:'display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:4px'})
+    tags.appendChild(h('span',{style:'font-size:12px;padding:1px 7px;border-radius:8px;background:var(--primary-weak);border:1px solid var(--primary-border);color:var(--primary-hover)'},it.subject||'待归类'))
+    if(it.why)tags.appendChild(h('span',{style:'font-size:12px;padding:1px 7px;border-radius:8px;background:var(--warning-weak);border:1px solid var(--warning-border);color:var(--warning)'},it.why))
+    if(mkDue(it))tags.appendChild(h('span',{style:'font-size:12px;padding:1px 7px;border-radius:8px;background:var(--danger-weak);border:1px solid var(--danger-border);color:var(--danger)'},'该重做了'))
+    else if((it.pass||[]).length>=5)tags.appendChild(h('span',{style:'font-size:12px;padding:1px 7px;border-radius:8px;background:var(--success-weak);border:1px solid var(--success-border);color:var(--success)'},'已通关'))
+    left.appendChild(tags)
+    if(it.kp)left.appendChild(h('div',{style:'font-size:14.5px;margin-bottom:2px'},it.kp))
+    if(it.stem)left.appendChild(h('div',{style:'font-size:13px;color:var(--muted);line-height:1.6'},it.stem))
+    left.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:3px'},fd(it.date)+' · 已重做 '+((it.pass||[]).length)+' 次'))
+    top.appendChild(left)
+    if((it.imgs||[]).length){
+      const ir=h('div',{style:'display:flex;gap:4px;flex-wrap:wrap;max-width:120px'})
+      it.imgs.slice(0,2).forEach(function(b){ir.appendChild(photoImg(b,it.imgs,'width:54px;height:54px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer'))})
+      top.appendChild(ir)
+    }
+    row.appendChild(top)
+    const br=h('div',{style:'display:flex;gap:6px;margin-top:7px;flex-wrap:wrap'})
+    br.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){mkPass(it.id)}},'\u2705 重做对了'))
+    if(!VW){
+      br.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){
+        const s2=prompt('归到哪个科目？\n'+MK_SUBJECTS.join(' / '),it.subject||'')||''
+        if(s2){it.subject=s2.trim().slice(0,6);sv(D);render()}
+      }},'改科目'))
+      br.appendChild(h('button',{className:'btn btn-danger btn-sm',onClick:function(){if(confirm('删除这道错题？'))mkDel(it.id)}},'删'))
+    }
+    row.appendChild(br)
+    box.appendChild(row)
+  })
+  $c.appendChild(box)
+}
+
 /* ================= 硬笔字（打卡 + 作品墙） ================= */
 /* ===== 操作记录：谁在什么时候做了什么（一直保留，上限 2000 条）===== */
 function actLog(act,target){
@@ -825,6 +989,9 @@ function chatSnapshot(){
   // 今日任务
   const tds=D.tasks.filter(function(t){return t.date===td&&!t.done}).map(function(t){return t.text})
   if(tds.length)L.push('· 他自己列了今天要做：'+tds.join('、'))
+  // 错题本
+  const _mkN=(D.mistakes||[]).length
+  if(_mkN)L.push('\u00b7 错题本：共 '+_mkN+' 道'+(function(){try{const d=(D.mistakes||[]).filter(mkDue).length;return d?('\uff0c\u4eca\u5929\u6709 '+d+' \u9053\u8be5\u91cd\u505a'):''}catch(e){return ''}})())
   // 硬笔字作品
   const _hwN=(D.handwritings||[]).length
   if(_hwN)L.push('· 硬笔字：作品墙已有 '+_hwN+' 幅'+(hwStreak()>=2?('，连着 '+hwStreak()+' 天有作品'):''))
@@ -1072,6 +1239,8 @@ function ensureChatOpener(){
 }
 
 /* ---- 给他看「小搭记得的事」，不对的他自己删 ---- */
+let _mkView='全部'
+let _todayMore=false
 let _memOpen=false
 let _chatShow=40
 let _aiBusy=false
@@ -2016,6 +2185,7 @@ async function pendRun(){
       try{
         const urls=e.imgs.map(function(im){return im.u})
         if(e.kind==='check')submitCheck(e.typeId,e.subject,urls,e.append)
+        else if(e.kind==='mk')mkCommit(urls)
         else hwApply(urls)
       }catch(err){console.warn('草稿落地失败',err)}
       pendDel(e.id)
@@ -2401,6 +2571,7 @@ function render(){
   if(tb==='today')rtoday()
   else if(tb==='checkin')rck()
   else if(tb==='write')rwrite()
+  else if(tb==='mistake')rckMk()
   else if(tb==='chat')rchat()
   else if(tb==='scores')rsc()
   else if(tb==='points')rpk()
@@ -2412,6 +2583,20 @@ let _showAlerts=false,_openImg={},_examEdit=false,_openExamForm=false,_ckView='l
 
 /* ============ ① 今日（概览 + 快捷操作） ============ */
 function rtoday(){
+  const _host=$c, _tmp=h('div',null)
+  $c=_tmp
+  try{ _rtodayBody() } finally { $c=_host }
+  const _kids=Array.prototype.slice.call(_tmp.children||[]);
+  const _pb=dailyBanner(); if(_pb)_pb.forEach(function(x){$c.appendChild(x)});
+  _kids.slice(0,1).forEach(function(c){$c.appendChild(c)});
+  const btn=h('button',{className:'btn btn-outline btn-sm',style:'width:100%;margin-bottom:10px',onClick:function(){_todayMore=!_todayMore;render()}});
+  btn.innerHTML=_todayMore?'▲ 收起（只看重点）':'▼ 展开更多（考试倒计时 / 成绩 / 寄语 / 留言）';
+  $c.appendChild(btn);
+  const more=h('div',{style:_todayMore?'':'display:none'});
+  _kids.slice(1).forEach(function(c){more.appendChild(c)});
+  $c.appendChild(more);
+}
+function _rtodayBody(){
   const lt=D.exams.length?[...D.exams].sort((a,b)=>b.date.localeCompare(a.date))[0]:null
   const si=lt?ct(lt.scores,lt.sem||D.sem):{total:0,fullTotal:gs(D.sem).reduce((s,sub)=>s+sub.full*sub.rate,0),pct:0}
   const ds=dayStats(td)
@@ -2764,7 +2949,35 @@ function rpk(){
 }
 
 /* ============ ⑤ 设置（所有配置集中） ============ */
+let _setView='info'
 function rset(){
+  // 三大分组：孩子信息 / 规则与积分 / 系统与数据
+  $c.appendChild(segBar([
+    {label:'👦 孩子信息',on:_setView==='info',fn:function(){_setView='info';render()}},
+    {label:'📋 规则与积分',on:_setView==='rules',fn:function(){_setView='rules';render()}},
+    {label:'🔧 系统与数据',on:_setView==='sys',fn:function(){_setView='sys';render()}}
+  ]))
+  const _host=$c, _tmp=h('div',null)
+  $c=_tmp
+  try{ _rsetBody() } finally { $c=_host }
+  const _g1=['下次大考','固定学习时间','小目标','平板','话费'];
+  const _g2=['积分兑换率','习惯打卡项','零件清单','学习方法'];
+  const grpOf=function(t){
+    for(const k of _g1)if(t.indexOf(k)>=0)return 'info';
+    for(const k of _g2)if(t.indexOf(k)>=0)return 'rules';
+    return 'sys';
+  };
+  const _kids=Array.prototype.slice.call(_tmp.children||[]);
+  let _shown=0
+  _kids.forEach(function(ch){
+    if(!ch||typeof ch.className!=='string')return;
+    let t='';
+    try{ t=String(ch.textContent||ch.innerText||'').slice(0,60) }catch(e){}
+    if(grpOf(t)===_setView){$c.appendChild(ch);_shown++}
+  });
+  if(!_shown){const e=h('div',{className:'card'});e.appendChild(h('div',{style:'text-align:center;color:var(--muted);font-size:14px;padding:16px'},'这一组暂时没有可设置的项'));$c.appendChild(e)}
+}
+function _rsetBody(){
   $c.appendChild(h('div',{className:'daily-praise'},'⚙️ 这些设置改一次就行，平时不用管'))
 
   // 考试信息
@@ -2911,6 +3124,17 @@ function rset(){
     pec.appendChild(par)
   }
   $c.appendChild(pec)
+
+  // 每日提醒
+  const _nt=h('div',{className:'card edit-only'})
+  _nt.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔔'}),'每日提醒'))
+  _nt.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-bottom:8px;line-height:1.7'},'打开后：他那边傍晚没记录会提醒一句；你这边有待审核或需关注的对话会提醒你。需要允许"通知"权限（手机浏览器或装成应用后支持）。'))
+  const _ntBar=h('div',{style:'display:flex;gap:8px;align-items:center;flex-wrap:wrap'})
+  _ntBar.appendChild(h('button',{className:'btn '+(notifyPerm()?'btn-outline':'btn-primary')+' btn-sm',onClick:notifyAsk},notifyPerm()?'✅ 通知已允许（点此再看一次）':'🔔 允许系统通知'))
+  if((D._notify&&D._notify.on))_ntBar.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){D._notify.on=false;sv(D);render();ts('已关掉每日提醒')}},'关掉提醒'))
+  else if(notifyPerm())_ntBar.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){D._notify={on:true,at:Date.now()};sv(D);render();ts('已开启每日提醒')}},'开启提醒'))
+  _nt.appendChild(_ntBar)
+  $c.appendChild(_nt)
 
   // 顶部留白（防摄像头/刘海遮挡，本机设置）
   const _tp=h('div',{className:'card edit-only'})
