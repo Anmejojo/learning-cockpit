@@ -1,8 +1,8 @@
 /* 阿勒学习驾驶舱 · Service Worker
    作用：① 安卓 Chrome 可"安装成应用" ② 断网也能打开壳 ③ 静态资源缓存加速
    注意：AI 请求、云存储图片、数据库走网络，不缓存 */
-const CACHE = 'lc-shell-v1'
-const ASSETS = ['./', './index.html', './styles.css', './manifest.json', './icon-192.png', './icon-512.png', './icon-180.png', './font-inter.woff2', './font-mono.woff2']
+const CACHE = 'lc-shell-v2'
+const ASSETS = ['./', './index.html', './styles.css', './manifest.json', './icon-192.png', './icon-512.png', './icon-180.png', './font-inter.woff2', './font-mono.woff2', './words-8.json', './words-zk.json']
 
 self.addEventListener('install', function (e) {
   self.skipWaiting()
@@ -24,7 +24,7 @@ self.addEventListener('fetch', function (e) {
   try { u = new URL(req.url) } catch (err) { return }
   if (u.origin !== self.location.origin) return                    // 跨域（AI / 云存储 / 数据库）不拦
   const p = u.pathname
-  const isShell = (p === '/' || p.endsWith('.html') || p.endsWith('app.js') || p.endsWith('styles.css') || p.endsWith('manifest.json'))
+  const isShell = (p === '/' || p.endsWith('.html') || p.endsWith('.js') || p.endsWith('.css') || p.endsWith('.json'))
   if (isShell) {
     // 网络优先：保证每次都能拿到最新版；断网时回缓存
     e.respondWith(
