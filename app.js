@@ -3142,6 +3142,7 @@ function render(){
   if(tb==='today')rtoday()
   else if(tb==='checkin')rck()
   else if(tb==='write')rwrite()
+  else if(tb==='word')rckWord()
   else if(tb==='mistake')rckMk()
   else if(tb==='chat')rchat()
   else if(tb==='scores')rsc()
@@ -3224,6 +3225,302 @@ function cockpitStrip(){
   c.appendChild(pcRow)
   return c
 }
+
+/* ---- 音效：浏览器现场合成，零文件 ---- */
+let _ac=null
+function sfx(kind){
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext
+    if(!AC)return
+    if(!_ac)_ac=new AC()
+    if(_ac.state==='suspended'){try{_ac.resume()}catch(e){}}
+    const t=_ac.currentTime
+    function tone(type,f1,f2,dur,vol,delay){
+      const o=_ac.createOscillator(),g=_ac.createGain()
+      o.type=type;o.connect(g);g.connect(_ac.destination)
+      const st=t+(delay||0)
+      o.frequency.setValueAtTime(f1,st)
+      if(f2)o.frequency.exponentialRampToValueAtTime(f2,st+dur)
+      g.gain.setValueAtTime(0,st)
+      g.gain.linearRampToValueAtTime(vol,st+0.012)
+      g.gain.exponentialRampToValueAtTime(0.0008,st+dur)
+      o.start(st);o.stop(st+dur+0.03)
+    }
+    if(kind==='hop')tone('square',300,640,0.09,0.05)
+    else if(kind==='ok')tone('sine',880,1340,0.13,0.07)
+    else if(kind==='combo')tone('sine',1180,1760,0.11,0.06,0.01)
+    else if(kind==='bad')tone('triangle',320,110,0.3,0.06)
+    else if(kind==='win'){tone('sine',660,660,0.12,0.07,0);tone('sine',880,880,0.12,0.07,0.13);tone('sine',1320,1320,0.24,0.08,0.26)}
+  }catch(e){}
+}
+function rckWord(){
+  const bk=wBook(), bank=_wBank[bk]
+  if(!bank||!bank.length){
+    if(bank===undefined&&!_wBad[bk])wLoad()
+    const c=h('div',{className:'card'})
+    c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🐸'}),'单词闯关'))
+    if(bank===undefined&&!_wBad[bk])c.appendChild(h('div',{className:'t-muted'},'正在加载词库…'))
+    else{
+      c.appendChild(h('div',{className:'t-muted mb8'},'词库没加载上（可能是网络，或文件还没同步到线上）。'))
+      c.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_wBad[bk]=0;delete _wBank[bk];render()}},'🔄 重试'))
+    }
+    $c.appendChild(c);return
+  }
+  if(_wg)return rckWordPlay()
+  return rckWordMap()
+}
+function rckWordMap(){
+  const bk=wBook(), bank=_wBank[bk]
+  const head=h('div',{className:'card'})
+  head.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🐸'}),'单词闯关'))
+  head.appendChild(h('div',{className:'t-muted mb8'},'点一关开始。答错不扣分，青蛙掉下去再跳一次就行。'))
+  const row=h('div',{className:'row-mid'})
+  Object.keys(WORDBOOKS).forEach(function(k){
+    row.appendChild(h('button',{className:'btn btn-sm '+(k===bk?'btn-primary':'btn-outline'),onClick:function(){if(k===bk)return;D.wbookId=k;sv(D);render()}},WORDBOOKS[k].name))
+  })
+  head.appendChild(row)
+  if(ROLE.parent){
+    const known=bank.filter(function(x){return !!wRec(x[0])}).length
+    head.appendChild(h('div',{className:'t-faint mt6'},'这本书共 '+bank.length+' 词，接触过 '+known+' 个（只给家长看）'))
+  }
+  $c.appendChild(head)
+  const wrap=h('div',{className:'w-map'})
+  wChapters().forEach(function(ch){
+    const r=h('div',{className:'w-ch'+(ch.stars?' on':''),onClick:function(){wStart(ch)}})
+    const left=h('div',{className:'w-ch-l'})
+    left.appendChild(h('div',{className:'w-ch-n'},'第 '+(ch.i+1)+' 关'))
+    left.appendChild(h('div',{className:'w-ch-sub'},ch.list.length+' 词 · 已记 '+ch.learned+(ch.due?('· '+ch.due+' 个该复习'):'')))
+    r.appendChild(left)
+    const st=h('div',{className:'w-stars'})
+    st.textContent='★★★'.slice(0,ch.stars)+'☆☆☆'.slice(0,3-ch.stars)
+    r.appendChild(st)
+    r.appendChild(h('button',{className:'btn btn-sm '+(ch.learned?'btn-outline':'btn-primary'),onClick:function(e){if(e&&e.stopPropagation)e.stopPropagation();wStart(ch)}},ch.learned?'继续':'开始'))
+    wrap.appendChild(r)
+  })
+  $c.appendChild(wrap)
+}
+function rckWordPlay(){
+  const g=_wg
+  if(!g)return rckWordMap()
+  if(g.phase==='done')return wResult()
+  const top=h('div',{className:'w-top'})
+  top.appendChild(h('div',{className:'w-idx'},'第 '+(g.i+1)+' / '+g.list.length+' 格'))
+  top.appendChild(h('div',{className:'w-combo'},g.combo>1?('🔥 连对 '+g.combo):''))
+  top.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:wQuit},'退出'))
+  $c.appendChild(top)
+  const q=h('div',{className:'w-q'})
+  q.appendChild(h('div',{className:'w-q-t'},g.dir==='c2e'?'选出这个词：':'选出它的意思：'))
+  q.appendChild(h('div',{className:'w-q-w'},g.dir==='c2e'?(g.right[1]||''):g.right[0]))
+  $c.appendChild(q)
+  const H=96, showN=3
+  const river=h('div',{className:'w-river'})
+  river.style.height=(showN*H)+'px'
+  const inner=h('div',{className:'w-in'})
+  inner.style.transform='translateY('+(-(g.i*H))+'px)'
+  for(let k=0;k<g.list.length;k++){   // 配合 column-reverse：第 0 格在最下面
+    const lv=h('div',{className:'w-lv'})
+    lv.style.height=H+'px'
+    if(k===g.i){
+      const wrap=h('div',{className:'w-lilies'})
+      let showIdx=g.opts.map(function(o,i){return i})
+      if(g.tries>=1&&g.pick===null){
+        const ri=g.opts.findIndex(function(o){return o.ok})
+        const wi=g.opts.findIndex(function(o){return !o.ok})
+        showIdx=wShuffle([ri,wi])
+      }
+      showIdx.forEach(function(idx){
+        const o=g.opts[idx]
+        const isRight=(g.pick!==null&&o.ok)
+        const isBad=(g.pick!==null&&g.pick===idx&&!o.ok)
+        b_=h('button',{className:'w-lily'+(isRight?' right':(isBad?' bad':''))+(g.tries>=1&&o.ok&&g.pick===null?' hint':''),onClick:function(){wAnswer(idx)}})
+        b_.textContent=(g.dir==='c2e')?o.w[0]:(o.w[1]||'')
+        wrap.appendChild(b_)
+      })
+      lv.appendChild(wrap)
+      if(g.tries>=2)lv.appendChild(h('div',{className:'w-tip'},'提示：答案是「'+((g.dir==='c2e')?g.right[0]:(g.right[1]||''))+' 」'))
+    }else{
+      lv.appendChild(h('div',{className:'w-water'}))
+    }
+    inner.appendChild(lv)
+  }
+  river.appendChild(inner)
+  $c.appendChild(river)
+  const bank=h('div',{className:'w-bank'})
+  const frogCls='w-frog'+((g.pick!==null)?(g.opts[g.pick].ok?' jump':' fall'):'')
+  bank.appendChild(h('div',{className:frogCls},'🐸'))
+  $c.appendChild(bank)
+  if(g.tries>=1&&g.pick===null){
+    const bar=h('div',{className:'w-wrongbar'})
+    bar.appendChild(h('span',null,'刚那个错了（不扣分），再试一次：'))
+    if(g.tries>=2)bar.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:wGiveUp},'👀 直接看答案'))
+    $c.appendChild(bar)
+  }
+}
+function wResult(){
+  const g=_wg
+  const stars=g.wrong===0?3:(g.wrong<=2?2:1)
+  const c=h('div',{className:'card w-res'})
+  c.appendChild(h('div',{className:'w-res-t'},'🎉 过关！'))
+  c.appendChild(h('div',{className:'w-res-s'},'★★★'.slice(0,stars)+'☆☆☆'.slice(0,3-stars)))
+  c.appendChild(h('div',{className:'t-muted mt6'},'最高连对 '+g.maxCombo+' · 错了 '+g.wrong+' 个（不扣分，过几天会再来找你）'))
+  const bar=h('div',{className:'row-mid mt10'})
+  bar.appendChild(h('button',{className:'btn btn-primary',onClick:function(){wFinish()}},'领取奖励'))
+  bar.appendChild(h('button',{className:'btn btn-outline',onClick:function(){const ch=g.ch;_wg=null;wStart(ch)}},'再来一局'))
+  bar.appendChild(h('button',{className:'btn btn-outline',onClick:function(){_wg=null;render()}},'回地图'))
+  $c.appendChild(c)
+}
+/* =========================================================================
+   🐸 单词闯关（青蛙过河）—— 竖版 · 间隔复习 · 不挫败
+   规则：答错不扣分、不判负；青蛙掉水退一格，重跳就行
+   ========================================================================= */
+const WORDBOOKS={
+  '8':{file:'words-8.json',name:'人教版八年级',per:70},
+  'zk':{file:'words-zk.json',name:'中考核心词',per:214}
+}
+const W_GAP=[0,1,2,4,7,15,30]        // 熟练度 0~6 对应的间隔天数
+const W_PER_ROUND=10                 // 一局 10 格
+const W_DAILY_ROUNDS=3               // 每天最多给分 3 局
+let _wBank={}, _wBad={}, _wLoadingId=0, _wg=null
+
+function wBook(){try{return (D.wbookId&&WORDBOOKS[D.wbookId])?D.wbookId:'8'}catch(e){return '8'}}
+function wState(){if(!D.wd)D.wd={};return D.wd}
+function wRec(w){return wState()[w]||null}
+function wYmdAdd(days){const d=new Date();d.setDate(d.getDate()+days);return ymd(d)}
+function wDueToday(w){const r=wRec(w);return !!(r&&r.d&&r.d<=td)}
+function wShuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=a[i];a[i]=a[j];a[j]=t}return a}
+function wLoad(){
+  const bk=wBook()
+  if(_wBank[bk])return
+  const id=++_wLoadingId
+  fetch(WORDBOOKS[bk].file).then(function(r){return r.json()}).then(function(j){
+    if(id!==_wLoadingId)return
+    _wBank[bk]=(Array.isArray(j)?j:[])
+    if(tb==='word')render()
+  }).catch(function(){
+    if(id!==_wLoadingId)return
+    _wBank[bk]=[]
+    if(tb==='word')render()
+  })
+}
+function wChapters(){
+  const bk=wBook(), bank=_wBank[bk]||[], per=WORDBOOKS[bk].per, out=[]
+  for(let i=0;i*per<bank.length&&out.length<60;i++){
+    const list=bank.slice(i*per,(i+1)*per)
+    if(!list.length)break
+    const rec=(D.wch&&D.wch[bk]&&D.wch[bk][i])||null
+    out.push({i:i,list:list,stars:rec?rec.stars:0,at:rec?rec.at:0,
+      learned:list.filter(function(x){return !!wRec(x[0])}).length,
+      due:list.filter(function(x){return wDueToday(x[0])}).length})
+  }
+  return out
+}
+function wPickRound(ch){
+  const due=[],fresh=[],other=[]
+  ch.list.forEach(function(x){
+    const r=wRec(x[0])
+    if(!r)fresh.push(x)
+    else if(r.d&&r.d<=td)due.push(x)
+    else other.push(x)
+  })
+  wShuffle(due);wShuffle(fresh);wShuffle(other)
+  const out=[],seen={}
+  function takeN(a,max){let n=0;for(let i=0;i<a.length&&n<max;i++){const k=a[i][0];if(seen[k])continue;seen[k]=1;out.push(a[i]);n++}return n}
+  let left=W_PER_ROUND
+  left-=takeN(due,7)          // 到期该复习的，最多 7 个
+  left-=takeN(fresh,left)     // 新词，把剩下的名额补满
+  left-=takeN(other,left)     // 不到期的旧词
+  left-=takeN(wShuffle((_wBank[wBook()]||[]).slice()),left)   // 还不够就从整本书里补
+  if(out.length<4){ // 词太少（比如尾巴），就从整本书里补
+    const pool=wShuffle((_wBank[wBook()]||[]).slice())
+    for(let i=0;i<pool.length&&out.length<W_PER_ROUND;i++){if(!seen[pool[i][0]]){seen[pool[i][0]]=1;out.push(pool[i])}}
+  }
+  return out
+}
+function wStart(ch){
+  const list=wPickRound(ch)
+  if(list.length<3){ts('这关词太少');return}
+  _wg={ch:ch,list:list,i:0,combo:0,maxCombo:0,wrong:0,tries:0,
+       opts:[],dir:'c2e',right:null,phase:'play',splash:0,pick:null}
+  wNext(true)
+  render()
+}
+function wNext(first){
+  const g=_wg
+  if(!g)return
+  if(!first)g.i++
+  if(g.i>=g.list.length){g.phase='done';return}
+  const it=g.list[g.i]
+  g.tries=0;g.right=it;g.pick=null
+  g.dir=(Math.random()<0.28)?'e2c':'c2e'
+  const pool=g.ch.list.length>=8?g.ch.list:(_wBank[wBook()]||g.ch.list)
+  const dis=wShuffle(pool.filter(function(x){return x[0]!==it[0]})).slice(0,2)
+  const opts=[{w:it,ok:true}]
+  dis.forEach(function(x){opts.push({w:x,ok:false})})
+  g.opts=wShuffle(opts)
+}
+function wAnswer(idx){
+  const g=_wg
+  if(!g||g.phase!=='play'||g.pick!==null)return
+  const o=g.opts[idx]
+  if(!o)return
+  sfx('hop')
+  g.pick=idx
+  if(o.ok){
+    sfx('ok')
+    g.combo++;if(g.combo>g.maxCombo)g.maxCombo=g.combo
+    if(g.combo>=3)sfx('combo')
+    const r=wRec(g.right[0])||{l:0,ok:0,bad:0}
+    const nl=Math.min(6,(r.l||0)+1)
+    wState()[g.right[0]]={l:nl,ok:(r.ok||0)+1,bad:(r.bad||0),d:wYmdAdd(W_GAP[nl]),t:Date.now()}
+    sv(D)
+    g.splash=1
+    render()
+    setTimeout(function(){ if(!_wg)return; _wg.splash=0; wNext(false); render() },420)
+  }else{
+    sfx('bad')
+    g.tries++;g.wrong++;g.combo=0
+    const rr=wRec(g.right[0])||{l:0,ok:0,bad:0}
+    wState()[g.right[0]]={l:Math.max(0,(rr.l||0)-1),ok:(rr.ok||0),bad:(rr.bad||0)+1,d:wYmdAdd(1),t:Date.now()}
+    sv(D)
+    render()
+    // 过 1.1 秒把反馈收回，让他能再试一次（选项会缩到 2 个）
+    setTimeout(function(){
+      if(!_wg||_wg!==g)return
+      if(_wg.pick===null)return
+      if(_wg.opts[_wg.pick]&&_wg.opts[_wg.pick].ok)return
+      _wg.pick=null
+      render()
+    },1100)
+  }
+}
+function wGiveUp(){
+  const g=_wg
+  if(!g||g.phase!=='play')return
+  const rr=wRec(g.right[0])||{l:0,ok:0,bad:0}
+  wState()[g.right[0]]={l:0,ok:(rr.ok||0),bad:(rr.bad||0)+1,d:wYmdAdd(1),t:Date.now()}
+  sv(D);ts('✅ 答案：'+g.right[0]+'　'+(g.right[1]||''));_wg.pick=null;wNext(false);render()
+}
+function wFinish(){
+  const g=_wg;if(!g)return
+  const stars=g.wrong===0?3:(g.wrong<=2?2:1)
+  const bk=wBook()
+  if(!D.wch)D.wch={}
+  if(!D.wch[bk])D.wch[bk]={}
+  const old=(D.wch[bk][g.ch.i]||{}).stars||0
+  D.wch[bk][g.ch.i]={stars:Math.max(old,stars),at:Date.now()}
+  const wd=D.wday||{d:'',n:0}
+  let pts=0
+  if(wd.d!==td){wd.d=td;wd.n=0}
+  if(wd.n<W_DAILY_ROUNDS){pts=stars===3?5:(stars===2?3:1);wd.n++}
+  D.wday=wd
+  if(pts)D.points.push({date:td,source:'单词闯关 第'+(g.ch.i+1)+'关',points:pts,type:'earn'})
+  sv(D)
+  sfx('win')
+  if(pts)ptBurst(pts,'单词闯关')
+  _wg=null
+  render()
+}
+function wQuit(){_wg=null;render();ts('已退出（进度已存）')}
 
 /* ===== 线性图标（Lucide，MIT，内联 SVG，不依赖 CDN）===== */
 const ICON={
