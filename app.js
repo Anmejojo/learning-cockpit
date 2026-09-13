@@ -3316,7 +3316,7 @@ function rckWordPlay(){
   const river=h('div',{className:'w-river'})
   river.style.height=(showN*H)+'px'
   const inner=h('div',{className:'w-in'})
-  inner.style.transform='translateY('+(-(g.i*H))+'px)'
+  inner.style.transform='translateY('+(g.i*H)+'px)'   // 当前这格永远贴在最下面（青蛙脚下）
   for(let k=0;k<g.list.length;k++){   // 配合 column-reverse：第 0 格在最下面
     const lv=h('div',{className:'w-lv'})
     lv.style.height=H+'px'
@@ -3332,7 +3332,7 @@ function rckWordPlay(){
         const o=g.opts[idx]
         const isRight=(g.pick!==null&&o.ok)
         const isBad=(g.pick!==null&&g.pick===idx&&!o.ok)
-        b_=h('button',{className:'w-lily'+(isRight?' right':(isBad?' bad':''))+(g.tries>=1&&o.ok&&g.pick===null?' hint':''),onClick:function(){wAnswer(idx)}})
+        const b_=h('button',{className:'w-lily'+(isRight?' right':(isBad?' bad':''))+(g.tries>=1&&o.ok&&g.pick===null?' hint':''),onClick:function(){wAnswer(idx)}})
         b_.textContent=(g.dir==='c2e')?o.w[0]:(o.w[1]||'')
         wrap.appendChild(b_)
       })
@@ -3367,6 +3367,7 @@ function wResult(){
   bar.appendChild(h('button',{className:'btn btn-primary',onClick:function(){wFinish()}},'领取奖励'))
   bar.appendChild(h('button',{className:'btn btn-outline',onClick:function(){const ch=g.ch;_wg=null;wStart(ch)}},'再来一局'))
   bar.appendChild(h('button',{className:'btn btn-outline',onClick:function(){_wg=null;render()}},'回地图'))
+  c.appendChild(bar)
   $c.appendChild(c)
 }
 /* =========================================================================
