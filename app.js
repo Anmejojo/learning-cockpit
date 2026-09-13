@@ -879,6 +879,8 @@ function ensureChatOpener(){
 
 /* ---- 给他看「小搭记得的事」，不对的他自己删 ---- */
 let _memOpen=false
+let _chatShow=40
+let _aiBusy=false
 function memPanelUI(){
   const full=h('div',{className:'mem-panel'})
   const head=h('div',{className:'mem-head'},h('span',null,'小搭记得的事'),
@@ -1030,6 +1032,8 @@ function chatSend(imgB64){
   if(!v&&!imgB64)return
   const log=chatLog()
   log.push({id:Date.now(),date:td,role:'u',text:(v||'（发了张图）'),img:(imgB64||''),ts:Date.now()})
+  const _tk={id:'t'+Date.now(),date:td,role:'a',pending:true,text:'',ts:Date.now()}
+  log.push(_tk)
   chatTrim()
   sv(D);render()
   const box=document.getElementById('chatOut')
@@ -1078,6 +1082,7 @@ function chatSend(imgB64){
     if(b[1]===1)_room-=(b[0].length+2)
   })
   const _full=_out.join('\n\n')
+  _aiBusy=true
   aiCall(_full, imgB64||'', (v||'')).then(async function(r){
     let _txt=r.ok?String(r.text):'（我现在有点卡，你等下再问我一次）'
     const _bad=r.ok?chatBanned(_txt):[]
@@ -1093,14 +1098,19 @@ function chatSend(imgB64){
     if(_tm){_tag=_tm[1];_txt=_txt.replace(/\[\[T:[qech]\]\]/g,'').trim()}
     if(_txt.indexOf('[[ALERT]]')>=0){_alert=true;_txt=_txt.replace(/\[\[ALERT\]\]/g,'').trim();_tag='h'}
     const l2=chatLog()
-    l2.push({id:Date.now()+1,date:td,role:'a',text:_txt.trim(),alert:_alert||undefined,tag:_tag||undefined,ts:Date.now()})
+    let _hit=false
+    for(let i=0;i<l2.length;i++){
+      if(l2[i].id===_tk.id){l2[i].text=_txt.trim();l2[i].pending=false;l2[i].alert=_alert||undefined;l2[i].tag=_tag||undefined;l2[i].ts=Date.now();_hit=true;break}
+    }
+    if(!_hit)l2.push({id:Date.now()+1,date:td,role:'a',text:_txt.trim(),alert:_alert||undefined,tag:_tag||undefined,ts:Date.now()})
     if(_tag){const _last=l2[l2.length-2];if(_last&&_last.role==='u')_last.tag=_tag}
     if((_tag==='e'||_tag==='h')&&v)careSet(v)
     if(_alert){const pp=askPool();pp.alert={date:td,at:Date.now()};}
     if(l2.length>300)D._chat=l2.slice(-300)
     sv(D);render()
+    _aiBusy=false
     setTimeout(function(){const el=document.getElementById('chatScroll');if(el)el.scrollTop=el.scrollHeight},60)
-  })
+  }).catch(function(){_aiBusy=false})
 }
 const EMOJI_SETS=[
  {name:'常用',list:['😀','😂','😅','😊','👍','🙏','💪','🔥','✅','😭','🤔','😴','🌙','🍚','⚽','🎮']},
@@ -1138,9 +1148,15 @@ window.addEventListener('resize',function(){if(document.body.classList.contains(
 
 function chatUI(){
   if(VW&&_memOpen)return memPanelUI()
-  const list=chatToday().slice(-40)
+  const _all=chatLog()
+  const list=_all.slice(-_chatShow)
   const full=h('div',{className:'chat-full'})
   const scroll=h('div',{className:'chat-scroll',id:'chatScroll'})
+  if(_all.length>list.length){
+    scroll.appendChild(h('button',{className:'btn btn-outline btn-sm',style:'margin:2px auto 12px;display:block',onClick:function(){_chatShow+=60;render()}},'看更早的聊天'))
+  }else if(list.length&&list[0].date!==td){
+    scroll.appendChild(h('div',{className:'chat-time'},'⬆️ 以前的聊天'))
+  }
   if(!list.length){
     scroll.appendChild(h('div',{className:'chat-empty'},'不会的题、不想学的时候，\n都可以跟他说一句'))
   }
@@ -1152,7 +1168,7 @@ function chatUI(){
     row.appendChild(h('div',{className:'chat-av '+(me?'u':'a')},me?'我':'搭'))
     const main=h('div',{className:'chat-main'})
     if(!me)main.appendChild(h('div',{className:'chat-who'},AI_NAME))
-    const bub=h('div',{className:'chat-bub '+(me?'u':'a')+(m.ms?' ms':'')},m.pending?'……':m.text)
+    const bub=h('div',{className:'chat-bub '+(me?'u':'a')+(m.ms?' ms':'')+(m.pending?' pending':'')},m.pending?'……':m.text)
     if(m.img)bub.appendChild(h('img',{src:m.img,loading:'lazy',alt:'他发的照片',onClick:function(){viewImg(m.img)}}))
     if(m.imgCleared)bub.appendChild(h('div',{className:'imgtip'},'（图片已清理）'))
     main.appendChild(bub)
@@ -1261,14 +1277,24 @@ function chatParentUI(){
   const sum=(p.chatSum&&p.chatSum.date===td)?p.chatSum.text:'（正在整理今天的聊天摘要…）'
   c.appendChild(h('div',{className:'longtext',style:'font-size:14px;line-height:1.75;color:var(--text)'},sum))
   let open=false
+  let pShow=Math.max(list.length,20)
   const box=h('div',{style:'display:none;margin-top:8px'})
-  list.forEach(function(m){
-    const row=h('div',{style:'font-size:13.5px;line-height:1.7;margin-bottom:4px;color:'+(m.role==='u'?'var(--text)':'var(--muted)')})
-    if(m.role==='u'&&m.tag)row.appendChild(h('span',{style:'font-size:11px;padding:1px 6px;border-radius:8px;margin-right:4px;background:var(--bg-elev);border:1px solid var(--border);color:var(--muted)'},{q:'提问',e:'情绪',c:'闲聊',h:'需关注'}[m.tag]||''))
-    row.appendChild(h('span',null,((m.role==='u')?'他：':(AI_NAME+'：'))+m.text))
-    if(m.img)row.appendChild(h('img',{src:m.img,loading:'lazy',alt:'他发的照片',style:'width:64px;height:64px;object-fit:cover;border-radius:6px;margin-left:6px;vertical-align:middle;border:1px solid var(--border);cursor:pointer',onClick:function(){viewImg(m.img)}}))
-    box.appendChild(row)
-  })
+  const renderBox=function(){
+    box.innerHTML=''
+    const _ac=chatLog()
+    const sub=_ac.slice(-pShow)
+    if(_ac.length>sub.length)box.appendChild(h('button',{className:'btn btn-outline btn-sm',style:'margin-bottom:6px',onClick:function(){pShow+=60;renderBox()}},'看更早的聊天（共 '+_ac.length+' 条）'))
+    if(sub.length&&sub[0].date!==td)box.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-bottom:4px'},'（包含之前几天的聊天）'))
+    sub.forEach(function(m){
+      const row=h('div',{style:'font-size:13.5px;line-height:1.7;margin-bottom:4px;color:'+(m.role==='u'?'var(--text)':'var(--muted)')})
+      if(m.date!==td)row.appendChild(h('span',{style:'font-size:11px;color:var(--faint);margin-right:4px'},m.date.slice(5)+' '))
+      if(m.role==='u'&&m.tag)row.appendChild(h('span',{style:'font-size:11px;padding:1px 6px;border-radius:8px;margin-right:4px;background:var(--bg-elev);border:1px solid var(--border);color:var(--muted)'},{q:'提问',e:'情绪',c:'闲聊',h:'需关注'}[m.tag]||''))
+      row.appendChild(h('span',null,((m.role==='u')?'他：':(AI_NAME+'：'))+m.text))
+      if(m.img)row.appendChild(h('img',{src:m.img,loading:'lazy',alt:'他发的照片',style:'width:64px;height:64px;object-fit:cover;border-radius:6px;margin-left:6px;vertical-align:middle;border:1px solid var(--border);cursor:pointer',onClick:function(){viewImg(m.img)}}))
+      box.appendChild(row)
+    })
+  }
+  renderBox()
   c.appendChild(box)
   c.appendChild(h('button',{className:'btn btn-outline btn-sm',style:'margin-top:8px',onClick:function(){open=!open;box.style.display=open?'':'none';this.innerHTML=open?'收起原文':'查看原文'}},'查看原文'))
   const mem=chatMem().slice(-6)
@@ -1912,6 +1938,7 @@ function rtoday(){
 function rchat(){
   document.body.classList.add('chat-page')
   if(pushMilestones())sv(D)
+  if(!_aiBusy&&D._chat&&D._chat.some(function(m){return m.pending})){D._chat=D._chat.filter(function(m){return !m.pending});sv(D)}
   chatHeight()
   $c.appendChild(chatUI())
   setTimeout(function(){const el=document.getElementById('chatScroll');if(el)el.scrollTop=el.scrollHeight},60)
