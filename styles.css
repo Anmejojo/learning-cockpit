@@ -367,3 +367,85 @@ body.chat-page .chat-bar .chat-cam{padding:8px 9px;font-size:15px;border-radius:
 .pt-burst::after{content:'';position:absolute;left:50%;top:42%;width:20px;height:20px;border-radius:50%;background:radial-gradient(circle,rgba(250,204,21,.5),transparent 70%);transform:translate(-50%,-50%);animation:ptGlow 1.05s ease-out forwards}
 @keyframes ptBurst{0%{opacity:0;transform:translate(-50%,-24%) scale(.55)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.18)}22%{transform:translate(-50%,-52%) scale(1)}46%{opacity:1;transform:translate(-50%,-72%) scale(1)}100%{opacity:0;transform:translate(-50%,-128%) scale(1)}}
 @keyframes ptGlow{0%{width:20px;height:20px;opacity:.95}100%{width:360px;height:360px;opacity:0}}
+
+/* ==========================================================================
+   主题（只换配色；classic = 原来的样子）
+   ========================================================================== */
+html[data-theme="classic"]{
+  --bg:#0b0d12;--bg-elev:#12151c;--card:#15181f;--card-2:#1b1f29;
+  --text:#ccd2de;--muted:#98a1b3;--faint:#7d8799;
+  --primary:#6366f1;--primary-hover:#818cf8;--primary-weak:rgba(99,102,241,0.14);--primary-border:rgba(99,102,241,0.45);
+  --success:#34d399;--success-weak:rgba(52,211,153,0.12);--success-border:rgba(52,211,153,0.4);
+  --warning:#fbbf24;--warning-weak:rgba(251,191,36,0.12);--warning-border:rgba(251,191,36,0.4);
+  --danger:#f87171;--danger-weak:rgba(248,113,113,0.12);--danger-border:rgba(248,113,113,0.4);
+  --border:rgba(255,255,255,0.07);--border-strong:rgba(255,255,255,0.12);
+  --shadow:0 1px 2px rgba(0,0,0,0.4);--shadow-md:0 8px 28px rgba(0,0,0,0.45);
+  --radius:10px;--radius-sm:7px;--hl:transparent;
+}
+/* A 极简暗夜：近黑 + 单一低饱和紫 */
+html[data-theme="a"]{
+  --bg:#0a0b0d;--bg-elev:#0f1113;--card:#121417;--card-2:#171a1e;
+  --text:#e6e8ec;--muted:#98a1b0;--faint:#6b7280;
+  --primary:#8b8cf0;--primary-hover:#a8a9f7;--primary-weak:rgba(139,140,240,0.12);--primary-border:rgba(139,140,240,0.36);
+  --success:#4ade80;--success-weak:rgba(74,222,128,0.11);--success-border:rgba(74,222,128,0.32);
+  --warning:#fbbf24;--warning-weak:rgba(251,191,36,0.11);--warning-border:rgba(251,191,36,0.32);
+  --danger:#f87171;--danger-weak:rgba(248,113,113,0.11);--danger-border:rgba(248,113,113,0.32);
+  --border:rgba(255,255,255,0.06);--border-strong:rgba(255,255,255,0.10);
+  --shadow:none;--shadow-md:none;
+  --radius:12px;--radius-sm:8px;--hl:rgba(255,255,255,0.055);
+}
+/* B 深空金属：仪表灯青蓝 */
+html[data-theme="b"]{
+  --bg:#080c10;--bg-elev:#0c1218;--card:#0f1820;--card-2:#142129;
+  --text:#dce7f2;--muted:#8fa4b8;--faint:#65809a;
+  --primary:#38bdf8;--primary-hover:#7dd3fc;--primary-weak:rgba(56,189,248,0.12);--primary-border:rgba(56,189,248,0.36);
+  --success:#34d399;--success-weak:rgba(52,211,153,0.11);--success-border:rgba(52,211,153,0.32);
+  --warning:#fbbf24;--warning-weak:rgba(251,191,36,0.11);--warning-border:rgba(251,191,36,0.32);
+  --danger:#fb7185;--danger-weak:rgba(251,113,133,0.11);--danger-border:rgba(251,113,133,0.32);
+  --border:rgba(148,197,255,0.11);--border-strong:rgba(148,197,255,0.19);
+  --shadow:none;--shadow-md:none;
+  --radius:12px;--radius-sm:8px;--hl:rgba(148,197,255,0.13);
+}
+/* C 暖夜书房：暖黑 + 琥珀金 */
+html[data-theme="c"]{
+  --bg:#12100e;--bg-elev:#17140f;--card:#1c1813;--card-2:#241f18;
+  --text:#e9e1d5;--muted:#a99e8d;--faint:#7d7364;
+  --primary:#e0a458;--primary-hover:#efbb79;--primary-weak:rgba(224,164,88,0.13);--primary-border:rgba(224,164,88,0.38);
+  --success:#9cba6a;--success-weak:rgba(156,186,106,0.12);--success-border:rgba(156,186,106,0.34);
+  --warning:#f0b429;--warning-weak:rgba(240,180,41,0.12);--warning-border:rgba(240,180,41,0.34);
+  --danger:#e07a5f;--danger-weak:rgba(224,122,95,0.12);--danger-border:rgba(224,122,95,0.34);
+  --border:rgba(255,236,205,0.075);--border-strong:rgba(255,236,205,0.14);
+  --shadow:none;--shadow-md:none;
+  --radius:12px;--radius-sm:8px;--hl:rgba(255,236,205,0.07);
+}
+
+/* ==========================================================================
+   精致化层（只对 A/B/C 三套生效；classic 保持原样）
+   做法：细描边 + 顶部 1px 高光代替重阴影；圆角收敛；进度条单色；数字等宽
+   ========================================================================== */
+html[data-polish="1"]{font-variant-numeric:tabular-nums}
+html[data-polish="1"] .card{box-shadow:none!important;border:1px solid var(--border);border-top-color:var(--hl);border-radius:var(--radius)}
+html[data-polish="1"] .stat-card{border-radius:var(--radius-sm);box-shadow:none!important}
+html[data-polish="1"] .btn{border-radius:var(--radius-sm);box-shadow:none!important}
+html[data-polish="1"] .alert{border-radius:var(--radius-sm);box-shadow:none!important}
+html[data-polish="1"] .check-item{border-radius:var(--radius-sm)}
+html[data-polish="1"] .part-card{border-radius:var(--radius-sm);box-shadow:none!important}
+html[data-polish="1"] .mistake-item{border-radius:var(--radius-sm)}
+html[data-polish="1"] .btn-primary{background:var(--primary);border-color:var(--primary-border)}
+html[data-polish="1"] .btn-primary:hover{background:var(--primary-hover)}
+html[data-polish="1"] .ck-bar-fill{background:var(--primary)}
+html[data-polish="1"] .ck-lv{background:none;-webkit-text-fill-color:currentColor;color:var(--primary-hover)}
+html[data-polish="1"] .fab-chat{background:var(--primary);box-shadow:none!important;border:1px solid var(--primary-border);color:#0b0d12}
+html[data-polish="1"] .card-header > span:first-child{filter:grayscale(1) contrast(.95);opacity:.5}
+html[data-polish="1"] .stat-card .sv,html[data-polish="1"] .ck-lv{font-variant-numeric:tabular-nums}
+html[data-polish="1"] .card-header{letter-spacing:.2px}
+html[data-polish="1"] .seg-btn.on,html[data-polish="1"] .seg-b.on{background:var(--primary);border-color:var(--primary-border)}
+
+/* 主题选择卡 */
+.theme-pick{flex:1;min-width:112px;cursor:pointer;background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 11px;transition:border-color .18s ease,transform .18s ease}
+.theme-pick:hover{border-color:var(--border-strong);transform:translateY(-1px)}
+.theme-pick.on{border-color:var(--primary-border);background:var(--primary-weak)}
+.tp-dots{display:flex;gap:5px;margin-bottom:7px}
+.tp-dot{width:16px;height:16px;border-radius:50%;display:inline-block;border:1px solid rgba(255,255,255,.18)}
+.tp-name{font-size:13.5px;font-weight:600}
+.tp-on{font-size:11.5px;color:var(--primary-hover);margin-top:3px}
