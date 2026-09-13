@@ -211,7 +211,7 @@ function showSetup(){
       const p=(v[0]||'').trim(),c=(v[1]||'').trim()
       if(p.length<4)return '家长口令至少 4 位'
       if(c.length<3)return '孩子口令至少 3 位'
-      D._auth={p:hsh(p),c:hsh(c)}
+      D._auth={p:hsh(p),c:hsh(c),t:hsh(p)}
       localStorage.setItem('lc_lv','p');localStorage.setItem('lc_tok',hsh(p))
       closeGate();applyLv('p');sv(D);render();ts('✅ 口令已设置，本机已记住')
       return ''
@@ -221,8 +221,8 @@ function showGate(){
   _gateBox('请输入口令','',[{k:'x',label:'口令',ph:'家长口令 或 孩子口令'}],'进入',function(v){
     const pw=(v[0]||'').trim()
     if(!pw)return '请输入口令'
-    if(D._auth&&hsh(pw)===D._auth.p){localStorage.setItem('lc_lv','p');localStorage.setItem('lc_tok',hsh(pw));closeGate();applyLv('p');render();return ''}
-    if(D._auth&&hsh(pw)===D._auth.c){localStorage.setItem('lc_lv','c');localStorage.setItem('lc_tok',hsh(pw));closeGate();applyLv('c');render();return ''}
+    if(D._auth&&hsh(pw)===D._auth.p){D._auth.t=hsh(pw);localStorage.setItem('lc_lv','p');localStorage.setItem('lc_tok',hsh(pw));closeGate();applyLv('p');sv(D);render();return ''}
+    if(D._auth&&hsh(pw)===D._auth.c){localStorage.setItem('lc_lv','c');localStorage.setItem('lc_tok',(D._auth.t||hsh(pw)));closeGate();applyLv('c');render();return ''}
     return '口令不对，再试试'
   })
 }
@@ -238,6 +238,7 @@ function applyLv(lv){
 function initAuth(){
   const saved=localStorage.getItem('lc_lv')||''
   if(!(D._auth&&D._auth.p)){showSetup();return}
+  if(saved==='c'&&D._auth.t&&localStorage.getItem('lc_tok')!==D._auth.t)localStorage.setItem('lc_tok',D._auth.t)
   if(saved==='p'||saved==='c'){applyLv(saved);render();return}
   showGate()
 }
