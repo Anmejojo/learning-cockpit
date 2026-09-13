@@ -202,7 +202,7 @@ function demoData(){
   const d=defData()
   const today=ymd(), y1=ymd(new Date(Date.now()-86400000)), y2=ymd(new Date(Date.now()-2*86400000))
   d.checks=[
-    {id:101,date:today,type:'homework',typeName:'作业拍照',subject:'数学',imgs:[],pts:2,status:'approved',ts:Date.now()-3600000,at:Date.now()-1800000,note:'数学那道大题思路清楚，比昨天快'},
+    {id:101,date:today,type:'homework',typeName:'作业拍照',subject:'数学',imgs:[],pts:2,status:'approved',ts:Date.now()-3600000,at:Date.now()-1800000,note:'数学那道大题思路清楚，比昨天快',scan:[{i:1,subject:'数学',kind:'作业',done:false,blank:[{no:'第7题',text:'解方程 3x-5=7'},{no:'第12题(2)',text:'求三角形面积'}]}],say:'刚看到你交的数学那张（第 1 张）：第7题（解方程 3x-5=7）、第12题(2)（求三角形面积）还空着。是没做完，还是没拍到？'},
     {id:102,date:today,type:'note',typeName:'课堂笔记',subject:'语文',imgs:[],pts:2,status:'pending',ts:Date.now()-600000,noteSubmit:'记下来了，先放着'},
     {id:103,date:y1,type:'mistake',typeName:'错题本拍照',subject:'数学',imgs:[],pts:2,status:'approved',ts:Date.now()-90000000,at:Date.now()-88000000},
     {id:104,date:y2,type:'word',typeName:'背单词',subject:'英语',imgs:[],pts:2,status:'approved',ts:Date.now()-176000000,at:Date.now()-175000000}
@@ -215,7 +215,8 @@ function demoData(){
   d.dailyChecks[today]={videoCall:true,onTimeStudy:true,water:true}
   d._chat=[
     {id:1,date:today,role:'u',text:'这题不会：一次函数和x轴交点怎么求',ts:Date.now()-1800000},
-    {id:2,date:today,role:'a',text:'x轴交点就是 y=0 的那个点。先把 y=0 代进去，得到个式子，你写出来我看看？',ts:Date.now()-1790000}
+    {id:2,date:today,role:'a',text:'x轴交点就是 y=0 的那个点。先把 y=0 代进去，得到个式子，你写出来我看看？',ts:Date.now()-1790000},
+    {id:3,date:today,role:'a',text:'刚看到你交的数学那张（第 1 张）：第7题（解方程 3x-5=7）、第12题(2)（求三角形面积）还空着。是没做完，还是没拍到？',ts:Date.now()-1700000,auto:true}
   ]
   d.mistakes=[
     {id:201,date:today,ts:Date.now()-7200000,by:'c',subject:'数学',qtype:'计算题',kp:'一次函数与x轴交点',stem:'已知 y=2x-3，求它与 x 轴交点的坐标',why:'公式记错',imgs:[],pass:[]},
@@ -527,6 +528,78 @@ function checkImgs(c){
   if(c.img)return [c.img]
   return []
 }
+/* ===== AI 看作业照片：有没有没做完的题 → 小搭去说 ===== */
+const SCAN_MAX=3
+function scanPrompt(){
+  return ['你是初中老师。下面是学生刚交上来的作业 / 试卷照片（单张）。',
+    '请判断：这张上有没有没做完的题（空着没写、只写一半、大题只做了第(1)问）？',
+    '只输出一行 JSON，不要解释：',
+    '{"subject":"科目","kind":"试卷/作业/笔记/其他","done":true,"blank":[{"no":"第7题","text":"题目文字"}]}',
+    '· subject 只能填：'+MK_SUBJECTS.join('/')+'（认不出填 其他）；',
+    '· done：全做完了填 true；只要有空题 / 半截题就填 false；',
+    '· blank：把没做完的题按题号列出来（最多 5 条）；no 写题号（如 "第7题"、"12(2)"）；text 把这题问什么写成文字（30 字内，看不清写"看不清"）；',
+    '· 不确定就不要报（宁可漏报，不要误报）。'
+  ].join('\n')
+}
+async function scanOne(url){
+  try{
+    const r=await aiCall(scanPrompt(),url,'')
+    if(!r||!r.ok||!r.text)return null
+    const raw=String(r.text).replace(/```json/g,'').replace(/```/g,'')
+    const m=raw.match(/[{][\s\S]*[}]/)
+    const j=JSON.parse(m?m[0]:raw)
+    return j||null
+  }catch(e){return null}
+}
+function scanLine(rec){
+  if(!rec||!rec.scan)return ''
+  const bad=(rec.scan||[]).filter(function(o){return o&&!o.done&&(o.blank||[]).length})
+  if(!bad.length)return ''
+  return bad.map(function(o){
+    return '第'+o.i+'张'+(o.subject?('·'+o.subject):'')+'：'+(o.blank||[]).map(function(b){return b.no||'某题'}).join('、')+'还空着'
+  }).join('；')
+}
+function chatPushAI(text){
+  try{
+    const l=chatLog()
+    l.push({id:Date.now()+3,date:td,role:'a',text:text,ts:Date.now(),auto:true})
+    chatTrim()
+    if(typeof tb!=='undefined'&&tb==='chat')render()
+  }catch(e){}
+}
+async function scanCheck(recId,urls){
+  try{
+    const rec=(D.checks||[]).find(function(x){return x.id===recId})
+    if(!rec||!urls||!urls.length)return
+    const out=[]
+    for(let i=0;i<Math.min(urls.length,SCAN_MAX);i++){
+      if(!urls[i])continue
+      const j=await scanOne(urls[i])
+      if(!j)continue
+      out.push({i:i+1,subject:String(j.subject||'').slice(0,6),kind:String(j.kind||'').slice(0,6),
+        done:(j.done!==false),
+        blank:(Array.isArray(j.blank)?j.blank:[]).slice(0,5).map(function(b){return {no:String((b&&b.no)||'').slice(0,12),text:String((b&&b.text)||'').slice(0,40)}})})
+    }
+    if(!out.length)return
+    rec.scan=out
+    const bad=out.filter(function(o){return !o.done&&(o.blank||[]).length})
+    if(bad.length){
+      const one=bad[0]
+      const parts=one.blank.map(function(b){
+        const t=(b.text&&b.text!=='看不清')?('（'+b.text+'）'):''
+        return (b.no||'某题')+t
+      })
+      const rest=bad.length>1?('，另外第'+bad[1].i+'张'+(bad[1].subject?('·'+bad[1].subject):'')+'也有空题'):''
+      const say='刚看到你交的'+(one.subject||'作业')+'那张（第 '+one.i+' 张）：'+parts.join('、')+'还空着'+rest+'。是没做完，还是没拍到？'
+      rec.say=say
+      rec.needLook=true
+      chatPushAI(say)
+      ts('📌 '+say)
+    }
+    sv(D);render()
+  }catch(e){}
+}
+
 function submitCheck(typeId,subject,imgsArr,append){
   const type=CHECK_TYPES.find(function(t){return t.id===typeId})
   if(!type)return
@@ -540,6 +613,7 @@ function submitCheck(typeId,subject,imgsArr,append){
     old.status='pending';old.ts=Date.now();old.pts=type.pts
     old.noteSubmit=encTake()
     sv(D);render();ts('✅ 已更新 · '+old.noteSubmit)
+    try{scanCheck(old.id,old.imgs||[])}catch(e){}
     return
   }
   const _rec={id:Date.now(),date:_ds,type:typeId,typeName:type.name,subject:_sub,imgs:imgsArr||[],pts:type.pts,status:'pending',ts:Date.now()}
@@ -549,6 +623,7 @@ function submitCheck(typeId,subject,imgsArr,append){
   D.points.push({date:_ds,source:'提交·'+_lbl,points:1,type:'earn'})
   sv(D);render()
   ts('✅ 已收到 +1分 · '+_rec.noteSubmit)
+  try{scanCheck(_rec.id,imgsArr||[])}catch(e){}
 }
 function approveCheck(id){
   const c=(D.checks||[]).find(function(x){return x.id===id})
@@ -706,6 +781,8 @@ function sysNotify(title,body){try{if(notifyPerm())new Notification(title,{body:
 function dailyBanner(){
   const out=[]
   try{
+    const _sc=(D.checks||[]).filter(function(c){return (c.date||td)===td&&scanLine(c)})
+    if(_sc.length)out.push('📌 小搭看到：'+scanLine(_sc[0]))
     if(VW){
       const ds=dayStats(td),hs=habStats(td)
       const doneN=ds.done+hs.done
@@ -2342,7 +2419,10 @@ function rckDone(){
     day.forEach(function(c){
       const row=h('div',{style:'display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--border)'})
       const imgs=checkImgs(c)
-      row.appendChild(h('div',{style:'flex:1;min-width:0'},h('div',{style:'font-size:14px'},(c.subject?c.subject+'·':'')+(c.typeName||c.type)),h('div',{style:'font-size:12.5px;color:var(--muted);margin-top:2px'},'+'+c.pts+' 分'+(c.ts?(' · '+(c.at?('通过 '+fd(ymd(new Date(c.at)))+' '+fmtHM(c.at)):('提交 '+fmtHM(c.ts)))):''))))
+      const _cell=h('div',{style:'flex:1;min-width:0'},h('div',{style:'font-size:14px'},(c.subject?c.subject+'·':'')+(c.typeName||c.type)),h('div',{style:'font-size:12.5px;color:var(--muted);margin-top:2px'},'+'+c.pts+' 分'+(c.ts?(' · '+(c.at?('通过 '+fd(ymd(new Date(c.at)))+' '+fmtHM(c.at)):('提交 '+fmtHM(c.ts)))):'')))
+      const _sl3=scanLine(c)
+      if(_sl3)_cell.appendChild(h('div',{style:'font-size:12.5px;color:var(--warning);margin-top:3px;line-height:1.6'},'📌 小搭看到：'+_sl3))
+      row.appendChild(_cell)
       if(imgs.length){
         const ir=h('div',{style:'display:flex;gap:4px;flex-wrap:wrap;max-width:150px'})
         imgs.slice(0,3).forEach(function(b){ir.appendChild(photoImg(b,imgs,'width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer'))})
@@ -2945,6 +3025,8 @@ function rckList(){
       const st=rec.status==='pending'?'⏳ 待审核':rec.status==='approved'?'✅ 已通过':'↩️ 已退回'
       const sc2=rec.status==='pending'?'var(--warning)':rec.status==='approved'?'var(--success)':'var(--muted)'
       card.appendChild(h('div',{style:'font-size:14px;margin-top:5px;color:'+sc2+';font-weight:600'},st+(rec.ts?' · '+fmtHM(rec.ts)+' 提交':'')))
+      const _sl=scanLine(rec)
+      if(_sl)card.appendChild(h('div',{style:'font-size:13px;color:var(--warning);margin-top:6px;line-height:1.7'},'📌 小搭看到：'+_sl))
       if(VW&&rec.status==='pending'){
         const br2=h('div',{style:'margin-top:6px;display:flex;gap:5px;justify-content:center;flex-wrap:wrap'})
         br2.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){pickAndSubmit(type,subj,true)}},'📷 再加一张'))
@@ -4025,6 +4107,8 @@ function rcal(){
         const sc2=c.status==='pending'?'var(--warning)':c.status==='approved'?'var(--success)':'var(--muted)'
         const row=h('div',{className:'mistake-item'})
         row.innerHTML='<div><strong>'+type.icon+' '+(c.subject?c.subject+'·':'')+type.name+'</strong> <span style="color:'+sc2+'">'+st+'</span> <span style="color:var(--muted);font-size:14px">+'+c.pts+'分</span></div>'
+        const _sl2=scanLine(c)
+        if(_sl2)row.appendChild(h('div',{style:'font-size:13px;color:var(--warning);margin-top:4px;line-height:1.7'},'📌 小搭看到：'+_sl2))
         const cImgs=checkImgs(c)
         if(cImgs.length){const cir=h('div',{style:'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px'});cImgs.forEach(function(b){cir.appendChild(photoImg(b,cImgs,'width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)'))});row.appendChild(cir)}
         dc.appendChild(row)
