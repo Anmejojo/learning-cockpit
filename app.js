@@ -1975,25 +1975,22 @@ function uploadPhoto(file,cb){
     if(!b64)return cb(null)
     try{
       if(!cloudApp||!cloudApp.uploadFile)return cb(b64)
-      const name='photos/'+ymd()+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,7)+'.jpg'
-      _ensureAuth(function(){ _doUpload(name,b64,cb) })
+      fetch(AI_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({token:aiToken(),type:'upload',data:b64})})
+        .then(function(r){return r.json()})
+        .then(function(j){
+          if(j&&j.ok&&j.url){_photoOK=true;cb(j.url)}
+          else{
+            _photoOK=false
+            if(!_photoWarned){_photoWarned=true;ts('⚠️ 照片上云失败（'+(j&&j.err||'未知')+'），先存本机')}
+            cb(b64)
+          }
+        })
+        .catch(function(e){console.warn('照片上传失败，退回本机',e);_photoOK=false;cb(b64)})
       return
       // eslint-disable-next-line no-unreachable
     }catch(e){cb(b64)}
   })
-}
-function _doUpload(name,b64,cb){
-  try{
-      cloudApp.uploadFile({cloudPath:name,filePath:_b64ToBlob(b64)}).then(function(res){
-        const fid=res&&(res.fileID||res.fileId)
-        if(fid){_photoOK=true;cb(fid)}
-        else{_photoOK=false;cb(b64)}
-      }).catch(function(e){
-        console.warn('云存储上传失败，退回本机',e);_photoOK=false
-        if(!_photoWarned){_photoWarned=true;ts('⚠️ 云存储暂时用不了，照片先存在本机')}
-        cb(b64)
-      })
-  }catch(e){cb(b64)}
 }
 const _urlCache={}
 function photoURL(v,cb){
