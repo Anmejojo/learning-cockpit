@@ -2,7 +2,7 @@
    作用：① 安卓 Chrome 可"安装成应用" ② 断网也能打开壳 ③ 静态资源缓存加速
    注意：AI 请求、云存储图片、数据库走网络，不缓存 */
 const CACHE = 'lc-shell-v1'
-const ASSETS = ['./', './index.html', './styles.css', './manifest.json', './icon-192.png', './icon-512.png', './icon-180.png']
+const ASSETS = ['./', './index.html', './styles.css', './manifest.json', './icon-192.png', './icon-512.png', './icon-180.png', './font-inter.woff2', './font-mono.woff2']
 
 self.addEventListener('install', function (e) {
   self.skipWaiting()
