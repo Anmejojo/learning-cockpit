@@ -3049,55 +3049,71 @@ let _setView='info'
 /* ===== 孩子端「设置」：只读的「家里的规则」（不给空白分组） ===== */
 function rsetKid(){
   $c.appendChild(h('div',{className:'daily-praise'},'📋 这些是家里的规则，记不清的时候就翻一翻'))
-  // 1) 每天能赚的积分
-  const items=(D.dci||defData().dci||[])
-  const c1=h('div',{className:'card'})
-  c1.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'⭐'}),'每天能赚的积分'))
-  const tb=h('table')
-  tb.innerHTML='<thead><tr><th scope="col">项目</th><th scope="col">积分</th></tr></thead><tbody></tbody>'
-  const tbody=tb.querySelector('tbody')
-  for(let i=0;i<items.length;i++){
-    const it=items[i]||{}
-    const tr=h('tr')
-    tr.appendChild(h('td',null,(it.icon?it.icon+' ':'')+String(it.label||'')))
-    tr.appendChild(h('td',null,'+'+String(it.pts==null?'':it.pts)))
-    tbody.appendChild(tr)
+  const TBL=function(head,rows){
+    const tb=h('table')
+    tb.innerHTML='<thead><tr><th scope="col">'+head[0]+'</th><th scope="col">'+head[1]+'</th></tr></thead><tbody></tbody>'
+    const body=tb.querySelector('tbody')
+    rows.forEach(function(r){const tr=h('tr');tr.appendChild(h('td',null,r[0]));tr.appendChild(h('td',null,r[1]));body.appendChild(tr)})
+    const w=h('div',{className:'table-scroll'});w.appendChild(tb);return w
   }
-  const tw=h('div',{className:'table-scroll'});tw.appendChild(tb);c1.appendChild(tw)
-  c1.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-top:8px;line-height:1.8'},'记一笔就算，不用写得多好。今天没做也没关系，明天接着来。'))
+  const CARD=function(icon,title){const c=h('div',{className:'card'});c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:icon}),title));return c}
+  const NOTE=function(t){return h('div',{style:'font-size:13.5px;color:var(--muted);margin-top:8px;line-height:1.8'},t)}
+
+  // 1) 每天记录能赚的积分
+  const c1=CARD('\u2b50','每天记录能赚的积分')
+  c1.appendChild(TBL(['项目','积分'],(D.dci||defData().dci||[]).map(function(it){
+    return [(it.icon?it.icon+' ':'')+String(it.label||''),'+'+String(it.pts==null?'':it.pts)]
+  })))
+  c1.appendChild(NOTE('记一笔就算，不用写得多好。今天没做也没关系，明天接着来。'))
   $c.appendChild(c1)
-  // 2) 每天的时间
-  const c2=h('div',{className:'card'})
-  c2.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🕗'}),'每天的时间'))
+
+  // 2) 交上来、拍下来也能赚
+  const c2=CARD('📓','交上来、拍下来也能赚')
+  c2.appendChild(TBL(['交什么','通过后'],(typeof CHECK_TYPES!=='undefined'?CHECK_TYPES:[]).map(function(t){
+    return [(t.icon?t.icon+' ':'')+String(t.name||''),'+'+String(t.pts==null?'':t.pts)]
+  })))
+  c2.appendChild(NOTE('交上来先给 +1 分；家长看过通过后，再补上表格里的分。照片拍清楚一点，通过会快些。'))
+  $c.appendChild(c2)
+
+  // 3) 还有这些
+  const c3=CARD('\u270d\ufe0f','还有这些')
+  c3.appendChild(TBL(['做什么','积分'],[
+    ['\u270d\ufe0f 硬笔字打卡（每天算一次）','+1'],
+    ['🎯 小目标达成','+10']
+  ]))
+  c3.appendChild(NOTE('硬笔字同一天传多少张都只算一次；小目标达成后点一下就到账。'))
+  $c.appendChild(c3)
+
+  // 4) 每天的时间
+  const c4=CARD('🕗','每天的时间')
   const box=h('div',{style:'font-size:14.5px;line-height:2.1'})
   box.appendChild(h('div',null,'固定学习时间：',h('strong',null,String(D.ritualTime||'20:00'))))
   if(D.examDate)box.appendChild(h('div',null,'下次大考：',h('strong',null,String(D.examDate)),String(D.examTopic?(' · '+D.examTopic):'')))
-  c2.appendChild(box)
-  $c.appendChild(c2)
-  // 3) 我的小目标
+  c4.appendChild(box)
+  $c.appendChild(c4)
+
+  // 5) 我的小目标
   const goals=D.smallGoals||[]
-  const c3=h('div',{className:'card'})
-  c3.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🎯'}),'我的小目标'))
+  const c5=CARD('🎯','我的小目标')
   if(!goals.length){
-    c3.appendChild(h('div',{style:'font-size:14px;color:var(--muted)'},'还没定小目标，跟家长一起定一个吧'))
+    c5.appendChild(h('div',{style:'font-size:14px;color:var(--muted)'},'还没定小目标，跟家长一起定一个吧'))
   }else{
     for(let i=0;i<goals.length;i++){
       const g=goals[i]||{}
       const row=h('div',{className:'mistake-item'})
       row.appendChild(h('strong',null,String(g.subject||'')))
       row.appendChild(document.createTextNode(' '+String(g.from)+' → '+String(g.to)+(g.done?' ✅ 已达成':'')))
-      c3.appendChild(row)
+      c5.appendChild(row)
     }
   }
-  $c.appendChild(c3)
-  // 4) 积分怎么算
-  const rate=(D.rate||1)
-  const c4=h('div',{className:'card'})
-  c4.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'💱'}),'积分怎么算'))
-  c4.appendChild(h('div',{style:'font-size:14.5px;line-height:2.1'},
-    h('div',null,'1 元 = ',h('strong',null,String(rate)),' 积分'),
-    h('div',{style:'color:var(--muted);font-size:13.5px'},'攒够了就能换心愿单里的东西，慢慢来。')))
-  $c.appendChild(c4)
+  $c.appendChild(c5)
+
+  // 6) 积分怎么算
+  const c6=CARD('💱','积分怎么算')
+  c6.appendChild(h('div',{style:'font-size:14.5px;line-height:2.1'},
+    h('div',null,'1 元 = ',h('strong',null,String(D.rate||1)),' 积分'),
+    h('div',{style:'color:var(--muted);font-size:13.5px'},'攒够了就去「🎁 积分奖励」换心愿单里的东西，慢慢来。')))
+  $c.appendChild(c6)
 }
 
 function rset(){
