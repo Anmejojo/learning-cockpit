@@ -250,12 +250,13 @@ function logout(){
 /* ================= AI 助手（密钥在云函数里，网页端不存） ================= */
 const AI_URL='https://jiajia-study-d6gjyod13d77728d6-1483465315.ap-shanghai.app.tcloudbase.com/ai'
 function aiToken(){return localStorage.getItem('lc_tok')||''}
-/* 家长端开机时把 AI 令牌登记进数据，孩子端才能用同一把令牌（只做一次，不重复上传） */
+/* AI 令牌同步：家长端把令牌登记进数据并上传；孩子端读到后换成本地令牌（读完云端数据后再调一次） */
 async function authTokenSync(){
   try{
     const lv=localStorage.getItem('lc_lv')||''
     const tk=localStorage.getItem('lc_tok')||''
     if(lv==='p'&&tk&&D._auth&&!D._auth.t){D._auth.t=tk;await saveCloud(D);return true}
+    if(lv==='c'&&D._auth&&D._auth.t&&tk!==D._auth.t){localStorage.setItem('lc_tok',D._auth.t);return true}
   }catch(e){}
   return false
 }
