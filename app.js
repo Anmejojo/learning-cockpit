@@ -1942,6 +1942,12 @@ function usageCard(){
   }else{
     c.appendChild(h('div',{className:'t-muted mb8'},u?('暂时查不到：'+u.err):'点下面看一下照片共占了多少。只统计，不会删任何东西。'))
   }
+  // 数据库记录大小（本机估算，不需要云端）
+  try{
+    const docSize=JSON.stringify(D).length
+    c.appendChild(h('div',{className:'t-muted mt8'},'数据库记录：约 '+fmtBytes(docSize)+'（各种记录、成绩、聊天；不含照片文件）'))
+  }catch(e){}
+  c.appendChild(h('div',{className:'t-faint mt6'},'只统计，不会删任何东西。'))
   c.appendChild(h('button',{className:'btn btn-outline btn-sm mt8',onClick:usageRun},u&&u.ok?'🔄 重新统计':'📊 统计一下'))
   return c
 }
