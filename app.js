@@ -1986,7 +1986,7 @@ async function speakCloud(t,id,vv){
     await _audioEl.play()
   }catch(e){
     _speakId=null
-    if(vv){try{ts('云端语音暂时不可用')}catch(e0){};return}
+    if(vv){try{ts('云端语音用不了：'+String((e&&e.message)||e).slice(0,60))}catch(e0){};return}
     try{ts('云端语音暂时不可用，先用设备语音')}catch(e0){}
     try{chatSpeakDevice(t,id)}catch(e1){}
   }
