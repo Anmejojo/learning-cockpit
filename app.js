@@ -646,9 +646,23 @@ function chatSnapshot(){
   const wk=weekKey(); let mis=0
   ;(D.checks||[]).forEach(function(c){if(c.date>=wk&&c.type==='mistake'&&c.status!=='rejected')mis++})
   L.push('· 本周整理错题：'+mis+' 道')
-  // 妈妈留言
-  const un=(D.msgs||[]).filter(function(m){return m.from==='p'&&m.ts>(D.msgSeenC||0)}).length
-  if(un)L.push('· 家长给他留了 '+un+' 条还没看')
+  // 家长留言（带原话，他问就能转述）
+  const unMsgs=(D.msgs||[]).filter(function(m){return m.from==='p'&&m.ts>(D.msgSeenC||0)})
+  if(unMsgs.length){
+    L.push('· 家长给他留言（他还没看）：'+unMsgs.slice(-2).map(function(m){return '“'+String(m.text||'').slice(0,40)+'”'}).join('；'))
+  }
+  // 下次大考倒计时
+  if(D.examDate){
+    const _t0=new Date(ymd().replace(/-/g,'/')+' 00:00:00').getTime()
+    const _t1=new Date(String(D.examDate).replace(/-/g,'/')+' 00:00:00').getTime()
+    const _nd=Math.round((_t1-_t0)/86400000)
+    if(_nd>=0)L.push('· 下次大考：'+(D.examTopic?D.examTopic+' ':'')+D.examDate+'（还有 '+_nd+' 天）')
+  }
+  // 他近 7 天常问的知识点
+  const _km={};const _d7s=ymd(new Date(Date.now()-6*86400000))
+  ;(D._chat||[]).forEach(function(m){if(m.role==='u'&&m.k&&m.date>=_d7s)_km[m.k]=(_km[m.k]||0)+1})
+  const _kl=Object.keys(_km).sort(function(a,b){return _km[b]-_km[a]}).slice(0,5)
+  if(_kl.length)L.push('· 他近 7 天常问：'+_kl.map(function(k){return k+'（'+_km[k]+'次）'}).join('、')+'（他再问到这类，可以顺口说“上次你也卡这块”）')
   // 今日任务
   const tds=D.tasks.filter(function(t){return t.date===td&&!t.done}).map(function(t){return t.text})
   if(tds.length)L.push('· 他自己列了今天要做：'+tds.join('、'))
@@ -892,7 +906,7 @@ function memPanelUI(){
   if(!mem.length)body.appendChild(h('div',{className:'mem-empty'},'还没记什么。'))
   mem.slice().reverse().forEach(function(m){
     const row=h('div',{className:'mem-row'})
-    row.appendChild(h('div',{className:'mem-txt'},String(m.text||'')))
+    row.appendChild(h('div',{className:'mem-txt'},(m.by==='k'?'（你让我记的）':'')+String(m.text||'')))
     row.appendChild(h('button',{className:'mem-del',onClick:function(){
       D._mem=chatMem().filter(function(x){return x.id!==m.id});sv(D);ts('删掉了');render()
     }},'删除'))
@@ -964,6 +978,22 @@ function chatPersona(){
   '',
   '【他是有连续性的】',
   '下面可能给你"上次类似情况是怎么过去的"，或者"他上次说过的一句话"。用得自然一点，就像你真的记得他；但绝不能说"根据记录""上次的数据""系统显示"，也不要专门讲"我记得你说过"。',
+  '',
+  '【他说“记住…”的时候】',
+  '他说“记住×××”就是让你记住这件事——系统已经替他存下了。你只回一句“记下了”就好，别复述一大段、别追问细节。',
+  '',
+  '【家长给他留言】',
+  '下面会给你家长留言的原话。他问“我妈说啥了/家里人说啥了”，就把原话给他（别改意思、别加评价），可以顺口说“要不你去留言里回一句”。',
+  '',
+  '【快考试的时候】',
+  '如果你看到“下次大考还有 N 天”：7 天以内不提“复习”“冲刺”“拓紧”“要不要多刷题”，也别问“准备得怎么样”。',
+  '他要学就陪他学；不主动加压力。考完当天不提分数。',
+  '',
+  '【他说要睡了、或者家长叫他的时候】',
+  '顺着收尾：一句具体的肯定（引用他今天真的做过的事），然后“去睡吧”。不再提任何事、不追问。',
+  '',
+  '【知识点标签】',
+  '他这条要是在问功课，在 [[T:…]] 之外，另起一行再写一个 [[K:知识点]]——只写最核心的那个，8 字以内，比如：一次函数、因式分解、现在完成时、欧姆定律。不是问功课就不用写这一行。',
   '',
   '【安全底线（最高优先，覆盖上面所有规则）】',
   '如果他提到：不想活 / 伤害自己 / 被打 / 被威胁 / 被欺负得很严重：',
@@ -1041,6 +1071,18 @@ function chatSend(imgB64){
   log.push({id:Date.now(),date:td,role:'u',text:(v||'（发了张图）'),img:(imgB64||''),ts:Date.now()})
   const _tk={id:'t'+Date.now(),date:td,role:'a',pending:true,text:'',ts:Date.now()}
   log.push(_tk)
+  try{
+    const _mk=String(v||'').match(/^(?:\u5e2e\u6211|\u4f60)?\u8bb0\u4f4f[\uff0c,\uff1a: ]*(.{1,40})$/)
+    if(_mk){
+      const _tt=_mk[1].replace(/[\r\n]+/g,' ').trim()
+      if(_tt&&!chatMem().some(function(x){return x.text===_tt})){
+        const _mm=chatMem()
+        _mm.push({id:Date.now()+Math.random(),text:_tt,tags:[],at:Date.now(),by:'k'})
+        if(_mm.length>40)D._mem=_mm.slice(-40)
+        ts('\u2705 \u8bb0\u4e0b\u4e86\uff1a'+_tt.slice(0,12))
+      }
+    }
+  }catch(e){}
   chatTrim()
   sv(D);render()
   const box=document.getElementById('chatOut')
@@ -1104,15 +1146,29 @@ function chatSend(imgB64){
     const _tm=_txt.match(/\[\[T:([qech])\]\]/)
     if(_tm){_tag=_tm[1];_txt=_txt.replace(/\[\[T:[qech]\]\]/g,'').trim()}
     if(_txt.indexOf('[[ALERT]]')>=0){_alert=true;_txt=_txt.replace(/\[\[ALERT\]\]/g,'').trim();_tag='h'}
+    let _kp=''
+    for(;;){
+      const _k1=_txt.indexOf('[[K:')
+      if(_k1<0)break
+      const _k2=_txt.indexOf(']]',_k1)
+      if(_k2<0){_txt=_txt.slice(0,_k1).trim();break}
+      if(!_kp)_kp=_txt.slice(_k1+4,_k2).trim().slice(0,20)
+      _txt=(_txt.slice(0,_k1)+' '+_txt.slice(_k2+2)).trim()
+    }
     const l2=chatLog()
     let _hit=false
     for(let i=0;i<l2.length;i++){
       if(l2[i].id===_tk.id){l2[i].text=_txt.trim();l2[i].pending=false;l2[i].alert=_alert||undefined;l2[i].tag=_tag||undefined;l2[i].ts=Date.now();_hit=true;break}
     }
     if(!_hit)l2.push({id:Date.now()+1,date:td,role:'a',text:_txt.trim(),alert:_alert||undefined,tag:_tag||undefined,ts:Date.now()})
-    if(_tag){const _last=l2[l2.length-2];if(_last&&_last.role==='u')_last.tag=_tag}
+    if(_tag||_kp){const _last=l2[l2.length-2];if(_last&&_last.role==='u'){if(_tag)_last.tag=_tag;if(_kp)_last.k=_kp}}
     if((_tag==='e'||_tag==='h')&&v)careSet(v)
-    if(_alert){const pp=askPool();pp.alert={date:td,at:Date.now()};}
+    if(_alert){
+      const pp=askPool();pp.alert={date:td,at:Date.now()}
+      if(!D._alerts)D._alerts=[]
+      if(!D._alerts.some(function(x){return x.date===td&&!x.ack}))D._alerts.push({date:td,at:Date.now(),ack:false})
+      if(D._alerts.length>12)D._alerts=D._alerts.slice(-12)
+    }
     if(l2.length>300)D._chat=l2.slice(-300)
     sv(D);render()
     _aiBusy=false
@@ -1280,7 +1336,17 @@ function chatParentUI(){
   if(_cnt.c)_parts.push('闲聊 '+_cnt.c)
   if(_cnt.h)_parts.push('需关注 '+_cnt.h)
   if(_parts.length)c.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-bottom:6px'},'今天聊的：'+_parts.join(' · ')))
-  if(p.alert&&p.alert.date===td)c.appendChild(h('div',{className:'alert danger',style:'margin-bottom:8px'},'🆘 今天聊到需要你关注的内容，建议今晚打个电话，先别谈成绩'))
+  const _km2={};const _d7=ymd(new Date(Date.now()-6*86400000))
+  chatLog().forEach(function(m){if(m.role==='u'&&m.k&&m.date>=_d7)_km2[m.k]=(_km2[m.k]||0)+1})
+  const _kl2=Object.keys(_km2).sort(function(a,b){return _km2[b]-_km2[a]}).slice(0,6)
+  if(_kl2.length)c.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-bottom:6px'},'近 7 天他常问：'+_kl2.map(function(k){return k+'×'+_km2[k]}).join('、')))
+  const _aln2=(D._alerts||[]).filter(function(a){return !a.ack&&a.date>=ymd(new Date(Date.now()-6*86400000))})
+  _aln2.slice(-3).forEach(function(a){
+    const bx=h('div',{className:'alert danger',style:'margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap'})
+    bx.appendChild(h('span',{style:'flex:1'},'🆘 '+a.date+'聊到需要你关注的内容，建议先打个电话，别谈成绩'))
+    bx.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){a.ack=true;sv(D);render();ts('已标记为处理过')}},'我处理了'))
+    c.appendChild(bx)
+  })
   const sum=(p.chatSum&&p.chatSum.date===td)?p.chatSum.text:'（正在整理今天的聊天摘要…）'
   c.appendChild(h('div',{className:'longtext',style:'font-size:14px;line-height:1.75;color:var(--text)'},sum))
   let open=false
@@ -1472,7 +1538,8 @@ function updateTabBadges(){
   const pendChecks=(D.checks||[]).filter(function(c){return c.status==='pending'}).length
   const pendExams=(D.exams||[]).filter(function(e){return e.status==='pending'}).length
   const _mine=VW?'c':'p'
-  const map={today:pendChecks+pendExams+msgUnread(_mine),checkin:pendChecks,scores:pendExams}
+  const _aln=VW?0:(D._alerts||[]).filter(function(a){return !a.ack}).length
+  const map={today:pendChecks+pendExams+msgUnread(_mine)+_aln,checkin:pendChecks,scores:pendExams}
   document.querySelectorAll('.tab-btn').forEach(function(b){
     const n=map[b.dataset.tab]||0
     let sp=b.querySelector('.tab-badge')
