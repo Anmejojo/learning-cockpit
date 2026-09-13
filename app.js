@@ -23,7 +23,7 @@ function defData(){
     exams:[],parts:JSON.parse(JSON.stringify(PT)),dailyChecks:{},checkImgs:{},checks:[],points:[],sem:'初二上',
     rate:10,
     bl:{chinese:99,math:115,english:70,geo:67,history:81,dao:63,bio:58,physics:null,pe:null,chem:null},
-    handwritings:[],phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,examDate:null,examTopic:'',mistakes:[],tasks:[],ritualTime:'20:00',smallGoals:[],mistakeMilestones:[],mistakeLog:{},
+    handwritings:[],_noGate:false,phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,examDate:null,examTopic:'',mistakes:[],tasks:[],ritualTime:'20:00',smallGoals:[],mistakeMilestones:[],mistakeLog:{},
     dci:[{key:'videoCall',icon:'📞',label:'视频通话',pts:2},{key:'askTeacher',icon:'🙋',label:'主动问老师',pts:3},{key:'noSkipStep',icon:'✅',label:'解题不跳步',pts:2},{key:'reciteMethod',icon:'🧠',label:'背英语用方法',pts:2},{key:'onTimeStudy',icon:'⏰',label:'按时开始学习',pts:2}]
   }
 }
@@ -238,6 +238,7 @@ function applyLv(lv){
 let _authPending=false
 function initAuth(){
   const saved=localStorage.getItem('lc_lv')||''
+  if(D._noGate){applyLv(saved||(VW?'c':'p'));render();return}   // 已关掉口令门：打开直接进
   if(!(D._auth&&D._auth.p)){_authPending=true;return}   // 本机没存过口令：先别急着让人"设置"，等读完云端再判定（否则新设备会覆盖家里口令）
   if(saved==='c'&&D._auth.t&&localStorage.getItem('lc_tok')!==D._auth.t)localStorage.setItem('lc_tok',D._auth.t)
   if(saved==='p'||saved==='c'){applyLv(saved);render();return}
@@ -248,6 +249,7 @@ function authGateAfterLoad(){
   if(!_authPending)return
   _authPending=false
   const saved=localStorage.getItem('lc_lv')||''
+  if(D._noGate){applyLv(saved||(VW?'c':'p'));render();return}
   if(D._auth&&D._auth.p){
     if(saved==='p'||saved==='c'){applyLv(saved);render()}
     else showGate()
@@ -2714,6 +2716,16 @@ function rset(){
   sh.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-top:8px'},'孩子打开只能看和提交打卡，不能改设置；手机浏览器菜单里选「添加到主屏幕」可以像 App 一样打开'))
   $c.appendChild(sh)
 
+  const _ng=h('div',{className:'card edit-only'})
+  _ng.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🚪'}),'访问口令'))
+  _ng.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-bottom:8px;line-height:1.7'},'现在是：'+(D._noGate?'**不用输口令**，打开直接进（家长链接=家长模式，孩子链接=孩子版）':'要输一次口令（家长口令进家长模式，孩子口令进孩子版）')))
+  _ng.appendChild(h('button',{className:'btn '+(D._noGate?'btn-warning':'btn-outline'),onClick:function(){
+    D._noGate=!D._noGate
+    if(D._noGate&&!_lv)applyLv('c')
+    sv(D);render();ts(D._noGate?'✅ 已关掉口令门：以后打开直接进':'🔒 已开启口令门：打开要输一次口令')
+  }},D._noGate?'🔓 关掉口令门（打开直接进）':'🔒 开启口令门'))
+  _ng.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:8px;line-height:1.7'},'提醒：关掉之后，任何拿到链接的人都能看到家里的数据（链接是公开网址）。建议只在"确定不会外传"的情况下关。'))
+  $c.appendChild(_ng)
   const sec=h('div',{className:'card edit-only'})
   sec.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔐'}),'口令与 AI'))
   sec.appendChild(h('div',{style:'font-size:14px;color:var(--muted);margin-bottom:8px'},'家长口令=全部权限；孩子口令=只能看和打卡。口令已记在本机，换设备需要重新输入。'))
