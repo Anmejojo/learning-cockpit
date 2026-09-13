@@ -644,7 +644,7 @@ function hwAdd(){
     ts('⏳ 正在处理 '+files.length+' 张…')
     const out=[];let done=0
     files.forEach(function(f){
-      compressImage(f,function(b64){
+      uploadPhoto(f,function(b64){
         done++
         if(b64)out.push(b64)
         if(done===files.length){
@@ -688,7 +688,7 @@ function rwrite(){
     const imgs=(it.imgs||[])
     if(imgs.length){
       const ig=h('div',{className:'hw-imgs'})
-      imgs.forEach(function(b){ig.appendChild(h('img',{src:b,loading:'lazy',alt:'硬笔字作品',onClick:function(){viewImg(b,imgs)}}))})
+      imgs.forEach(function(b){ig.appendChild(photoImg(b,imgs,''))})
       fig.appendChild(ig)
     }
     const bar=h('div',{className:'hw-bar'})
@@ -1924,7 +1924,7 @@ function pickAndSubmit(type,subject,append){
     const collected=[]
     let done=0
     files.forEach(function(f){
-      compressImage(f,function(b64){
+      uploadPhoto(f,function(b64){
         done++
         if(b64)collected.push(b64)
         if(done===files.length){
@@ -1953,6 +1953,53 @@ function rejectExam(id){
   ex.status='rejected'
   sv(D);render()
   ts('↩️ 成绩已退回')
+}
+/* ================= 照片上云：压小后传到云存储，数据里只存 cloud:// 文件ID ================= */
+let _photoOK=null,_photoWarned=false
+function _b64ToBlob(b64){
+  const bin=atob(String(b64).split(',')[1]||'')
+  const arr=new Uint8Array(bin.length)
+  for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i)
+  return new Blob([arr],{type:'image/jpeg'})
+}
+function uploadPhoto(file,cb){
+  compressImage(file,function(b64){
+    if(!b64)return cb(null)
+    try{
+      if(!cloudApp||!cloudApp.uploadFile)return cb(b64)
+      const name='photos/'+ymd()+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,7)+'.jpg'
+      cloudApp.uploadFile({cloudPath:name,filePath:_b64ToBlob(b64)}).then(function(res){
+        const fid=res&&(res.fileID||res.fileId)
+        if(fid){_photoOK=true;cb(fid)}
+        else{_photoOK=false;cb(b64)}
+      }).catch(function(e){
+        console.warn('云存储上传失败，退回本机',e);_photoOK=false
+        if(!_photoWarned){_photoWarned=true;ts('⚠️ 云存储暂时用不了，照片先存在本机')}
+        cb(b64)
+      })
+    }catch(e){cb(b64)}
+  })
+}
+const _urlCache={}
+function photoURL(v,cb){
+  if(!v)return cb('')
+  if(String(v).indexOf('cloud://')!==0)return cb(v)
+  if(_urlCache[v])return cb(_urlCache[v])
+  try{
+    if(!cloudApp||!cloudApp.getTempFileURL)return cb('')
+    cloudApp.getTempFileURL({fileList:[v]}).then(function(r){
+      const it=(r&&r.fileList&&r.fileList[0])||{}
+      const u=it.tempFileURL||it.tempFileUrl||it.download_url||''
+      if(u){_urlCache[v]=u;cb(u)}else cb('')
+    }).catch(function(){cb('')})
+  }catch(e){cb('')}
+}
+function photoImg(v,list,style){
+  const im=h('img',{loading:'lazy',alt:'照片'})
+  if(style)im.style.cssText=style
+  photoURL(v,function(u){if(u)im.src=u})
+  im.onclick=function(){viewImg(v,list)}
+  return im
 }
 function compressImage(file,cb){
   try{
@@ -2019,7 +2066,7 @@ function renderLb(){
   ov.id='lightbox'
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px'
   const img=document.createElement('img')
-  img.src=b64
+  photoURL(b64,function(u){if(u)img.src=u})
   img.style.cssText='max-width:92%;max-height:72vh;border-radius:10px;box-shadow:0 10px 50px rgba(0,0,0,0.6);transition:transform 0.15s;transform-origin:center center;cursor:zoom-in;position:relative;z-index:2'
   _lbImg=img
   img.addEventListener('wheel',function(e){e.preventDefault();lbZoom(e.deltaY<0?0.15:-0.15)},{passive:false})
@@ -2428,7 +2475,7 @@ function rckList(){
     const rImgs=checkImgs(rec)
     if(rImgs.length){
       const ir=h('div',{style:'display:flex;flex-wrap:wrap;gap:5px;margin-top:6px'})
-      rImgs.forEach(function(b){ir.appendChild(h('img',{alt:'记录照片',loading:'lazy',src:b,style:'width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b,rImgs)}}))})
+      rImgs.forEach(function(b){ir.appendChild(photoImg(b,rImgs,'width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)'))})
       card.appendChild(ir)
     }
     if(rec){
@@ -2897,7 +2944,7 @@ function rs(){
     const arr=subjImgs[subId]||[]
     arr.forEach(function(b64,idx){
       const wrap=h('div',{style:'position:relative;display:inline-block'})
-      wrap.appendChild(h('img',{alt:'记录照片',loading:'lazy',src:b64,style:'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer',onClick:function(){viewImg(b64,arr)}}))
+      wrap.appendChild(photoImg(b64,arr,'width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer'))
       wrap.appendChild(h('button',{className:'btn btn-danger btn-sm',style:'position:absolute;top:-6px;right:-6px;padding:0 4px;font-size:12.5px;line-height:1',onClick:function(){subjImgs[subId].splice(idx,1);renderSubjImgs(subId)}},'✕'))
       box.appendChild(wrap)
     })
@@ -2911,7 +2958,7 @@ function rs(){
       for(const item of items){
         if(item.type&&item.type.indexOf('image')===0){
           const file=item.getAsFile()
-          if(file){found=true;compressImage(file,function(b64){if(b64){if(!subjImgs[subId])subjImgs[subId]=[];subjImgs[subId].push(b64);renderSubjImgs(subId);ts('✅ 已粘贴')}})}
+          if(file){found=true;uploadPhoto(file,function(b64){if(b64){if(!subjImgs[subId])subjImgs[subId]=[];subjImgs[subId].push(b64);renderSubjImgs(subId);ts('✅ 已粘贴')}})}
         }
       }
       document.removeEventListener('paste',onPaste)
@@ -2954,7 +3001,7 @@ function rs(){
           ts('⏳ 正在处理 '+files.length+'张...')
           let done=0
           files.forEach(function(f){
-            compressImage(f,function(b64){
+            uploadPhoto(f,function(b64){
               done++
               if(b64){if(!subjImgs[s.id])subjImgs[s.id]=[];subjImgs[s.id].push(b64)}
               if(done===files.length){renderSubjImgs(s.id);tg.innerHTML=_btnText();ts('✅ '+s.name+'已添加照片')}
@@ -3034,7 +3081,7 @@ function rs(){
         row.innerHTML='<div><strong>'+fd(ex.date)+' '+ex.sem+' '+ex.examType+'</strong> 总分 '+info.total+'/'+info.fullTotal+'</div>'
         if(ex.imgs&&ex.imgs.length){
           const ir=h('div',{style:'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px'})
-          for(const b of ex.imgs){ir.appendChild(h('img',{alt:'记录照片',loading:'lazy',src:b,style:'width:70px;height:70px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b,ex.imgs)}}))}
+          for(const b of ex.imgs){ir.appendChild(photoImg(b,ex.imgs,'width:70px;height:70px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)'))}
           row.appendChild(ir)
         }
         const br=h('div',{style:'margin-top:8px'})
@@ -3131,7 +3178,7 @@ function rs(){
       row.innerHTML='<div><strong>'+fd(ex.date)+' '+ex.sem+' '+ex.examType+'</strong> <span style="color:'+stc+'">'+st+'</span></div><div style="font-size:14.5px;color:var(--muted);margin-top:2px">总分 <strong style="color:'+pctColor+'">'+info.total+'</strong> / '+info.fullTotal+' （'+ps(info.pct)+'）</div>'
       if(ex.imgs&&ex.imgs.length){
         const ir=h('div',{style:'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px'})
-        for(const b of ex.imgs){ir.appendChild(h('img',{alt:'记录照片',loading:'lazy',src:b,style:'width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b,ex.imgs)}}))}
+        for(const b of ex.imgs){ir.appendChild(photoImg(b,ex.imgs,'width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)'))}
         row.appendChild(ir)
       }
       if(ex.history&&ex.history.length){
@@ -3370,7 +3417,7 @@ function rcal(){
         const row=h('div',{className:'mistake-item'})
         row.innerHTML='<div><strong>'+type.icon+' '+(c.subject?c.subject+'·':'')+type.name+'</strong> <span style="color:'+sc2+'">'+st+'</span> <span style="color:var(--muted);font-size:14px">+'+c.pts+'分</span></div>'
         const cImgs=checkImgs(c)
-        if(cImgs.length){const cir=h('div',{style:'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px'});cImgs.forEach(function(b){cir.appendChild(h('img',{alt:'记录照片',loading:'lazy',src:b,style:'width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)',onClick:function(){viewImg(b,cImgs)}}))});row.appendChild(cir)}
+        if(cImgs.length){const cir=h('div',{style:'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px'});cImgs.forEach(function(b){cir.appendChild(photoImg(b,cImgs,'width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)'))});row.appendChild(cir)}
         dc.appendChild(row)
       }
     }
