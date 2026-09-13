@@ -663,6 +663,8 @@ function chatSnapshot(){
   ;(D._chat||[]).forEach(function(m){if(m.role==='u'&&m.k&&m.date>=_d7s)_km[m.k]=(_km[m.k]||0)+1})
   const _kl=Object.keys(_km).sort(function(a,b){return _km[b]-_km[a]}).slice(0,5)
   if(_kl.length)L.push('· 他近 7 天常问：'+_kl.map(function(k){return k+'（'+_km[k]+'次）'}).join('、')+'（他再问到这类，可以顺口说“上次你也卡这块”）')
+  const _lastQ=(function(){const _ms=(D._chat||[]).filter(function(m){return m.role==='u'&&m.k&&m.kq});return _ms.length?(_ms[_ms.length-1].k+'：“'+_ms[_ms.length-1].kq+'”'):''})()
+  if(_lastQ)L.push('· 他最近一次问的知识点：'+_lastQ)
   // 今日任务
   const tds=D.tasks.filter(function(t){return t.date===td&&!t.done}).map(function(t){return t.text})
   if(tds.length)L.push('· 他自己列了今天要做：'+tds.join('、'))
@@ -736,9 +738,21 @@ function isTerse(t){
 const TERSE_HINT='【他这条特别短，像不想说】别追问、别问"你怎么了"、别连问两句。就顺着给个台阶，一句话，30 字以内；他不说就不说，你在就行。'
 
 /* ---- 时间感 ---- */
+function isClassTime(){
+  try{
+    const d=new Date(),wd=d.getDay()
+    if(wd===0||wd===6)return false
+    const m=d.getHours()*60+d.getMinutes()
+    return (m>=8*60&&m<=11*60+30)||(m>=14*60&&m<=17*60)
+  }catch(e){return false}
+}
 function chatTimeRules(){
   const h=_hh()
-  const L=['【现在几点（这条优先级很高，别搞反）】','· 现在是 '+fmtHM(Date.now())+'（当地 '+h+' 点）。']
+  const L=['【现在几点（这条优先级很高，别搞反）】','· 现在是 '+('周'+'日一二三四五六'.charAt(new Date().getDay()))+' '+fmtHM(Date.now())+'（当地 '+h+' 点）。']
+  if(isClassTime()){
+    L.push('· 现在是上课时间：先问一句“这会儿在上课吧？”，提醒他“下课再说”，不讲题、不聊长的；他说不在上课（请假/在家）再正常聊。')
+    return L.join('\n')
+  }
   if(h>=22||h<6){
     L.push('· 这个点不许提学习、不许问他写完没、不许提记录和积分。只说早点睡、别熬夜。')
     L.push('· 他主动问题目就正常讲，讲完补一句"弄完这句就睡"。他说睡不着就陪着聊两句，别讲道理。')
@@ -993,6 +1007,10 @@ function chatPersona(){
   '如果你看到“下次大考还有 N 天”：7 天以内不提“复习”“冲刺”“拓紧”“要不要多刷题”，也别问“准备得怎么样”。',
   '他要学就陪他学；不主动加压力。考完当天不提分数。',
   '',
+  '【上课时间】',
+  '如果他在工作日的 8:00-11:30 或 14:00-17:00 发消息，先顺口问一句“这会儿在上课吧？”，提醒他“下课再说”，',
+  '别讲题、别聊长的；他说不在上课（请假/在家）就正常聊。',
+  '',
   '【他说要睡了、或者家长叫他的时候】',
   '顺着收尾：一句具体的肯定（引用他今天真的做过的事），然后“去睡吧”。不再提任何事、不追问。',
   '',
@@ -1157,19 +1175,21 @@ function chatSend(imgB64){
   const ctx=chatLog().slice(-8).map(function(m){return (m.role==='u'?'他：':'你：')+(m.text||'')}).join('\n')
   const EMO_TAIL='他这句带着情绪。原因选项必须中性具体（如"是题没看明白，还是今天坐不住"），不许出现"烦/讨厌/崩"这类词。按上面【他不想学的时候】那个四步来：先用一句话接住他的情绪，再用「是A还是B」问一句原因；如果他说的是难/不会，就给最小的那一步。不许给建议清单、不许讲道理、不许提成绩和还没做的事。一两句话，40 字以内。'
   const TERSE_TAIL='他这句很短，像不想说。给个台阶就行（比如“行，不想说就不说，我在”），别追问、别连着问两个问题。30 字以内。'
+  const CLASS_TAIL='他可能在上课。先问一句“这会儿在上课吧？”，提醒他“下课再说”，别讲题、别聊长的；他说不在上课（请假/在家）再正常聊。'
   const CHAT_TAIL='直接回他这句话本身——他问什么就答什么，别用“在”“说吧”“咋了”这种空话糊弄。这不是功课问题，像朋友一样正常聊，别把话题扯到学习上，别讲道理、别给建议清单；短一点，像微信。如果他问的是关于你的事（比如你是不是机器人），按上面的规矩老实回答。'
   const tail=(imgB64?'他刚发了一张图（可能是题目、课本或作业）。先一句话说清你看到的是什么，再按规则给思路和第一步 + 反问；不要因为看到全题就把整道题解完；看不清就让他重拍。'
+    :(isClassTime()?CLASS_TAIL
     :(emoHit(v)?EMO_TAIL
     :(isTerse(v)?TERSE_TAIL
     :(looksStudy(v)?'请回复他最后那句。记住：只给思路和第一步，不给最终答案；短一点。'
     :(looksSite(v)?'请回复他最后那句。他问的是网页上的事：用上面的真实数据准确回，别编；讲到还没做的，按规则用邀请语气最多提 1~2 件，先说他已经做到的。'
-    :CHAT_TAIL)))))
+    :CHAT_TAIL))))))
   const _mem=memText(v||'')
   careSet(v||'')
   const _terse=(!imgB64&&isTerse(v))?TERSE_HINT:''
   const _hist='【最近的对话】\n'+ctx
   const _askSite=looksSite(v)
-  /* 组装提示词：必带段落一定进，可选段落超预算才丢（云函数上限已改 20000，这里 4600 双保险） */
+  /* 组装提示词：必带段落一定进，可选段落超预算才丢（云函数上限已改 20000，这里 5000 双保险） */
   const _blocks=[
     [chatPersona(),0],
     [_askSite?chatSiteMap():'',0],
@@ -1187,7 +1207,7 @@ function chatSend(imgB64){
     [tail,0],
     [chatTailRules(),0]
   ]
-  const _LIMIT=4600
+  const _LIMIT=5000
   let _room=_LIMIT
   _blocks.forEach(function(b){if(b[0]&&b[1]!==1)_room-=(b[0].length+2)})
   const _out=[]
@@ -1228,7 +1248,7 @@ function chatSend(imgB64){
       if(l2[i].id===_tk.id){l2[i].text=_txt.trim();l2[i].pending=false;l2[i].alert=_alert||undefined;l2[i].tag=_tag||undefined;l2[i].ts=Date.now();_hit=true;break}
     }
     if(!_hit)l2.push({id:Date.now()+1,date:td,role:'a',text:_txt.trim(),alert:_alert||undefined,tag:_tag||undefined,ts:Date.now()})
-    if(_tag||_kp){const _last=l2[l2.length-2];if(_last&&_last.role==='u'){if(_tag)_last.tag=_tag;if(_kp)_last.k=_kp}}
+    if(_tag||_kp){const _last=l2[l2.length-2];if(_last&&_last.role==='u'){if(_tag)_last.tag=_tag;if(_kp){_last.k=_kp;_last.kq=String(v||'').slice(0,40)}}}
     if((_tag==='e'||_tag==='h')&&v)careSet(v)
     if(_alert){
       const pp=askPool();pp.alert={date:td,at:Date.now()}
@@ -1361,18 +1381,19 @@ function chatSummaryPrompt(){
   ].join('\n')
 }
 function ensureChatSummary(){
-  if(VW||!cloudReady)return
+  if(!cloudReady)return
   const list=chatToday()
   if(!list.length)return
   const p=askPool()
   if(p.chatSum&&p.chatSum.date===td&&p.chatSum.n===list.length)return
+  if(p.chatSum&&p.chatSum.at&&Date.now()-p.chatSum.at<10*60*1000)return
   aiCall(chatSummaryPrompt()).then(function(r){
     if(!r.ok||!r.text)return
     const _raw=String(r.text).trim()
     let _jj=null
     try{const m2=_raw.replace(/```json/g,'').replace(/```/g,'').match(/[{][\s\S]*[}]/);if(m2)_jj=JSON.parse(m2[0])}catch(e){_jj=null}
     if(_jj&&_jj.summary){
-      p.chatSum={date:td,n:list.length,text:String(_jj.summary).replace(/[\r\n]+/g,' ').slice(0,160)}
+      p.chatSum={date:td,n:list.length,at:Date.now(),text:String(_jj.summary).replace(/[\r\n]+/g,' ').slice(0,160)}
       if(Array.isArray(_jj.memories)&&_jj.memories.length){
         const mem=chatMem()
         _jj.memories.forEach(function(m3){
@@ -1395,7 +1416,7 @@ function ensureChatSummary(){
         if(cs.length>20)D._cope=cs.slice(-20)
       }
     }else{
-      p.chatSum={date:td,n:list.length,text:_raw.replace(/[\r\n]+/g,' ').slice(0,160)}
+      p.chatSum={date:td,n:list.length,at:Date.now(),text:_raw.replace(/[\r\n]+/g,' ').slice(0,160)}
     }
     sv(D)
     if(tb==='today')render()
@@ -1417,6 +1438,17 @@ function chatParentUI(){
   if(_parts.length)c.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-bottom:6px'},'今天聊的：'+_parts.join(' · ')))
   const _km2={};const _d7=ymd(new Date(Date.now()-6*86400000))
   chatLog().forEach(function(m){if(m.role==='u'&&m.k&&m.date>=_d7)_km2[m.k]=(_km2[m.k]||0)+1})
+  const _nowT=Date.now()
+  const _e7s=ymd(new Date(_nowT-6*86400000)),_e8s=ymd(new Date(_nowT-7*86400000)),_e14s=ymd(new Date(_nowT-13*86400000))
+  let _emoN=0,_emoP=0
+  chatLog().forEach(function(m){
+    if(m.role!=='u')return
+    if(!(m.tag==='e'||m.tag==='h'||emoHit(m.text)))return
+    if(m.date>=_e7s)_emoN++
+    else if(m.date>=_e14s&&m.date<_e8s)_emoP++
+  })
+  if(_emoN||_emoP)c.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-bottom:6px'},'近 7 天他提到情绪 '+_emoN+' 次'+(('+上一个 7 天 '+_emoP+' 次'))))
+  if(_emoN>=4&&_emoN>_emoP)c.appendChild(h('div',{className:'alert warning',style:'margin-bottom:8px'},'这周他情绪比上周提得多，建议找个轻松的时候多聊两句（别问成绩、别问作业）'))
   const _kl2=Object.keys(_km2).sort(function(a,b){return _km2[b]-_km2[a]}).slice(0,6)
   if(_kl2.length)c.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-bottom:6px'},'近 7 天他常问：'+_kl2.map(function(k){return k+'×'+_km2[k]}).join('、')))
   const _aln2=(D._alerts||[]).filter(function(a){return !a.ack&&a.date>=ymd(new Date(Date.now()-6*86400000))})
@@ -1454,11 +1486,23 @@ function chatParentUI(){
     c.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-top:10px;font-weight:600'},'小搭记住的关于他的事：'))
     mem.forEach(function(m5){
       const r5=h('div',{style:'font-size:13.5px;color:var(--muted);margin-top:2px;display:flex;gap:6px;align-items:flex-start'})
-      r5.appendChild(h('div',{style:'flex:1'},'· '+m5.text))
+      r5.appendChild(h('div',{style:'flex:1'},(m5.by==='p'?'（你加的）':m5.by==='k'?'（他让记的）':'')+'· '+m5.text))
       r5.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'padding:1px 8px;font-size:12px',onClick:function(){D._mem=chatMem().filter(function(x){return x.id!==m5.id});sv(D);render();ts('已删除')}},'删除'))
       c.appendChild(r5)
     })
   }
+  const _addRow=h('div',{style:'display:flex;gap:6px;margin-top:8px;align-items:center'})
+  _addRow.appendChild(h('input',{id:'memNew',placeholder:'给小搭加一条（例：他怕数学老师）',style:'flex:1;min-width:0;font-size:13.5px'}))
+  _addRow.appendChild(h('button',{id:'memAddBtn',className:'btn btn-outline btn-sm edit-only',onClick:function(){
+    const el=document.getElementById('memNew')
+    const t=(el&&el.value||'').trim()
+    if(!t){ts('先写一句再点');return}
+    const mm=chatMem()
+    mm.push({id:Date.now()+Math.random(),text:t.slice(0,60),tags:[],at:Date.now(),by:'p'})
+    if(mm.length>40)D._mem=mm.slice(-40)
+    sv(D);render();ts('✅ 小搭记下了')
+  }},'加一条'))
+  c.appendChild(_addRow)
   const _cp=copeStore().slice(-4)
   if(_cp.length){
     c.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-top:10px;font-weight:600'},'小搭攒下的「下次怎么接」：'))
@@ -2092,6 +2136,7 @@ function rchat(){
   document.body.classList.add('chat-page')
   if(pushMilestones())sv(D)
   if(!_aiBusy&&D._chat&&D._chat.some(function(m){return m.pending})){D._chat=D._chat.filter(function(m){return !m.pending});sv(D)}
+  setTimeout(function(){try{ensureChatSummary()}catch(e){}},2500)
   chatHeight()
   $c.appendChild(chatUI())
   setTimeout(function(){const el=document.getElementById('chatScroll');if(el)el.scrollTop=el.scrollHeight},60)
