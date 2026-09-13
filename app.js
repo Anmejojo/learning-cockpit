@@ -481,6 +481,7 @@ function submitCheck(typeId,subject,imgsArr,append){
     return
   }
   const _rec={id:Date.now(),date:_ds,type:typeId,typeName:type.name,subject:_sub,imgs:imgsArr||[],pts:type.pts,status:'pending',ts:Date.now()}
+  actLog('提交记录',_ds+' '+_lbl)
   _rec.noteSubmit=encTake()
   D.checks.unshift(_rec)
   D.points.push({date:_ds,source:'提交·'+_lbl,points:1,type:'earn'})
@@ -492,6 +493,7 @@ function approveCheck(id){
   if(!c||c.status!=='pending')return
   c.status='approved'
   c.note=encTake()
+  actLog('通过记录',(c.date||'')+' '+((c.subject?c.subject+'·':'')+c.typeName))
   D.points.push({date:(c.date||td),source:(c.subject?c.subject+'·':'')+c.typeName,points:c.pts,type:'earn'})
   sv(D);render()
   ts('✅ 已通过 +'+c.pts+'分')
@@ -500,6 +502,7 @@ function rejectCheck(id){
   const c=(D.checks||[]).find(function(x){return x.id===id})
   if(!c||c.status!=='pending')return
   c.status='rejected'
+  actLog('退回记录',(c.date||'')+' '+((c.subject?c.subject+'·':'')+c.typeName))
   sv(D);render()
   ts('↩️ 已退回')
 }
@@ -624,6 +627,14 @@ function asksCardUI(){
 ﻿/* ================= 和搭子说话（AI 对话栏） ================= */
 ﻿﻿/* ================= 小搭「看得见网页」：站点地图 + 实时快照 ================= */
 /* ================= 硬笔字（打卡 + 作品墙） ================= */
+/* ===== 操作记录：谁在什么时候做了什么（一直保留，上限 2000 条）===== */
+function actLog(act,target){
+  try{
+    if(!D._log)D._log=[]
+    D._log.push({ts:Date.now(),by:(_lv==='c'?'c':'p'),act:act,target:String(target||'').slice(0,40)})
+    if(D._log.length>2000)D._log=D._log.slice(-2000)
+  }catch(e){}
+}
 function hwList(){if(!D.handwritings)D.handwritings=[];return D.handwritings}
 function hwStreak(){
   try{
@@ -657,6 +668,7 @@ function hwAdd(){
           }else{
             _l.unshift({id:Date.now(),date:td,imgs:out,ts:Date.now()})
             D.points.push({date:td,source:'硬笔字打卡',points:1,type:'earn'})
+            actLog('上传硬笔字',out.length+' 张')
             sv(D);render();ts('✅ 上墙了 +1 分')
           }
         }
@@ -697,7 +709,7 @@ function rwrite(){
     if(imgs.length>1)bar.appendChild(h('div',{className:'hw-date'},imgs.length+'张'))
     if(!VW)bar.appendChild(h('button',{className:'hw-del',onClick:function(){
       if(!confirm('删掉这幅作品？'))return
-      D.handwritings=hwList().filter(function(x){return x.id!==it.id});sv(D);render();ts('已删除')
+      D.handwritings=hwList().filter(function(x){return x.id!==it.id});actLog('删除硬笔字作品',String(it.date||''));sv(D);render();ts('已删除')
     }},'删'))
     fig.appendChild(bar)
     grid.appendChild(fig)
@@ -1873,7 +1885,7 @@ function rollbackTo(idx){
 }
 function exportBackup(){
   try{
-    D._lastBackup=Date.now();sv(D)
+    D._lastBackup=Date.now();actLog('导出备份');sv(D)
     const b=new Blob([JSON.stringify(D,null,2)],{type:'application/json'})
     const u=URL.createObjectURL(b);const a=document.createElement('a')
     a.href=u;a.download='阿勒驾驶舱备份_'+td+'.json';a.click();URL.revokeObjectURL(u)
@@ -1890,14 +1902,14 @@ function approveChecks(list){
     D.points.push({date:(c.date||td),source:(c.subject?c.subject+'·':'')+c.typeName,points:c.pts,type:'earn'})
     n++;pts+=c.pts
   }
-  if(n){sv(D);render();ts('✅ 已通过 '+n+' 条打卡，+'+pts+'分')}
+  if(n){actLog('批量通过记录',n+' 条');sv(D);render();ts('✅ 已通过 '+n+' 条打卡，+'+pts+'分')}
   else ts('没有待审核的打卡')
 }
 function approveExams(list){
   if(!confirm('确定把这 '+list.length+' 条成绩全部通过吗？'))return
   let n=0
   for(const ex of list){if(!ex||ex.status!=='pending')continue;ex.status='approved';cu(ex);n++}
-  if(n){sv(D);render();ts('✅ 已通过 '+n+' 条成绩')}
+  if(n){actLog('批量通过成绩',n+' 条');sv(D);render();ts('✅ 已通过 '+n+' 条成绩')}
 }
 function updateTabBadges(){
   const pendChecks=(D.checks||[]).filter(function(c){return c.status==='pending'}).length
@@ -2801,6 +2813,22 @@ function rset(){
   sh.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-top:8px'},'孩子打开只能看和提交打卡，不能改设置；手机浏览器菜单里选「添加到主屏幕」可以像 App 一样打开'))
   $c.appendChild(sh)
 
+  const _lg=h('div',{className:'card edit-only'})
+  const _logN=(D._log||[]).length
+  _lg.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🧾'}),'操作记录（'+_logN+' 条）'))
+  _lg.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-bottom:8px;line-height:1.7'},'谁在什么时候做了什么——提交、通过、退回、删除、备份，全记着，一直留着。以后数据对不上，翻这里。'))
+  let _lgOpen=false
+  const _lgBox=h('div',{style:'display:none;margin-top:6px;max-height:340px;overflow:auto'})
+  if(!_logN)_lgBox.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted)'},'还没有记录'))
+  ;(D._log||[]).slice().reverse().slice(0,300).forEach(function(x){
+    const d=new Date(x.ts)
+    const tt=(d.getMonth()+1)+'/'+d.getDate()+' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)
+    _lgBox.appendChild(h('div',{style:'font-size:13px;line-height:1.75;color:var(--muted);border-bottom:1px solid var(--border);padding:3px 0'},tt+' · '+(x.by==='c'?'孩子':'家长')+' '+x.act+(x.target?('：'+x.target):'')))
+  })
+  _lg.appendChild(_lgBox)
+  _lg.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_lgOpen=!_lgOpen;_lgBox.style.display=_lgOpen?'':'none';this.innerHTML=_lgOpen?'收起':'展开看最近 300 条'}},(_logN?'展开看最近 300 条':'暂无记录')))
+  $c.appendChild(_lg)
+
   const _ng=h('div',{className:'card edit-only'})
   _ng.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🚪'}),'访问口令'))
   _ng.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-bottom:8px;line-height:1.7'},'现在是：'+(D._noGate?'**家长链接免口令**（打开直接进家长模式）；**孩子链接仍然要输孩子口令**':'家长链接、孩子链接都要输一次口令（家长口令进家长模式，孩子口令进孩子版）')))
@@ -2883,7 +2911,7 @@ function rset(){
       row.appendChild(h('button',{className:'btn btn-success btn-sm',onClick:function(){trashRestore(t.id)}},'恢复'))
       tv.appendChild(row)
     })
-    tv.appendChild(h('button',{className:'btn btn-danger btn-sm',style:'margin-top:8px',onClick:function(){if(confirm('清空回收站？清空后无法恢复。')){D._trash=[];sv(D);render();ts('回收站已清空')}}},'清空回收站'))
+    tv.appendChild(h('button',{className:'btn btn-danger btn-sm',style:'margin-top:8px',onClick:function(){if(confirm('清空回收站？清空后无法恢复。')){D._trash=[];actLog('清空回收站');sv(D);render();ts('回收站已清空')}}},'清空回收站'))
     $c.appendChild(tv)
   }
 
@@ -2910,7 +2938,7 @@ function rset(){
   dm.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔧'}),'数据备份'))
   const dbr=h('div',{style:'display:flex;gap:8px;flex-wrap:wrap'})
   dbr.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:exportBackup},'📥 导出备份'))
-  dbr.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.onchange=function(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=function(ev){try{const d=JSON.parse(ev.target.result);if(confirm('将覆盖当前所有数据？')){D=normalize(d);sv(D);render();ts('✅ 已导入')}}catch(err){ts('⚠️ 格式错误')}};r.readAsText(f)};inp.click()}},'📤 导入备份'))
+  dbr.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.onchange=function(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=function(ev){try{const d=JSON.parse(ev.target.result);if(confirm('将覆盖当前所有数据？')){D=normalize(d);actLog('导入备份');sv(D);render();ts('✅ 已导入')}}catch(err){ts('⚠️ 格式错误')}};r.readAsText(f)};inp.click()}},'📤 导入备份'))
   dbr.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){
     if(_offline){ts('⚠️ 当前离线，请联网后再清理');return}
     if(!confirm('只清理这台设备上的本地缓存（照片和记录仍完整保留在云端），然后从云端重新加载。\n\n继续吗？'))return
