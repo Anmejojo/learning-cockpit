@@ -150,8 +150,12 @@ function ld(){
   try{
     if(DEMO){
       const wantReset=up.has('reset')
+      // 测试台数据跟着版本走：发新版后（app.js?v=xxx 变了）自动重建，保证看到最新示例
+      const dv=(function(){try{const s=document.querySelector('script[src*="app.js"]');const m=s&&s.src.match(/[?&]v(\w+)/);return m?m[1]:''}catch(e){return ''}})()
       let raw=localStorage.getItem('lc_demo')
-      if(!raw||wantReset){const dd=demoData();try{localStorage.setItem('lc_demo',JSON.stringify(dd))}catch(e){};return normalize(dd)}
+      let rawV=''
+      try{rawV=localStorage.getItem('lc_demo_v')||''}catch(e){}
+      if(!raw||wantReset||rawV!==dv){const dd=demoData();try{localStorage.setItem('lc_demo',JSON.stringify(dd));localStorage.setItem('lc_demo_v',dv)}catch(e){};return normalize(dd)}
       return normalize(JSON.parse(raw))
     }
     let r=localStorage.getItem(SK)
@@ -744,7 +748,7 @@ function mkRecognize(img,cb){
 }
 function mkCommit(urls){
   if(!urls||!urls.length)return
-  ts('\U0001f916 正在识别错题…')
+  ts('🤖 正在识别错题…')
   mkRecognize(urls[0],function(j){
     const sub=(j&&j.subject)?String(j.subject).slice(0,6):''
     const it={id:Date.now(),date:td,ts:Date.now(),by:(_lv==='c'?'c':'p'),
@@ -761,7 +765,7 @@ function mkCommit(urls){
   })
 }
 function mkAdd(){
-  ts('\U0001f4f7 拍错题（可多张，一张一道，传完自动识别归类）')
+  ts('📷 拍错题（可多张，一张一道，传完自动识别归类）')
   const inp=document.createElement('input')
   inp.type='file';inp.accept='image/*';inp.multiple=true
   inp.onchange=function(e){
@@ -850,10 +854,10 @@ function rckMkDrill(){
     c.appendChild(a)
   }
   const br=h('div',{style:'display:flex;gap:8px;flex-wrap:wrap'})
-  if(!d.show)br.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){d.show=true;render()}},'\U0001f440 看思路 / 错因'))
+  if(!d.show)br.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){d.show=true;render()}},'👀 看思路 / 错因'))
   br.appendChild(h('button',{className:'btn btn-success btn-sm',onClick:function(){
     mkPass(it.id);d.i++;d.show=false
-    if(d.i>=d.list.length){_mkDrill=null;ts('\U0001f389 这一轮重做完了');render()}else render()
+    if(d.i>=d.list.length){_mkDrill=null;ts('🎉 这一轮重做完了');render()}else render()
   }},'\u2705 做对了，下一道'))
   if(d.show)br.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){
     d.i++;d.show=false
@@ -868,9 +872,9 @@ function rckMk(){
   const all=mkList()
   const dueN=all.filter(mkDue).length
   const c=h('div',{className:'card'})
-  c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'\U0001f4d5'}),'错题本（'+all.length+' 道）'))
+  c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📕'}),'错题本（'+all.length+' 道）'))
   c.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-bottom:10px;line-height:1.7'},'拍一张错题 → 小搭自动认科目、抓知识点、说清错在哪，然后归到对应科目的数字题库里。'+(dueN?('\u3000\u26a0\ufe0f 今天有 '+dueN+' 道该重做了'):'')))
-  c.appendChild(h('button',{className:'btn btn-primary',onClick:mkAdd},'\U0001f4f7 拍错题（可多张）'))
+  c.appendChild(h('button',{className:'btn btn-primary',onClick:mkAdd},'📷 拍错题（可多张）'))
   $c.appendChild(c)
   const _pb=pendBanner();if(_pb)$c.appendChild(_pb)
   if(!all.length){
@@ -880,7 +884,7 @@ function rckMk(){
   }
   if(_mkView==='总览'||_mkView==='全部'||MK_SUBJECTS.concat(['其他']).indexOf(_mkView)<0){
     const box=h('div',{className:'card'})
-    box.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'\U0001f4da'}),'各科数字题库（点科目进入）'))
+    box.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📚'}),'各科数字题库（点科目进入）'))
     const g=h('div',{style:'display:grid;grid-template-columns:repeat(3,1fr);gap:8px'})
     MK_SUBJECTS.concat(['其他']).forEach(function(sb){
       const list=all.filter(function(x){return (x.subject||'')===sb})
@@ -895,7 +899,7 @@ function rckMk(){
     box.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:8px;line-height:1.6'},'灰色的科目还没有错题。「其他」是 AI 认不出科目时先放的，家长可以改到具体科目。'))
     $c.appendChild(box)
     const rec=h('div',{className:'card'})
-    rec.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'\U0001f550'}),'最近上传（'+Math.min(5,all.length)+' 道）'))
+    rec.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🕐'}),'最近上传（'+Math.min(5,all.length)+' 道）'))
     all.slice(0,5).forEach(function(it){rec.appendChild(mkRow(it))})
     $c.appendChild(rec)
     return
@@ -919,16 +923,16 @@ function rckMk(){
       }).join('\n')
       const b=new Blob([t],{type:'text/plain;charset=utf-8'})
       const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='错题库_'+_mkView+'_'+td+'.txt';a.click()
-      ts('\U0001f4e5 已导出（在「下载」里）')
+      ts('📥 已导出（在「下载」里）')
     }catch(e){ts('导出失败')}
-  }},'\U0001f4e4 导出'))
+  }},'📤 导出'))
   head.appendChild(br)
   $c.appendChild(head)
   const byKp={}
   list.forEach(function(x){const k=x.kp||'未标注知识点';(byKp[k]=byKp[k]||[]).push(x)})
   Object.keys(byKp).forEach(function(k){
     const box=h('div',{className:'card'})
-    box.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'\U0001f516'}),k+'（'+byKp[k].length+' 道）'))
+    box.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔖'}),k+'（'+byKp[k].length+' 道）'))
     byKp[k].forEach(function(it){box.appendChild(mkRow(it))})
     $c.appendChild(box)
   })
@@ -3042,7 +3046,62 @@ function rpk(){
 
 /* ============ ⑤ 设置（所有配置集中） ============ */
 let _setView='info'
+/* ===== 孩子端「设置」：只读的「家里的规则」（不给空白分组） ===== */
+function rsetKid(){
+  $c.appendChild(h('div',{className:'daily-praise'},'📋 这些是家里的规则，记不清的时候就翻一翻'))
+  // 1) 每天能赚的积分
+  const items=(D.dci||defData().dci||[])
+  const c1=h('div',{className:'card'})
+  c1.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'⭐'}),'每天能赚的积分'))
+  const tb=h('table')
+  tb.innerHTML='<thead><tr><th scope="col">项目</th><th scope="col">积分</th></tr></thead><tbody></tbody>'
+  const tbody=tb.querySelector('tbody')
+  for(let i=0;i<items.length;i++){
+    const it=items[i]||{}
+    const tr=h('tr')
+    tr.appendChild(h('td',null,(it.icon?it.icon+' ':'')+String(it.label||'')))
+    tr.appendChild(h('td',null,'+'+String(it.pts==null?'':it.pts)))
+    tbody.appendChild(tr)
+  }
+  const tw=h('div',{className:'table-scroll'});tw.appendChild(tb);c1.appendChild(tw)
+  c1.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-top:8px;line-height:1.8'},'记一笔就算，不用写得多好。今天没做也没关系，明天接着来。'))
+  $c.appendChild(c1)
+  // 2) 每天的时间
+  const c2=h('div',{className:'card'})
+  c2.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🕗'}),'每天的时间'))
+  const box=h('div',{style:'font-size:14.5px;line-height:2.1'})
+  box.appendChild(h('div',null,'固定学习时间：',h('strong',null,String(D.ritualTime||'20:00'))))
+  if(D.examDate)box.appendChild(h('div',null,'下次大考：',h('strong',null,String(D.examDate)),String(D.examTopic?(' · '+D.examTopic):'')))
+  c2.appendChild(box)
+  $c.appendChild(c2)
+  // 3) 我的小目标
+  const goals=D.smallGoals||[]
+  const c3=h('div',{className:'card'})
+  c3.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🎯'}),'我的小目标'))
+  if(!goals.length){
+    c3.appendChild(h('div',{style:'font-size:14px;color:var(--muted)'},'还没定小目标，跟家长一起定一个吧'))
+  }else{
+    for(let i=0;i<goals.length;i++){
+      const g=goals[i]||{}
+      const row=h('div',{className:'mistake-item'})
+      row.appendChild(h('strong',null,String(g.subject||'')))
+      row.appendChild(document.createTextNode(' '+String(g.from)+' → '+String(g.to)+(g.done?' ✅ 已达成':'')))
+      c3.appendChild(row)
+    }
+  }
+  $c.appendChild(c3)
+  // 4) 积分怎么算
+  const rate=(D.rate||1)
+  const c4=h('div',{className:'card'})
+  c4.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'💱'}),'积分怎么算'))
+  c4.appendChild(h('div',{style:'font-size:14.5px;line-height:2.1'},
+    h('div',null,'1 元 = ',h('strong',null,String(rate)),' 积分'),
+    h('div',{style:'color:var(--muted);font-size:13.5px'},'攒够了就能换心愿单里的东西，慢慢来。')))
+  $c.appendChild(c4)
+}
+
 function rset(){
+  if(typeof VW!=='undefined'&&VW){ rsetKid(); return }   // 孩子端：只看得到「家里的规则」，不要空白分组
   // 三大分组：孩子信息 / 规则与积分 / 系统与数据
   $c.appendChild(segBar([
     {label:'👦 孩子信息',on:_setView==='info',fn:function(){_setView='info';render()}},
