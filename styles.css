@@ -563,3 +563,58 @@ html[data-polish="1"] *{transition-timing-function:var(--ease)}
 .ck-strip .ck-bar{margin-top:8px}
 .ck-strip .ck-sub{margin-top:6px}
 .ck-strip .ck-pc{margin-top:10px;padding-top:10px}
+
+/* ==========================================================================
+   🐸 单词闯关（青蛙过河）—— 竖版
+   ========================================================================== */
+.w-map{display:flex;flex-direction:column;gap:9px}
+.w-ch{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:var(--radius);
+  border:1px solid var(--border);background:var(--card);cursor:pointer;transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.w-ch:hover{border-color:var(--border-strong);transform:translateY(-1px)}
+.w-ch.on{border-color:var(--primary-border);background:var(--primary-weak)}
+.w-ch-l{flex:1;min-width:0}
+.w-ch-n{font-size:var(--fs-16);font-weight:600}
+.w-ch-sub{font-size:var(--fs-12);color:var(--muted);margin-top:2px}
+.w-stars{font-size:var(--fs-15);letter-spacing:2px;color:#fbbf24;flex:0 0 auto}
+
+.w-top{display:flex;align-items:center;gap:10px;margin-bottom:9px;font-size:var(--fs-14)}
+.w-idx{font-weight:600}
+.w-combo{color:var(--warning);font-weight:700;flex:1}
+.w-top .btn{margin-left:auto}
+
+.w-q{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;text-align:center;margin-bottom:10px}
+.w-q-t{font-size:var(--fs-13);color:var(--muted)}
+.w-q-w{font-size:var(--fs-22);font-weight:700;margin-top:4px;line-height:1.4}
+
+.w-river{position:relative;overflow:hidden;border-radius:14px;border:1px solid var(--border);
+  background:linear-gradient(180deg,rgba(56,189,248,.16),rgba(56,189,248,.04) 60%,rgba(52,211,153,.10))}
+.w-in{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column-reverse;
+  transition:transform .42s cubic-bezier(.2,.8,.2,1)}
+.w-lv{display:flex;align-items:center;justify-content:center;position:relative}
+.w-water{position:absolute;inset:6px 10px;border-radius:10px;opacity:.5;
+  background:repeating-linear-gradient(90deg,rgba(255,255,255,.05) 0 14px,transparent 14px 34px);
+  animation:wWave 4s linear infinite}
+@keyframes wWave{from{background-position-x:0}to{background-position-x:34px}}
+.w-lilies{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:0 8px;z-index:1}
+.w-lily{border:1px solid rgba(52,211,153,.5);cursor:pointer;font-family:inherit;font-weight:600;
+  font-size:var(--fs-15);color:#eafff6;padding:11px 15px;border-radius:999px;
+  background:radial-gradient(ellipse at 30% 25%,rgba(52,211,153,.55),rgba(16,90,66,.9));
+  box-shadow:0 3px 0 rgba(0,0,0,.28);transition:transform .15s var(--ease),box-shadow .15s}
+.w-lily:hover{transform:translateY(-2px)}
+.w-lily:active{transform:translateY(1px);box-shadow:0 1px 0 rgba(0,0,0,.28)}
+.w-lily.right{background:radial-gradient(ellipse at 30% 25%,#6ee7b7,#059669);border-color:#a7f3d0;
+  box-shadow:0 0 0 3px rgba(52,211,153,.28),0 3px 0 rgba(0,0,0,.28)}
+.w-lily.bad{background:radial-gradient(ellipse at 30% 25%,#fca5a5,#b91c1c);border-color:#fecaca;opacity:.9}
+.w-lily.hint{animation:wHint 1.1s ease-in-out infinite}
+@keyframes wHint{0%,100%{box-shadow:0 0 0 0 rgba(52,211,153,.0)}50%{box-shadow:0 0 0 6px rgba(52,211,153,.28)}}
+.w-tip{position:absolute;bottom:6px;left:0;right:0;text-align:center;font-size:var(--fs-12);color:var(--warning)}
+.w-bank{display:flex;justify-content:center;align-items:flex-end;height:56px;margin-top:2px}
+.w-frog{font-size:40px;line-height:1;transition:transform .42s cubic-bezier(.2,.8,.2,1),opacity .42s}
+.w-frog.jump{transform:translateY(-74px) scale(1.12)}
+.w-frog.fall{transform:translateY(20px) rotate(14deg) scale(.88);opacity:.55}
+.w-wrongbar{margin-top:6px;font-size:var(--fs-14);color:var(--warning);display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}
+
+.w-res{text-align:center;padding:26px 18px}
+.w-res-t{font-size:var(--fs-22);font-weight:700}
+.w-res-s{font-size:30px;letter-spacing:6px;color:#fbbf24;margin-top:8px}
+@media (prefers-reduced-motion:reduce){.w-water{animation:none}}
