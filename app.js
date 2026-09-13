@@ -636,7 +636,7 @@ function submitCheck(typeId,subject,imgsArr,append){
   actLog('提交记录',_ds+' '+_lbl)
   _rec.noteSubmit=encTake()
   D.checks.unshift(_rec)
-  D.points.push({date:_ds,source:'提交·'+_lbl,points:1,type:'earn'})
+  D.points.push({date:_ds,source:'提交·'+_lbl,points:1,type:'earn'});try{ptBurst(1,'提交')}catch(e){}
   sv(D);render()
   ts('✅ 已收到 +1分 · '+_rec.noteSubmit)
   try{scanCheck(_rec.id,imgsArr||[])}catch(e){}
@@ -648,7 +648,7 @@ function approveCheck(id){
   c.at=Date.now()
   c.note=encTake()
   actLog('通过记录',(c.date||'')+' '+((c.subject?c.subject+'·':'')+c.typeName))
-  D.points.push({date:(c.date||td),source:(c.subject?c.subject+'·':'')+c.typeName,points:c.pts,type:'earn'})
+  D.points.push({date:(c.date||td),source:(c.subject?c.subject+'·':'')+c.typeName,points:c.pts,type:'earn'});try{ptBurst(c.pts,c.typeName)}catch(e){}
   sv(D);render()
   ts('✅ 已通过 +'+c.pts+'分')
 }
@@ -876,7 +876,7 @@ function mkCommit(urls){
     mkList().unshift(it)
     ts(j?('✅ 已归到「'+(it.subject||'待归类')+'」'+((it.kp||it.qtype)?('·'+(it.kp||'')+(it.qtype?(' '+it.qtype):'')):'')):'⚠️ 没认出来，先存着（家长可手动改科目）')
     actLog('上传错题',(it.subject||'待归类')+(it.kp?('·'+it.kp):''))
-    D.points.push({date:td,source:'错题本拍照',points:2,type:'earn'})
+    D.points.push({date:td,source:'错题本拍照',points:2,type:'earn'});try{ptBurst(2,'错题本')}catch(e){}
     sv(D);render()
   })
 }
@@ -1004,7 +1004,7 @@ function rckMk(){
   const all=mkList()
   const c=h('div',{className:'card'})
   c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📕'}),'错题记录（'+all.length+' 道）'))
-  c.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-bottom:10px;line-height:1.7'},'拍一张错题 → 小搭自动认科目、抓知识点、说清错在哪，存到对应科目里。记下来就行，不用重做。'))
+  c.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-bottom:10px;line-height:1.7'},'拍一张错题 → 小搭自动认科目、认题型，存起来。记下来就行，不用重做。'))
   c.appendChild(h('button',{className:'btn btn-primary',onClick:mkAdd},'📷 拍错题（可多张）'))
   $c.appendChild(c)
   const _pb=pendBanner();if(_pb)$c.appendChild(_pb)
@@ -1029,7 +1029,7 @@ function rckMk(){
       g.appendChild(card)
     })
     box.appendChild(g)
-    box.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:8px;line-height:1.6'},'灰色的科目还没有错题。「其他」是 AI 认不出科目时先放的，家长可以改到具体科目。'))
+    box.appendChild(h('div',{className:'edit-only',style:'font-size:12.5px;color:var(--faint);margin-top:8px;line-height:1.6'},'灰色的科目还没有错题。「其他」是 AI 认不出科目时先放的，家长可以改到具体科目。'))
     $c.appendChild(box)
     // ===== 错题汇总（有个固定地方，不靠聊天记）=====
     if(all.length){
@@ -1190,7 +1190,7 @@ function rwrite(){
   c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'✍️'}),'硬笔字 · 作品墙'))
   c.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted);margin-bottom:10px'},'已经上墙 '+list.length+' 幅；连着 '+stk+' 天有作品'))
   c.appendChild(h('button',{className:'btn btn-primary',onClick:hwAdd},'📷 拍今天的字'))
-  c.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:8px;line-height:1.6'},'一张一张拍，拍清楚点；提交后就上墙，家里人都能看到'))
+  c.appendChild(h('div',{style:'font-size:12.5px;color:var(--faint);margin-top:8px;line-height:1.6'},'一张一张拍，拍清楚点；提交后就上墙。'))
   $c.appendChild(c)
   if(!list.length){
     const e=h('div',{className:'card'})
@@ -2451,7 +2451,7 @@ function approveChecks(list){
     c.status='approved'
     c.at=Date.now()
     c.note=encTake()
-    D.points.push({date:(c.date||td),source:(c.subject?c.subject+'·':'')+c.typeName,points:c.pts,type:'earn'})
+    D.points.push({date:(c.date||td),source:(c.subject?c.subject+'·':'')+c.typeName,points:c.pts,type:'earn'});try{ptBurst(c.pts,c.typeName)}catch(e){}
     n++;pts+=c.pts
   }
   if(n){actLog('批量通过记录',n+' 条');sv(D);render();ts('✅ 已通过 '+n+' 条打卡，+'+pts+'分')}
@@ -2504,7 +2504,7 @@ function hwApply(urls){
     if(add.length)_tw.imgs=cur.concat(add).slice(0,9)
   }else{
     _l.unshift({id:Date.now(),date:td,imgs:urls.slice(0,9),ts:Date.now()})
-    D.points.push({date:td,source:'硬笔字打卡',points:1,type:'earn'})
+    D.points.push({date:td,source:'硬笔字打卡',points:1,type:'earn'});try{ptBurst(1,'硬笔字')}catch(e){}
     actLog('上传硬笔字',urls.length+' 张')
   }
   sv(D)
@@ -2557,7 +2557,7 @@ function rckDone(){
   const pts=list.reduce(function(a,c){return a+(c.pts||0)},0)
   const head=h('div',{className:'card'})
   head.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'✅'}),'已通过记录（'+list.length+' 条 · 累计 +'+pts+' 分）'))
-  head.appendChild(h('div',{style:'font-size:13px;color:var(--muted);line-height:1.7'},'按时间倒序：最近通过的在最上面。点照片可看大图。'))
+  head.appendChild(h('div',{style:'font-size:13px;color:var(--muted);line-height:1.7'},'最近通过的在最上面，点照片看大图。'))
   $c.appendChild(head)
   if(!list.length){
     const e=h('div',{className:'card'})
@@ -2699,7 +2699,7 @@ function toggleCheck(item,img){
       if(!D.checkImgs[td])D.checkImgs[td]={}
       D.checkImgs[td][item.key]=img
     }
-    D.points.push({date:td,source:item.label,points:item.pts,type:'earn'})
+    D.points.push({date:td,source:item.label,points:item.pts,type:'earn'});try{ptBurst(item.pts,item.label)}catch(e){}
     sv(D);render()
     ts('✅ '+item.label+' +'+item.pts+'分'+(img?' · 已上传照片':''))
   }else{
@@ -2925,6 +2925,7 @@ function rtoday(){
   try{ _rtodayBody() } finally { $c=_host }
   const _kids=Array.prototype.slice.call(_tmp.children||[]);
   const _pb=dailyBanner(); if(_pb)_pb.forEach(function(x){$c.appendChild(x)});
+  try{$c.appendChild(cockpitCard())}catch(e){}
   _kids.slice(0,1).forEach(function(c){$c.appendChild(c)});
   const btn=h('button',{className:'btn btn-outline btn-sm',style:'width:100%;margin-bottom:10px',onClick:function(){_todayMore=!_todayMore;render()}});
   btn.innerHTML=_todayMore?'▲ 收起（只看重点）':'▼ 展开更多（考试倒计时 / 成绩 / 寄语 / 留言）';
@@ -2933,6 +2934,63 @@ function rtoday(){
   _kids.slice(1).forEach(function(c){more.appendChild(c)});
   $c.appendChild(more);
 }
+/* ===== 我的舱：等级 / 称号 / 经验 / 装机进度 ===== */
+const LV_TITLES=['见习机长','启动引擎','稳定巡航','熟练操作','老练机长','王牌驾驶员','精英机长','王牌教官','传奇机长','驾驶舱长']
+function myExp(){
+  try{return (D.points||[]).filter(function(p){return p.type==='earn'}).reduce(function(a,p){return a+(p.points||0)},0)}catch(e){return 0}
+}
+function lvNeed(lv){return 20+(lv-1)*15}
+function myLv(){
+  const total=myExp()
+  let left=total,lv=1
+  while(lv<60&&left>=lvNeed(lv)){left-=lvNeed(lv);lv++}
+  return {lv:lv,exp:left,need:lvNeed(lv),total:total}
+}
+function lvTitle(lv){return LV_TITLES[Math.min(lv-1,LV_TITLES.length-1)]}
+function pcProgress(){
+  const list=D.parts||[]
+  const un=list.filter(function(p){return p.unlocked}).length
+  const next=list.filter(function(p){return !p.unlocked})[0]||null
+  return {un:un,total:list.length,next:next}
+}
+/* 加分那一下的反馈：数字上飘 + 光晕 */
+function ptBurst(n,label){
+  try{
+    if(!n)return
+    const w=document.createElement('div')
+    w.className='pt-burst'
+    const num=document.createElement('div');num.className='pt-burst-num';num.textContent='+'+n
+    w.appendChild(num)
+    if(label){const lb=document.createElement('div');lb.className='pt-burst-lb';lb.textContent=String(label);w.appendChild(lb)}
+    document.body.appendChild(w)
+    setTimeout(function(){try{w.remove()}catch(e){}},1400)
+  }catch(e){}
+}
+/* 我的舱卡片（今日页顶部一直显示） */
+function cockpitCard(){
+  const L=myLv(), pc=pcProgress()
+  const c=h('div',{className:'card cockpit'})
+  const top=h('div',{className:'ck-top'})
+  top.appendChild(h('span',{className:'ck-lv'},'Lv.'+L.lv))
+  top.appendChild(h('span',{className:'ck-title'},lvTitle(L.lv)))
+  top.appendChild(h('span',{className:'ck-exp'},'经验 '+L.total))
+  c.appendChild(top)
+  const bar=h('div',{className:'ck-bar'})
+  const fill=h('div',{className:'ck-bar-fill'})
+  fill.style.width=Math.max(4,Math.min(100,Math.round(L.exp/L.need*100)))+'%'
+  bar.appendChild(fill)
+  c.appendChild(bar)
+  c.appendChild(h('div',{className:'ck-sub'},'再攒 '+(L.need-L.exp)+' 分 → Lv.'+(L.lv+1)+'　'+lvTitle(L.lv+1)))
+  const pcRow=h('div',{className:'ck-pc'})
+  pcRow.appendChild(h('span',{className:'ck-pc-t'},'🖥 我的电脑 '+pc.un+'/'+pc.total))
+  if(pc.next)pcRow.appendChild(h('span',{className:'ck-pc-n'},'下一个 '+pc.next.icon+' '+pc.next.name))
+  else pcRow.appendChild(h('span',{className:'ck-pc-n'},'全部解锁！'))
+  pcRow.appendChild(h('span',{className:'ck-pc-go'},'去看看 ›'))
+  pcRow.onclick=function(){try{_pkView='parts';sw('points')}catch(e){}}
+  c.appendChild(pcRow)
+  return c
+}
+
 function _rtodayBody(){
   const lt=D.exams.length?[...D.exams].sort((a,b)=>b.date.localeCompare(a.date))[0]:null
   const si=lt?ct(lt.scores,lt.sem||D.sem):{total:0,fullTotal:gs(D.sem).reduce((s,sub)=>s+sub.full*sub.rate,0),pct:0}
@@ -3136,7 +3194,7 @@ function rckList(){
   const cq=h('div',{className:'card'})
   cq.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📷'}),'记录今天（拍张照给家长看，通过后加分）'))
   const _mkTip=h('div',{style:'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:2px 0 4px'})
-  _mkTip.appendChild(h('span',{style:'font-size:12.5px;color:var(--faint);line-height:1.6;flex:1'},'错题已挪到单独的「📕 错题本」页签：拍一张 → 小搭自动认科目、认题型。'))
+  _mkTip.appendChild(h('span',{style:'font-size:12.5px;color:var(--faint);line-height:1.6;flex:1'},'错题在「📕 错题本」页签，点右边按钮去拍 →'))
   _mkTip.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){sw('mistake')}},'📕 去错题本拍'))
   cq.appendChild(_mkTip)
   const minD=(function(){var d=new Date();d.setDate(d.getDate()-2);return ymd(d)})()
@@ -3423,7 +3481,7 @@ function _rsetBody(){
   for(const g of goals){
     const row=h('div',{className:'mistake-item'})
     row.innerHTML='<strong>'+g.subject+'</strong> '+g.from+'→'+g.to+(g.done?' <span style="color:var(--success)">✅ 已达成</span>':'')
-    const btn=h('button',{className:'btn btn-sm '+(g.done?'btn-outline':'btn-success'),style:'margin-top:4px;margin-left:8px',onClick:function(){g.done=!g.done;if(g.done){D.points.push({date:td,source:'小目标达成',points:10,type:'earn'});ts('🎉 小目标达成 +10分 · '+praise('goal'))}else{const idx=D.points.findIndex(function(x){return x.date===td&&x.source==='小目标达成'&&x.type==='earn'});if(idx>=0)D.points.splice(idx,1);ts('已取消')}sv(D);render()}})
+    const btn=h('button',{className:'btn btn-sm '+(g.done?'btn-outline':'btn-success'),style:'margin-top:4px;margin-left:8px',onClick:function(){g.done=!g.done;if(g.done){D.points.push({date:td,source:'小目标达成',points:10,type:'earn'});try{ptBurst(10,'小目标达成')}catch(e){};ts('🎉 小目标达成 +10分 · '+praise('goal'))}else{const idx=D.points.findIndex(function(x){return x.date===td&&x.source==='小目标达成'&&x.type==='earn'});if(idx>=0)D.points.splice(idx,1);ts('已取消')}sv(D);render()}})
     btn.innerHTML=g.done?'✅ 已达成':'✔ 标记达成 +10分'
     row.appendChild(btn)
     const del=h('button',{className:'btn btn-danger btn-sm',style:'margin-top:4px;margin-left:4px',onClick:function(){D.smallGoals=D.smallGoals.filter(function(x){return x.id!==g.id});sv(D);render()}})
@@ -4166,7 +4224,7 @@ function rpt(){
   _rtb+='<tr><td>✅ 家长手动添加</td><td>在「积分账本」页录入</td></tr>'
   _rtb+='</tbody></table></div>'
   rc.innerHTML+=_rtb
-  rc.appendChild(h('div',{style:'font-size:14px;color:var(--muted);padding:8px;background:var(--bg-elev);border-radius:6px;margin-top:8px'},'大考奖励分数不会自动加，请参考下表用「手动添加」录入实际达成的项'))
+  rc.appendChild(h('div',{style:'font-size:14px;color:var(--muted);padding:8px;background:var(--bg-elev);border-radius:6px;margin-top:8px'},'大考奖励不自动加，用「手动添加」录入。'))
   $c.appendChild(rc)
 
   const erc=h('div',{className:'card'})
