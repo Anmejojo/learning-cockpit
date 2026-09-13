@@ -654,31 +654,17 @@ function hwAdd(){
     const files=Array.from(e.target.files||[]).slice(0,9)
     if(!files.length)return
     ts('⏳ 正在处理 '+files.length+' 张…')
-    const out=[];let done=0
-    files.forEach(function(f){
-      uploadPhoto(f,function(b64){
-        done++
-        if(b64)out.push(b64)
-        if(done===files.length){
-          if(!out.length){ts('照片处理失败，重拍一张');return}
-          const _l=hwList()
-          const _tw=_l.filter(function(x){return x.date===td})[0]
-          if(_tw){
-            _tw.imgs=(_tw.imgs||[]).concat(out).slice(0,9)
-            sv(D);render();ts('✅ 又加上 '+out.length+' 张（今天共 '+_tw.imgs.length+' 张）')
-          }else{
-            _l.unshift({id:Date.now(),date:td,imgs:out,ts:Date.now()})
-            D.points.push({date:td,source:'硬笔字打卡',points:1,type:'earn'})
-            actLog('上传硬笔字',out.length+' 张')
-            sv(D);render();ts('✅ 上墙了 +1 分')
-          }
-        }
-      })
+    compressAll(files,function(bs){
+      if(!bs.length){ts('照片处理失败，重拍一张');return}
+      pendAdd({id:'p'+Date.now(),kind:'hw',imgs:bs.map(function(d){return {d:d,u:''}}),ts:Date.now()})
+      ts('⏳ 正在传 '+bs.length+' 张（中途刷新也会自动接着传）')
+      render();pendRun()
     })
   }
   inp.click()
 }
 function rwrite(){
+  const _pb=pendBanner();if(_pb)$c.appendChild(_pb);
   const list=hwList()
   const stk=hwStreak()
   const c=h('div',{className:'card'})
@@ -1927,8 +1913,78 @@ function updateTabBadges(){
     sp.textContent=n>99?'99+':String(n)
   })
 }
+/* ================= 上传草稿：中途刷新/关页面也不会丢，回来自动接着传 ================= */
+const PEND_KEY='lc_pending'
+function pendList(){try{return JSON.parse(localStorage.getItem(PEND_KEY)||'[]')}catch(e){return []}}
+function pendSave(list){try{localStorage.setItem(PEND_KEY,JSON.stringify(list))}catch(e){ts('⚠️ 本机存不下草稿，请先传完别刷新')}}
+function pendAdd(e){const l=pendList();l.push(e);pendSave(l)}
+function pendDel(id){pendSave(pendList().filter(function(x){return x.id!==id}))}
+function pendCount(){return pendList().length}
+function compressAll(files,cb){
+  const out=[];let done=0
+  if(!files.length)return cb([])
+  files.forEach(function(f){
+    compressImage(f,function(b64){
+      done++
+      if(b64)out.push(b64)
+      if(done===files.length)cb(out)
+    })
+  })
+}
+function hwApply(urls){
+  const _l=hwList()
+  const _tw=_l.filter(function(x){return x.date===td})[0]
+  if(_tw){
+    const cur=_tw.imgs||[]
+    const add=urls.filter(function(u){return u&&cur.indexOf(u)<0})
+    if(add.length)_tw.imgs=cur.concat(add).slice(0,9)
+  }else{
+    _l.unshift({id:Date.now(),date:td,imgs:urls.slice(0,9),ts:Date.now()})
+    D.points.push({date:td,source:'硬笔字打卡',points:1,type:'earn'})
+    actLog('上传硬笔字',urls.length+' 张')
+  }
+  sv(D)
+}
+async function pendRun(){
+  const list=pendList()
+  if(!list.length)return
+  for(const e of list){
+    let allOk=true
+    for(const im of (e.imgs||[])){
+      if(im.u)continue
+      try{
+        const r=await fetch(AI_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({token:aiToken(),type:'upload',data:im.d})})
+        const j=await r.json()
+        if(j&&j.ok&&j.url){im.u=j.url;pendSave(pendList())}
+        else{allOk=false}
+      }catch(err){allOk=false}
+      if(!allOk)break
+    }
+    if(allOk&&(e.imgs||[]).every(function(im){return im.u})){
+      try{
+        const urls=e.imgs.map(function(im){return im.u})
+        if(e.kind==='check')submitCheck(e.typeId,e.subject,urls,e.append)
+        else hwApply(urls)
+      }catch(err){console.warn('草稿落地失败',err)}
+      pendDel(e.id)
+      ts('✅ 照片传完了')
+    }else break
+  }
+  if(typeof render==='function')render()
+}
+function pendBanner(){
+  const n=pendCount()
+  if(!n)return null
+  const b=h('div',{className:'alert warning',style:'margin-bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap'})
+  b.appendChild(h('span',{style:'flex:1'},'⏳ 有 '+n+' 批照片还没传完（已存在本机，不会丢）'))
+  b.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){ts('正在接着传…');pendRun()}},'接着传'))
+  return b
+}
+
 /* ===== 已通过记录（按时间倒序，家长/孩子都能看）===== */
 function rckDone(){
+  const _pb=pendBanner();if(_pb)$c.appendChild(_pb);
   const all=(D.checks||[]).filter(function(c){return c.status==='approved'})
   const list=all.slice().sort(function(a,b){
     return String(b.date||'').localeCompare(String(a.date||''))||((b.ts||0)-(a.ts||0))
@@ -1972,17 +2028,11 @@ function pickAndSubmit(type,subject,append){
     const files=Array.from(e.target.files||[])
     if(!files.length){ts('已取消上传');return}
     ts('⏳ 正在处理 '+files.length+'张照片...')
-    const collected=[]
-    let done=0
-    files.forEach(function(f){
-      uploadPhoto(f,function(b64){
-        done++
-        if(b64)collected.push(b64)
-        if(done===files.length){
-          if(collected.length)submitCheck(type.id,subject,collected,append)
-          else ts('⚠️ 照片处理失败，请重试')
-        }
-      })
+    compressAll(files,function(bs){
+      if(!bs.length){ts('⚠️ 照片处理失败，请重试');return}
+      pendAdd({id:'p'+Date.now(),kind:'check',typeId:type.id,subject:subject||'',append:!!append,imgs:bs.map(function(d){return {d:d,u:''}}),ts:Date.now()})
+      ts('⏳ 正在传 '+bs.length+' 张（中途刷新也会自动接着传）')
+      render();pendRun()
     })
   }
   inp.click()
@@ -2508,6 +2558,7 @@ function rck(){
 }
 
 function rckList(){
+  const _pb=pendBanner();if(_pb)$c.appendChild(_pb);
   const ckd=ckDate()
   const cq=h('div',{className:'card'})
   cq.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📷'}),'记录今天（拍张照给家长看，通过后加分）'))
@@ -3613,4 +3664,5 @@ initAuth()
   const _t2=document.getElementById('bootTip');if(_t2)_t2.remove()
   await authTokenSync()
   authGateAfterLoad()
+  try{if(pendCount()){setTimeout(function(){pendRun()},1500)}}catch(e){}
 })()
