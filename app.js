@@ -1869,6 +1869,67 @@ function chatVoice(){
   }catch(e){_srOn=false;ts('语音启动失败：'+String(e.message||e).slice(0,40));render()}
 }
 function ttsSupported(){try{return !!window.speechSynthesis}catch(e){return false}}
+/* ===== 挑本机语音（不用装任何东西，只是在设备已有的语音里挑）===== */
+let _vcBound=false, _vcOpen=false
+function zhVoiceList(){
+  try{
+    if(!window.speechSynthesis)return []
+    const all=speechSynthesis.getVoices()||[]
+    if(!all.length&&!_vcBound){
+      _vcBound=true
+      try{speechSynthesis.addEventListener('voiceschanged',function(){try{if(tb==='chat'||tb==='settings')render()}catch(e){}})}catch(e){}
+    }
+    return (all||[]).filter(function(v){
+      const t=String(v.lang||'')+' '+String(v.name||'')
+      return /zh|cmn|chinese|中文|国语|普通话/i.test(t)
+    })
+  }catch(e){return []}
+}
+function voiceNow(){
+  try{
+    const l=zhVoiceList()
+    if(!l.length)return null
+    if(D._voice){
+      const hit=l.filter(function(v){return v.name===D._voice||v.voiceURI===D._voice})[0]
+      if(hit)return hit
+    }
+    return null
+  }catch(e){return null}
+}
+function voiceTry(v){
+  try{
+    speechSynthesis.cancel()
+    const u=new SpeechSynthesisUtterance('乐乐，这句是我说的话，你听听顺不顺耳。')
+    u.lang=(v&&v.lang)||'zh-CN'
+    if(v)u.voice=v
+    u.rate=1.05;u.pitch=1.0
+    speechSynthesis.speak(u)
+  }catch(e){}
+}
+function voicePickCard(){
+  const l=zhVoiceList()
+  const cur=voiceNow()
+  const box=h('div',{className:'card'})
+  box.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔊'}),'小搭的声音'))
+  if(!l.length){
+    box.appendChild(h('div',{className:'t-muted'},'这台设备暂时读不到中文语音包。点下面的按钮试试；还是没有的话，告诉家长。'))
+    box.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){voiceTry(null)}},'🔊 试听一下'))
+    return box
+  }
+  box.appendChild(h('div',{className:'t-muted mb8'},'不用装任何东西，就在这台设备已有的语音里挑一个顺耳的。点一下试听，选中了就存下来。'))
+  l.forEach(function(v,i){
+    const on=cur&&(cur.name===v.name||cur.voiceURI===v.voiceURI)
+    const row=h('div',{style:'display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)'})
+    const nm=h('div',{style:'flex:1;min-width:0;font-size:var(--fs-15)'},String(v.name||'语音'+i))
+    if(v.lang)nm.appendChild(h('span',{className:'t-faint',style:'margin-left:6px'},String(v.lang)))
+    row.appendChild(nm)
+    row.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){voiceTry(v)}},'🔊 试听'))
+    row.appendChild(h('button',{className:'btn btn-sm '+(on?'btn-primary':'btn-outline'),onClick:function(){D._voice=v.name;sv(D);render();ts('✅ 小搭就用「'+v.name+'」')}},(on?'✓ 用中':'用这个')))
+    box.appendChild(row)
+  })
+  if(cur)box.appendChild(h('button',{className:'btn btn-outline btn-sm mt8',onClick:function(){D._voice='';sv(D);render();ts('已改回默认')}},'恢复默认'))
+  return box
+}
 function chatSpeak(t,id){
   try{
     if(D._tts===false)return
@@ -1882,6 +1943,7 @@ function chatSpeak(t,id){
     speechSynthesis.cancel()
     const u=new SpeechSynthesisUtterance(s)
     u.lang='zh-CN';u.rate=1.05;u.pitch=1.0
+    try{const _v=voiceNow();if(_v){u.voice=_v;u.lang=_v.lang||'zh-CN'}}catch(e){}
     _speakId=id||null
     u.onend=function(){_speakId=null;if(tb==='chat')render()}
     u.onerror=function(){_speakId=null;if(tb==='chat')render()}
@@ -2200,9 +2262,11 @@ function chatUI(){
     emo.appendChild(_more)
     if(!srSupported())emo.appendChild(h('div',{style:'font-size:var(--fs-12);color:var(--faint);margin-top:8px;line-height:1.6'},'🎤 想说话就说：用 Chrome 或 Safari 打开这个网址，就会多一个麦克风按钮'))
     bottom.appendChild(emo)
+    if(_vcOpen)bottom.appendChild(voicePickCard())
     const bar=h('div',{className:'chat-bar'})
     bar.appendChild(h('button',{className:'chat-cam',onClick:function(){chatPickImage()}},'📷'))
     bar.appendChild(h('button',{className:'chat-cam',onClick:function(){emo.style.display=(emo.style.display==='none'?'':'none')}},'😊'))
+    bar.appendChild(h('button',{className:'chat-cam'+(_vcOpen?' on':''),title:'换个声音试试',onClick:function(){_vcOpen=!_vcOpen;if(_vcOpen)emo.style.display='none';render()}},'🎚️'))
     if(srSupported())bar.appendChild(h('button',{className:'chat-cam'+(_srOn?' rec':''),title:'说话自动变文字',onClick:function(){chatVoice()}},_srOn?'⏹':'🎤'))
     bar.appendChild(h('button',{className:'chat-cam'+(D._tts!==false?' on':''),title:'小搭的话可以点着听',onClick:function(){D._tts=(D._tts===false);sv(D);if(D._tts===false)chatSpeakStop();ts(D._tts!==false?'🔊 小搭每句话旁边都能点着听':'🔈 已隐藏朗读按钮');render()}},(D._tts!==false?'🔊':'🔈')))
     const _inp=h('input',{id:'chatInput',placeholder:'说点什么…',onInput:function(e){_draft=e.target.value},onKeyDown:function(e){if(e.key==='Enter'){e.preventDefault();chatSend()}}})
@@ -3767,6 +3831,9 @@ function _rsetBody(){
   else if(notifyPerm())_ntBar.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){D._notify={on:true,at:Date.now()};sv(D);render();ts('已开启每日提醒')}},'开启提醒'))
   _nt.appendChild(_ntBar)
   $c.appendChild(_nt)
+
+  // 小搭的声音（本机）
+  try{$c.appendChild(voicePickCard())}catch(e){}
 
   // 外观主题
   const _th=themeNow()
