@@ -2976,6 +2976,9 @@ function rset(){
   const _logN=(D._log||[]).length
   _lg.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🧾'}),'操作记录（'+_logN+' 条）'))
   _lg.appendChild(h('div',{style:'font-size:13px;color:var(--muted);margin-bottom:8px;line-height:1.7'},'谁在什么时候做了什么——提交、通过、退回、删除、备份，全记着，一直留着。以后数据对不上，翻这里。'))
+  const _sc=D._seenC
+  if(_sc&&_sc.ts)_lg.appendChild(h('div',{style:'font-size:13.5px;margin-bottom:8px;background:var(--bg-elev);border:1px solid var(--border);border-radius:8px;padding:7px 10px'},'📱 孩子端上次打开：'+fd(ymd(new Date(_sc.ts)))+' '+fmtHM(_sc.ts)+'（'+devName(_sc.ua)+'）'))
+  else _lg.appendChild(h('div',{style:'font-size:13px;color:var(--warning);margin-bottom:8px'},'📱 还没有看到孩子端打开过（他打开一次这里就会显示时间）'))
   let _lgOpen=false
   const _lgBox=h('div',{style:'display:none;margin-top:6px;max-height:340px;overflow:auto'})
   if(!_logN)_lgBox.appendChild(h('div',{style:'font-size:13.5px;color:var(--muted)'},'还没有记录'))
@@ -3708,6 +3711,14 @@ function pwaInstall(){
   }catch(e){ts('请在浏览器菜单里选「添加到主屏幕」')}
 }
 /* 全屏/应用模式下，再给顶部多留一点（防刘海、摄像头遮挡） */
+function devName(ua){
+  const u=String(ua||'')
+  if(/iPad|iPhone|iPod/.test(u))return '苹果设备'
+  if(/Android/.test(u))return '安卓设备'
+  if(/Windows/.test(u))return 'Windows 电脑'
+  if(/Macintosh|Mac OS X/.test(u))return '苹果电脑'
+  return '未知设备'
+}
 function topPad(){try{return parseInt(localStorage.getItem('lc_toppad')||'0',10)||0}catch(e){return 0}}
 function setTopPad(v){
   try{localStorage.setItem('lc_toppad',String(Math.max(0,Math.min(120,v||0))))}catch(e){}
@@ -3760,5 +3771,11 @@ initAuth()
   const _t2=document.getElementById('bootTip');if(_t2)_t2.remove()
   await authTokenSync()
   authGateAfterLoad()
+  try{
+    if(VW){
+      D._seenC={ts:Date.now(),d:td,ua:String(navigator.userAgent||'').slice(0,140)}
+      sv(D)
+    }
+  }catch(e){}
   try{if(pendCount()){setTimeout(function(){pendRun()},1500)}}catch(e){}
 })()
