@@ -148,6 +148,12 @@ async function saveCloud(d){
 }
 function ld(){
   try{
+    if(DEMO){
+      const wantReset=up.has('reset')
+      let raw=localStorage.getItem('lc_demo')
+      if(!raw||wantReset){const dd=demoData();try{localStorage.setItem('lc_demo',JSON.stringify(dd))}catch(e){};return normalize(dd)}
+      return normalize(JSON.parse(raw))
+    }
     let r=localStorage.getItem(SK)
     if(!r){r=localStorage.getItem('learning_cockpit_data')}
     if(!r){r=localStorage.getItem('learning_cockpit_v2')}
@@ -161,6 +167,7 @@ function ld(){
 }
 
 function sv(d){
+  if(DEMO){try{localStorage.setItem('lc_demo',JSON.stringify(d))}catch(e){};maybeSnapshot();return}
   let ok=true
   try{localStorage.setItem(SK,JSON.stringify(d));localStorage.setItem(SK+'_t',String(Date.now()))}
   catch(e){
@@ -185,8 +192,47 @@ function sv(d){
 }
 
 const up=new URLSearchParams(window.location.search)
+const DEMO=up.has('demo')   // 本地测试台：?demo 用本机测试数据，不碰云端
+/* ================= 本地测试台（?demo）：只在本机生成测试数据，完全不碰云端 ================= */
+function demoData(){
+  const d=defData()
+  const today=ymd(), y1=ymd(new Date(Date.now()-86400000)), y2=ymd(new Date(Date.now()-2*86400000))
+  d.checks=[
+    {id:101,date:today,type:'homework',typeName:'作业拍照',subject:'数学',imgs:[],pts:2,status:'approved',ts:Date.now()-3600000,at:Date.now()-1800000,note:'数学那道大题思路清楚，比昨天快'},
+    {id:102,date:today,type:'note',typeName:'课堂笔记',subject:'语文',imgs:[],pts:2,status:'pending',ts:Date.now()-600000,noteSubmit:'记下来了，先放着'},
+    {id:103,date:y1,type:'mistake',typeName:'错题本拍照',subject:'数学',imgs:[],pts:2,status:'approved',ts:Date.now()-90000000,at:Date.now()-88000000},
+    {id:104,date:y2,type:'word',typeName:'背单词',subject:'英语',imgs:[],pts:2,status:'approved',ts:Date.now()-176000000,at:Date.now()-175000000}
+  ]
+  d.points=[{date:today,source:'数学·作业拍照',points:2,type:'earn'},{date:y1,source:'数学·错题本拍照',points:2,type:'earn'},{date:y2,source:'整理错题本',points:2,type:'earn'}]
+  d.exams=[{id:1,date:y1,sem:'初二上',examType:'月考',scores:{chinese:105,math:96,english:78,physics:72,geo:70,bio:62,dao:66,history:74,pe:32},status:'approved',ts:Date.now()-88000000}]
+  d.msgs=[{id:1,from:'p',text:'看到你这周数学错题整理了 3 道，比上周多',ts:Date.now()-7200000}]
+  d.tasks=[{id:1,date:today,text:'英语单词 20 个',done:false}]
+  d.dailyChecks={}
+  d.dailyChecks[today]={videoCall:true,onTimeStudy:true,water:true}
+  d._chat=[
+    {id:1,date:today,role:'u',text:'这题不会：一次函数和x轴交点怎么求',ts:Date.now()-1800000},
+    {id:2,date:today,role:'a',text:'x轴交点就是 y=0 的那个点。先把 y=0 代进去，得到个式子，你写出来我看看？',ts:Date.now()-1790000}
+  ]
+  d._mem=[{id:1,text:'数学函数容易卡，看到图就发懵',tags:['函数'],at:Date.now()},{id:2,text:'不喜欢被问成绩',tags:['成绩'],at:Date.now()}]
+  d._log=[{ts:Date.now()-3600000,by:'c',act:'提交记录',target:today+' 数学·作业拍照'},{ts:Date.now()-3300000,by:'p',act:'通过记录',target:today+' 数学·作业拍照'}]
+  return d
+}
+function demoBar(){
+  if(!DEMO)return
+  try{ if(document.getElementById('demoBar'))return }catch(e){}
+  const b=document.createElement('div')
+  b.id='demoBar'
+  b.style.cssText='position:fixed;left:8px;bottom:8px;z-index:99998;display:flex;gap:6px;align-items:center;background:rgba(20,22,28,0.92);border:1px solid rgba(255,255,255,0.14);border-radius:10px;padding:6px 8px;font-size:12px;color:#ccd2de'
+  b.innerHTML='<span style="color:#fbbf24">测试台</span>'
+  const mk=function(txt,fn){const x=document.createElement('button');x.textContent=txt;x.style.cssText='background:transparent;border:1px solid rgba(255,255,255,0.18);color:#ccd2de;border-radius:8px;padding:3px 8px;font-size:12px;cursor:pointer';x.onclick=fn;return x}
+  b.appendChild(mk('重置测试数据',function(){try{const u=new URLSearchParams(location.search);u.set('reset','1');u.set('t',String(Date.now()));location.search=u.toString()}catch(e){location.reload()}}))
+  b.appendChild(mk('清空测试数据',function(){try{localStorage.clear()}catch(e){}location.reload()}))
+  b.appendChild(mk('填口令(试小搭)',function(){const v=prompt('输入家长口令（只在本地测试用）');if(v){try{localStorage.setItem('lc_tok',hsh(v));localStorage.setItem('lc_lv','p')}catch(e){}ts('已填，刷新后小搭可用')}}))
+  document.body.appendChild(b)
+}
+
 let VW=up.has('view')||up.has('readonly')
-const NOCLOUD=up.has('local')   // 加 ?local 可强制本地模式（排查问题/离线演示用）
+const NOCLOUD=up.has('local')||DEMO   // ?demo 时强制本地：绝不读写云端真实数据   // 加 ?local 可强制本地模式（排查问题/离线演示用）
 if(VW){document.body.classList.add('view-only');const b=document.getElementById('modeBadge');b.textContent='👀 查看模式';b.className='badge view';b.style.display=''}
 
 /* ================= 访问口令（家长 / 孩子） ================= */
@@ -249,6 +295,11 @@ function applyLv(lv){
 let _authPending=false
 function initAuth(){
   const saved=localStorage.getItem('lc_lv')||''
+  if(DEMO){
+    if(VW)applyLv('c'); else applyLv('p')
+    D=ld()
+    render();demoBar();return
+  }
   if(D._noGate&&!VW){applyLv(saved||'p');render();return}   // 家长链接：免口令直接进（孩子链接仍需口令）
   if(!(D._auth&&D._auth.p)){_authPending=true;return}   // 本机没存过口令：先别急着让人"设置"，等读完云端再判定（否则新设备会覆盖家里口令）
   if(saved==='c'&&D._auth.t&&localStorage.getItem('lc_tok')!==D._auth.t)localStorage.setItem('lc_tok',D._auth.t)
