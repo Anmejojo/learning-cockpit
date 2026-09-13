@@ -213,6 +213,13 @@ function demoData(){
     {id:1,date:today,role:'u',text:'这题不会：一次函数和x轴交点怎么求',ts:Date.now()-1800000},
     {id:2,date:today,role:'a',text:'x轴交点就是 y=0 的那个点。先把 y=0 代进去，得到个式子，你写出来我看看？',ts:Date.now()-1790000}
   ]
+  d.mistakes=[
+    {id:201,date:today,ts:Date.now()-7200000,by:'c',subject:'数学',kp:'一次函数与x轴交点',stem:'已知 y=2x-3，求它与 x 轴交点的坐标',why:'公式记错',imgs:[],pass:[]},
+    {id:202,date:today,ts:Date.now()-5400000,by:'c',subject:'数学',kp:'一次函数与x轴交点',stem:'求直线 y=-x+4 与两坐标轴围成的三角形面积',why:'审题漏条件',imgs:[],pass:[Date.now()-3600000]},
+    {id:203,date:y1,ts:Date.now()-90000000,by:'c',subject:'英语',kp:'现在完成时',stem:'用括号内动词的适当形式填空：I ___ (finish) my homework already.',why:'公式记错',imgs:[],pass:[]},
+    {id:204,date:y1,ts:Date.now()-88000000,by:'c',subject:'物理',kp:'欧姆定律',stem:'已知 R=10Ω，两端电压 5V，求通过它的电流',why:'计算错误',imgs:[],pass:[Date.now()-80000000,Date.now()-70000000]},
+    {id:205,date:y2,ts:Date.now()-176000000,by:'c',subject:'语文',kp:'文言实词',stem:'解释下面句中「之」的用法与意思',why:'根本不会',imgs:[],pass:[]}
+  ]
   d._mem=[{id:1,text:'数学函数容易卡，看到图就发懵',tags:['函数'],at:Date.now()},{id:2,text:'不喜欢被问成绩',tags:['成绩'],at:Date.now()}]
   d._log=[{ts:Date.now()-3600000,by:'c',act:'提交记录',target:today+' 数学·作业拍照'},{ts:Date.now()-3300000,by:'p',act:'通过记录',target:today+' 数学·作业拍照'}]
   return d
