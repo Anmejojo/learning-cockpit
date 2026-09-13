@@ -895,6 +895,8 @@ function ensureChatOpener(){
 let _memOpen=false
 let _chatShow=40
 let _aiBusy=false
+let _draft=''
+let _sr=null,_srOn=false,_srBase='',_srUsed=false
 function memPanelUI(){
   const full=h('div',{className:'mem-panel'})
   const head=h('div',{className:'mem-head'},h('span',null,'小搭记得的事'),
@@ -1063,12 +1065,60 @@ function looksStudy(t){
 function looksSite(t){
   return /还没做|没做|做完|做了|进度|积分|多少|在哪|哪里|换|还剩|够不够|连续|记录|奖励|零件/.test(String(t||''))
 }
+/* ===== 语音：他说话 → 文字（浏览器内置识别）；小搭的话可以读出来 ===== */
+function srSupported(){try{return !!(window.SpeechRecognition||window.webkitSpeechRecognition)}catch(e){return false}}
+function chatVoice(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition
+  if(!SR){ts('🎤 这个浏览器不支持语音，换 Chrome 或 Safari 试试');return}
+  if(_srOn){try{_sr.stop()}catch(e){}return}
+  try{
+    _sr=new SR()
+    _sr.lang='zh-CN';_sr.interimResults=true;_sr.continuous=false;_sr.maxAlternatives=1
+    _srBase=(document.getElementById('chatInput')||{}).value||''
+    _sr.onstart=function(){_srOn=true;render();ts('🎤 说吧，说完自动填进输入框')}
+    _sr.onresult=function(e){
+      let txt=''
+      for(let i=0;i<e.results.length;i++){txt+=e.results[i][0].transcript}
+      _draft=(_srBase?(_srBase+' '):'')+txt
+      const el=document.getElementById('chatInput')
+      if(el){el.value=_draft;el.focus()}
+      if(e.results[e.results.length-1].isFinal){_srUsed=true;ts('说完了，点「发送」')}
+    }
+    _sr.onerror=function(e){
+      _srOn=false
+      const _m={'not-allowed':'没拿到麦克风权限，允许一下再试','no-speech':'没听清，再说一次','audio-capture':'没找到麦克风','network':'网络不太好，语音暂时用不了','aborted':''}[e.error]
+      if(_m)ts('🎤 '+_m)
+      render()
+    }
+    _sr.onend=function(){_srOn=false;render()}
+    _srOn=true;_sr.start();render()
+  }catch(e){_srOn=false;ts('语音启动失败：'+String(e.message||e).slice(0,40));render()}
+}
+function chatSpeak(t){
+  try{
+    if(!D._tts)return
+    if(!window.speechSynthesis)return
+    const s=Array.from(String(t||'')).filter(function(ch){
+      const c=ch.codePointAt(0)
+      return !(c>=0x1F000&&c<=0x1FAFF)&&!(c>=0x2600&&c<=0x27BF)&&c!==0xFE0F&&c!==0x200D
+    }).join('').replace(/[\s]+/g,' ').trim()
+    if(!s)return
+    speechSynthesis.cancel()
+    const u=new SpeechSynthesisUtterance(s)
+    u.lang='zh-CN';u.rate=1.05;u.pitch=1.0
+    speechSynthesis.speak(u)
+  }catch(e){}
+}
+function chatSpeakStop(){try{if(window.speechSynthesis)speechSynthesis.cancel()}catch(e){}}
 function chatSend(imgB64){
   const el=document.getElementById('chatInput')
   const v=(el&&el.value||'').trim()
+  const _isVoice=_srUsed;_srUsed=false
   if(!v&&!imgB64)return
   const log=chatLog()
-  log.push({id:Date.now(),date:td,role:'u',text:(v||'（发了张图）'),img:(imgB64||''),ts:Date.now()})
+  log.push({id:Date.now(),date:td,role:'u',text:(v||'（发了张图）'),img:(imgB64||''),voice:(_isVoice?true:undefined),ts:Date.now()})
+  _draft=''
+  chatSpeakStop()
   const _tk={id:'t'+Date.now(),date:td,role:'a',pending:true,text:'',ts:Date.now()}
   log.push(_tk)
   try{
@@ -1172,6 +1222,7 @@ function chatSend(imgB64){
     if(l2.length>300)D._chat=l2.slice(-300)
     sv(D);render()
     _aiBusy=false
+    if(!_alert)chatSpeak(_txt)
     setTimeout(function(){const el=document.getElementById('chatScroll');if(el)el.scrollTop=el.scrollHeight},60)
   }).catch(function(){_aiBusy=false})
 }
@@ -1234,6 +1285,7 @@ function chatUI(){
     const bub=h('div',{className:'chat-bub '+(me?'u':'a')+(m.ms?' ms':'')+(m.pending?' pending':'')},m.pending?'……':m.text)
     if(m.img)bub.appendChild(h('img',{src:m.img,loading:'lazy',alt:'他发的照片',onClick:function(){viewImg(m.img)}}))
     if(m.imgCleared)bub.appendChild(h('div',{className:'imgtip'},'（图片已清理）'))
+    if(m.voice)bub.appendChild(h('span',{style:'font-size:11px;opacity:.65;margin-left:5px'},'🎤'))
     main.appendChild(bub)
     row.appendChild(main)
     scroll.appendChild(row)
@@ -1251,12 +1303,19 @@ function chatUI(){
     })
     emo.appendChild(etabs);emo.appendChild(ebox)
     renderEmoji(EMOJI_SETS[0].list,etabs,0,ebox)
+    const _more=h('div',{style:'display:flex;gap:8px;margin-top:8px;flex-wrap:wrap'})
+    _more.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_memOpen=true;render()}},'🧠 小搭记得的事'))
+    emo.appendChild(_more)
+    if(!srSupported())emo.appendChild(h('div',{style:'font-size:12px;color:var(--faint);margin-top:8px;line-height:1.6'},'🎤 想说话就说：用 Chrome 或 Safari 打开这个网址，就会多一个麦克风按钮'))
     bottom.appendChild(emo)
     const bar=h('div',{className:'chat-bar'})
     bar.appendChild(h('button',{className:'chat-cam',onClick:function(){chatPickImage()}},'📷'))
     bar.appendChild(h('button',{className:'chat-cam',onClick:function(){emo.style.display=(emo.style.display==='none'?'':'none')}},'😊'))
-    bar.appendChild(h('button',{className:'chat-cam',onClick:function(){_memOpen=true;render()}},'🧠'))
-    bar.appendChild(h('input',{id:'chatInput',placeholder:'说点什么…',onKeyDown:function(e){if(e.key==='Enter'){e.preventDefault();chatSend()}}}))
+    if(srSupported())bar.appendChild(h('button',{className:'chat-cam'+(_srOn?' rec':''),title:'说话自动变文字',onClick:function(){chatVoice()}},_srOn?'⏹':'🎤'))
+    bar.appendChild(h('button',{className:'chat-cam'+(D._tts?' on':''),title:'小搭读出来',onClick:function(){D._tts=!D._tts;sv(D);if(D._tts){chatSpeak('好，我读给你听')}else{chatSpeakStop()}ts(D._tts?'🔊 小搭会读给你听':'🔈 不读了');render()}},(D._tts?'🔊':'🔈')))
+    const _inp=h('input',{id:'chatInput',placeholder:'说点什么…',onInput:function(e){_draft=e.target.value},onKeyDown:function(e){if(e.key==='Enter'){e.preventDefault();chatSend()}}})
+    _inp.value=_draft
+    bar.appendChild(_inp)
     bar.appendChild(h('button',{className:'chat-send',onClick:function(){chatSend()}},'发送'))
     bottom.appendChild(bar)
   }else{
