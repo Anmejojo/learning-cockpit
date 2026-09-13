@@ -1908,6 +1908,44 @@ function voiceTry(v){
     speechSynthesis.speak(u)
   }catch(e){}
 }
+/* ===== 云存储用量（只读统计：不会删任何东西）===== */
+const COS_QUOTA = 5 * 1024 * 1024 * 1024   // 腾讯云存储免费额度 5GB
+function fmtBytes(b){
+  b = Number(b) || 0
+  if (b >= 1024 * 1024 * 1024) return (b / 1024 / 1024 / 1024).toFixed(2) + ' GB'
+  if (b >= 1024 * 1024) return (b / 1024 / 1024).toFixed(1) + ' MB'
+  if (b >= 1024) return (b / 1024).toFixed(0) + ' KB'
+  return b + ' B'
+}
+function usageRun(){
+  ts('正在统计…')
+  aiPost({type:'usage'}).then(function(r){
+    if(r&&r.ok) D._usage={ok:true,bytes:r.bytes,count:r.count,at:Date.now()}
+    else D._usage={ok:false,err:String((r&&r.err)||'查询失败').slice(0,80)}
+    sv(D);render()
+    ts(D._usage.ok?'✅ 统计完成':'⚠️ '+D._usage.err)
+  }).catch(function(){ D._usage={ok:false,err:'网络错误'}; sv(D);render() })
+}
+function usageCard(){
+  const c=h('div',{className:'card edit-only'})
+  c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'☁️'}),'云存储用量'))
+  const u=D._usage
+  if(u&&u.ok){
+    const pct=Math.min(100,Math.round((u.bytes/COS_QUOTA)*1000)/10)
+    c.appendChild(h('div',{style:'font-size:var(--fs-17);font-weight:600'},'已用 '+fmtBytes(u.bytes)+' / 5 GB'))
+    const bar=h('div',{className:'ck-bar mt8'})
+    const fill=h('div',{className:'ck-bar-fill'})
+    fill.style.width=Math.max(1,pct)+'%'
+    bar.appendChild(fill); c.appendChild(bar)
+    c.appendChild(h('div',{className:'t-muted mt6'},'共 '+u.count+' 个文件　·　占用 '+pct+'%　·　统计于 '+(u.at?fmtHM(u.at):'')))
+    if(pct>=80)c.appendChild(h('div',{className:'mt8',style:'font-size:var(--fs-14);color:var(--warning)'},'快满了（免费额度 5GB）。不用急着删，先告诉我，我帮你想办法。'))
+  }else{
+    c.appendChild(h('div',{className:'t-muted mb8'},u?('暂时查不到：'+u.err):'点下面看一下照片共占了多少。只统计，不会删任何东西。'))
+  }
+  c.appendChild(h('button',{className:'btn btn-outline btn-sm mt8',onClick:usageRun},u&&u.ok?'🔄 重新统计':'📊 统计一下'))
+  return c
+}
+
 function voicePickCard(){
   const l=zhVoiceList()
   const cur=voiceNow()
@@ -1966,7 +2004,6 @@ async function aiPost(payload){
   if(j&&j.err)return {ok:false,err:j.err}
   return {ok:false,err:'返回异常(HTTP '+r.status+')'}
 }
-function cloudVoiceName(v){return v==='diana'?'diana（女声）':'david（男声）'}
 async function speakCloud(t,id,vv){
   const s=ttsClean(t)
   if(!s)return
@@ -3224,7 +3261,12 @@ const GUIDE=[
   {tab:'chat',sel:'.tabs [data-tab="chat"]',t:'有不会的就找小搭',d:'点这个，或者右下角那个圆圆的「搭」。题不会、心情不好，都能跟它说。'}
 ]
 function guideEnd(){
-  try{D._guide=1;sv(D)}catch(e){}
+  try{
+    D._guide=1
+    const g=D._guideInfo||{}
+    D._guideInfo={at:Date.now(),n:(g.n||0)+1}
+    sv(D)
+  }catch(e){}
   const ov=document.getElementById('guideOv');if(ov)ov.remove()
   const pp2=document.getElementById('guidePop');if(pp2)pp2.remove()
   document.querySelectorAll('.guide-hi').forEach(function(x){x.classList.remove('guide-hi')})
@@ -3266,8 +3308,11 @@ function guideShow(i){
 function guideMaybe(){
   try{
     if(_lv!=='c'&&!DEMO)return
-    if(D._guide)return
     if(document.getElementById('gate'))return
+    const g=D._guideInfo||{}
+    if(!D._guide){guideShow(0);return}        // 第一次
+    if((g.n||0)>=2)return                      // 最多两轮
+    if(Date.now()-(g.at||0)<3*86400000)return  // 隔 3 天
     guideShow(0)
   }catch(e){}
 }
@@ -3905,6 +3950,9 @@ function _rsetBody(){
 
   // 小搭的声音（本机）
   try{$c.appendChild(voicePickCard())}catch(e){}
+
+  // 云存储用量
+  try{$c.appendChild(usageCard())}catch(e){}
 
   // 外观主题
   const _th=themeNow()
