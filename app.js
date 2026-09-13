@@ -1193,7 +1193,7 @@ function chatUI(){
     bar.appendChild(h('button',{className:'chat-cam',onClick:function(){chatPickImage()}},'📷'))
     bar.appendChild(h('button',{className:'chat-cam',onClick:function(){emo.style.display=(emo.style.display==='none'?'':'none')}},'😊'))
     bar.appendChild(h('button',{className:'chat-cam',onClick:function(){_memOpen=true;render()}},'🧠'))
-    bar.appendChild(h('input',{id:'chatInput',placeholder:'说点什么…'}))
+    bar.appendChild(h('input',{id:'chatInput',placeholder:'说点什么…',onKeyDown:function(e){if(e.key==='Enter'){e.preventDefault();chatSend()}}}))
     bar.appendChild(h('button',{className:'chat-send',onClick:function(){chatSend()}},'发送'))
     bottom.appendChild(bar)
   }else{
