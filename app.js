@@ -137,7 +137,7 @@ async function loadCloud(){
          · 字典（习惯打卡/错题/照片）逐条合并，只会更多不会更少
          · 其余设置类字段，听「更新的一方」
    ========================================================================= */
-const MERGE_LIST=['checks','exams','points','mistakes','handwritings','smallGoals','tasks','msgs','_snaps']
+const MERGE_LIST=['checks','exams','points','mistakes','handwritings','smallGoals','tasks','msgs','_snaps','_chat','_notes','act','mistakeMilestones']
 const MERGE_DICT=['dailyChecks','mistakeLog','checkImgs']
 function _mId(x){return (x&&x.id!=null)?('i'+x.id):('h'+JSON.stringify(x))}
 function _mTs(x){return (x&&(x.ts||x.at||x.t||x.time))||0}
