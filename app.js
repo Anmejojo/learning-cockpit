@@ -735,12 +735,46 @@ function scanPrompt(){
   return ['你是初中老师。下面是学生刚交上来的作业 / 试卷照片（单张）。',
     '请判断：这张上有没有没做完的题（空着没写、只写一半、大题只做了第(1)问）？',
     '只输出一行 JSON，不要解释：',
-    '{"subject":"科目","kind":"试卷/作业/笔记/其他","done":true,"blank":[{"no":"第7题","text":"题目文字"}]}',
+    '{"subject":"科目","kind":"试卷/作业/笔记/其他","done":true,"blank":[{"no":"第7题","text":"题目文字","cell":"下中"}]}',
     '· subject 只能填：'+MK_SUBJECTS.join('/')+'（认不出填 其他）；',
     '· done：全做完了填 true；只要有空题 / 半截题就填 false；',
     '· blank：把没做完的题按题号列出来（最多 5 条）；no 写题号（如 "第7题"、"12(2)"）；text 把这题问什么写成文字（30 字内，看不清写"看不清"）；',
+    '· cell：这道题在照片里的位置（照片当 3×3 九宫格），只能填：上左/上中/上右/左中/中心/右中/下左/下中/下右；拿不准填 中心；',
     '· 不确定就不要报（宁可漏报，不要误报）。'
   ].join('\n')
+}
+/* 把照片按九宫格裁一块出来（给孩子看“就是这道题”） */
+function cellBox(cell){
+  const c=String(cell||'')
+  return {row:(c.indexOf('上')>=0)?0:((c.indexOf('下')>=0)?2:1),
+          col:(c.indexOf('左')>=0)?0:((c.indexOf('右')>=0)?2:1)}
+}
+function cropCell(src,cell,cb){
+  let done=false
+  const _cb=function(x){if(done)return;done=true;cb(x)}
+  try{
+    const b=cellBox(cell),row=b.row,col=b.col
+    const im=new Image()
+    try{im.crossOrigin='anonymous'}catch(e){}   /* 云存储照片跨域：不设这个，画布会被“污染”，裁不出来 */
+    setTimeout(function(){_cb(null)},9000)
+    im.onload=function(){
+      try{
+        const W=im.width,H=im.height
+        if(!W||!H)return _cb(null)
+        const cw=W/3,ch=H/3,mx=cw*0.10,my=ch*0.10
+        let x=col*cw-mx,y=row*ch-my,w=cw+mx*2,h=ch+my*2
+        x=Math.max(0,Math.min(x,W-1));y=Math.max(0,Math.min(y,H-1))
+        w=Math.max(40,Math.min(W-x,w));h=Math.max(40,Math.min(H-y,h))
+        const sc=Math.min(1,560/w)
+        const cv=document.createElement('canvas')
+        cv.width=Math.round(w*sc);cv.height=Math.round(h*sc)
+        cv.getContext('2d').drawImage(im,x,y,w,h,0,0,cv.width,cv.height)
+        _cb(cv.toDataURL('image/jpeg',0.6))
+      }catch(e){_cb(null)}
+    }
+    im.onerror=function(){_cb(null)}
+    im.src=src
+  }catch(e){_cb(null)}
 }
 async function scanOne(url){
   try{
@@ -760,16 +794,16 @@ function scanLine(rec){
     return '第'+o.i+'张'+(o.subject?('·'+o.subject):'')+'：'+(o.blank||[]).map(function(b){return b.no||'某题'}).join('、')+'还空着'
   }).join('；')
 }
-function chatPushAI(text){
+function chatPushAI(text,img){
   try{
     const l=chatLog()
-    l.push({id:Date.now()+3,date:td,role:'a',text:text,ts:Date.now(),auto:true})
+    l.push({id:Date.now()+3,date:td,role:'a',text:text,ts:Date.now(),auto:true,img:(img||'')})
     noteAdd(text,'scan')
     chatTrim()
     if(typeof tb!=='undefined'&&tb==='chat')render()
   }catch(e){}
 }
-async function scanCheck(recId,urls){
+async function scanCheck(recId,urls,localB64){
   try{
     const rec=(D.checks||[]).find(function(x){return x.id===recId})
     if(!rec||!urls||!urls.length)return
@@ -780,7 +814,7 @@ async function scanCheck(recId,urls){
       if(!j)continue
       out.push({i:i+1,subject:String(j.subject||'').slice(0,6),kind:String(j.kind||'').slice(0,6),
         done:(j.done!==false),
-        blank:(Array.isArray(j.blank)?j.blank:[]).slice(0,5).map(function(b){return {no:String((b&&b.no)||'').slice(0,12),text:String((b&&b.text)||'').slice(0,40)}})})
+        blank:(Array.isArray(j.blank)?j.blank:[]).slice(0,5).map(function(b){return {no:String((b&&b.no)||'').slice(0,12),text:String((b&&b.text)||'').slice(0,40),cell:String((b&&b.cell)||'').slice(0,4)}})})
     }
     if(!out.length)return
     rec.scan=out
@@ -792,17 +826,26 @@ async function scanCheck(recId,urls){
         return (b.no||'某题')+t
       })
       const rest=bad.length>1?('，另外第'+bad[1].i+'张'+(bad[1].subject?('·'+bad[1].subject):'')+'也有空题'):''
-      const say=nickName()+'，刚看到你交的'+(one.subject||'作业')+'那张（第 '+one.i+' 张）：'+parts.join('、')+'还空着'+rest+'。是没做完，还是没拍到？'
-      rec.say=say
+      const say=nickName()+'，刚看到你交的'+(one.subject||'作业')+'那张（第 '+one.i+' 张）：'+parts.join('、')+'还空着'+rest+'。'
       rec.needLook=true
-      chatPushAI(say)
-      ts('📌 '+say)
+      const _src=((localB64&&localB64[one.i-1])||urls[one.i-1])   /* 优先用本机那份（data:），裁图不需要跨域 */
+      const _cell=((one.blank||[])[0]||{}).cell||''
+      const _fin=function(img){
+        const full=say+(img?'（我把那道题截出来了，你看下面这张）':'是没做完，还是没拍到？')
+        rec.say=full
+        chatPushAI(full,img)
+        sv(D);render()
+        ts('📌 '+say+(img?'（已附截图）':''))
+      }
+      if(_src&&_cell)cropCell(_src,_cell,_fin)
+      else _fin(null)
+      return
     }
     sv(D);render()
   }catch(e){}
 }
 
-function submitCheck(typeId,subject,imgsArr,append){
+function submitCheck(typeId,subject,imgsArr,append,localB64){
   const type=CHECK_TYPES.find(function(t){return t.id===typeId})
   if(!type)return
   if(!D.checks)D.checks=[]
@@ -815,7 +858,7 @@ function submitCheck(typeId,subject,imgsArr,append){
     old.status='pending';old.ts=Date.now();old.pts=type.pts
     old.noteSubmit=encTake()
     sv(D);render();ts('✅ 已更新 · '+old.noteSubmit)
-    try{scanCheck(old.id,old.imgs||[])}catch(e){}
+    try{scanCheck(old.id,old.imgs||[],localB64)}catch(e){}
     return
   }
   const _rec={id:Date.now(),date:_ds,type:typeId,typeName:type.name,subject:_sub,imgs:imgsArr||[],pts:type.pts,status:'pending',ts:Date.now()}
@@ -825,7 +868,7 @@ function submitCheck(typeId,subject,imgsArr,append){
   D.points.push({date:_ds,source:'提交·'+_lbl,points:1,type:'earn'});try{ptBurst(1,'提交')}catch(e){}
   sv(D);render()
   ts('✅ 已收到 +1分 · '+_rec.noteSubmit)
-  try{scanCheck(_rec.id,imgsArr||[])}catch(e){}
+  try{scanCheck(_rec.id,imgsArr||[],localB64)}catch(e){}
 }
 function approveCheck(id){
   const c=(D.checks||[]).find(function(x){return x.id===id})
@@ -2921,7 +2964,7 @@ async function pendRun(){
     if(allOk&&(e.imgs||[]).every(function(im){return im.u})){
       try{
         const urls=e.imgs.map(function(im){return im.u})
-        if(e.kind==='check')submitCheck(e.typeId,e.subject,urls,e.append)
+        if(e.kind==='check')submitCheck(e.typeId,e.subject,urls,e.append,(e.imgs||[]).map(function(im){return im.d}))
         else if(e.kind==='mk')mkCommit(urls)
         else hwApply(urls)
       }catch(err){console.warn('草稿落地失败',err)}
