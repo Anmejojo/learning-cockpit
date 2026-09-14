@@ -733,16 +733,17 @@ function checkImgs(c){
 const SCAN_MAX=3
 function scanPrompt(){
   return ['你是初中老师。下面是学生刚交上来的作业 / 试卷照片（单张）。',
-    '请判断：这张上有没有没做完的题（空着没写、只写一半、大题只做了第(1)问）？',
+    '请判断两件事：① 有没有没做完的题（空着没写、只写一半、大题只做第(1)问）；② 有没有**明显做错**的题（算错、符号错、结论错、证明漏条件）。',
     '只输出一行 JSON，不要解释：',
-    '{"subject":"科目","kind":"试卷/作业/笔记/其他","done":true,"blank":[{"no":"第7题","q":"完整题干，最多120字","text":"题目文字","cell":"下中"}]}',
+    '{"subject":"科目","kind":"试卷/作业/笔记/其他","done":true,"blank":[{"no":"第7题","q":"完整题干，最多120字","text":"题目文字","cell":"下中"}],"wrong":[{"no":"第5题","q":"完整题干，最多120字","text":"题目文字","cell":"中心","why":"错在哪，20字内"}]}',
     '· subject 只能填：'+MK_SUBJECTS.join('/')+'（认不出填 其他）；',
     '· done：全做完了填 true；只要有空题 / 半截题就填 false；',
     '· blank：把没做完的题按题号列出来（最多 5 条）；no 写题号（如 "第7题"、"12(2)"）；',
     '· q：把题干**原样完整**抄下来（数字、符号、字母都照抄，最多 120 字）；看不清写"看不清"；',
     '· text：再把"这题问什么"20 字内概括（看不清写"看不清"）；',
     '· cell：这道题在照片里的位置（照片当 3×3 九宫格），只能填：上左/上中/上右/左中/中心/右中/下左/下中/下右；拿不准填 中心；',
-    '· 不确定就不要报（宁可漏报，不要误报）。'
+    '· wrong：**明显做错**的题（最多 3 条）：no/q/text/cell 同上；why 写清错在哪（20 字内，如"最后一步符号写反""把周长当面积算"）；',
+    '· **只报你能一眼确定的**：看不清、拿不准、只是写法不同 → 一律不要报（宁可漏报，不要误报）。'
   ].join('\n')
 }
 /* 把照片按九宫格裁一块出来（给孩子看“就是这道题”） */
@@ -806,12 +807,15 @@ function chatPushAI(text,img){
   }catch(e){}
 }
 /* 让小搭按人设给一句“启发式引导”（不给答案） */
-async function guideAsk(no,q,img){
+async function guideAsk(no,q,img,kind,why){
   try{
+    const isW=(kind==='wrong')
     const p=[chatPersona(),'',
-      '【现在这件事】他刚交上来的作业里，这道题空着没做：',
+      '【现在这件事】他刚交上来的作业里，'+(isW?('这道题的答案/过程我看出点问题'+(why?('（'+why+'）'):'')+'：'):'这道题空着没做：'),
       '【'+String(no||'某题')+'】'+String(q||''),
-      '请跟他说 1~2 句（一共不超过 80 字）：第一句用一句话点一下这题的关键在哪儿（**不要点破答案**），第二句问一个能让他自己动脑的问题（启发式）。',
+      isW
+        ? '请跟他说 1~2 句（一共不超过 80 字）：**不要说"错了"、不要说破答案**，用"再看一眼""我跟你对一下"这种说法，点一下可能是哪一步/哪个符号，再问一个让他自己回头检查的问题。'
+        : '请跟他说 1~2 句（一共不超过 80 字）：第一句用一句话点一下这题的关键在哪儿（**不要点破答案**），第二句问一个能让他自己动脑的问题（启发式）。',
       '不要讲大道理、不要给答案、不要提成绩、不要用书面语。'
     ].join('\n')
     const r=await aiCall(p,img,'')
@@ -830,7 +834,8 @@ async function scanCheck(recId,urls,localB64){
       if(!j)continue
       out.push({i:i+1,subject:String(j.subject||'').slice(0,6),kind:String(j.kind||'').slice(0,6),
         done:(j.done!==false),
-        blank:(Array.isArray(j.blank)?j.blank:[]).slice(0,5).map(function(b){return {no:String((b&&b.no)||'').slice(0,12),q:String((b&&b.q)||'').slice(0,140),text:String((b&&b.text)||'').slice(0,40),cell:String((b&&b.cell)||'').slice(0,4)}})})
+        blank:(Array.isArray(j.blank)?j.blank:[]).slice(0,5).map(function(b){return {no:String((b&&b.no)||'').slice(0,12),q:String((b&&b.q)||'').slice(0,140),text:String((b&&b.text)||'').slice(0,40),cell:String((b&&b.cell)||'').slice(0,4)}}),
+        wrong:(Array.isArray(j.wrong)?j.wrong:[]).slice(0,3).map(function(b){return {no:String((b&&b.no)||'').slice(0,12),q:String((b&&b.q)||'').slice(0,140),text:String((b&&b.text)||'').slice(0,40),cell:String((b&&b.cell)||'').slice(0,4),why:String((b&&b.why)||'').slice(0,24)}})})
     }
     if(!out.length)return
     rec.scan=out
@@ -866,6 +871,46 @@ async function scanCheck(recId,urls,localB64){
       }
       if(_src&&_cell)cropCell(_src,_cell,_fin)
       else _fin(null)
+      return
+    }
+    /* 没做完的没有，但有"明显做错"的 → 温柔提醒 + 自动记进错题本 */
+    const wrongs=[]
+    out.forEach(function(o){(o.wrong||[]).forEach(function(w){wrongs.push({i:o.i,subject:o.subject,w:w})})})
+    if(wrongs.length){
+      const first=wrongs[0],w=first.w||{}
+      rec.needLook=true
+      const _src2=((localB64&&localB64[first.i-1])||urls[first.i-1])
+      const _fin2=function(img){
+        let say=nickName()+'，想跟你对一下'+(first.subject?first.subject:'')+'那张（第 '+first.i+' 张）的'+(w.no||'一道题')+'。'
+        if(w.q&&w.q!=='看不清')say+='\n【'+(w.no||'这题')+'】'+w.q
+        if(img)say+='\n（下面这张就是那道题，你再看一眼）'
+        say+='\n我把它记到错题本了，回头想再看就先看这一条。'
+        rec.say=say
+        chatPushAI(say,img)
+        /* 记进错题本（同一天+同科目+同题干 只记一次） */
+        try{
+          if(!D.mistakes)D.mistakes=[]
+          const _u=(urls[first.i-1]||'')
+          const dup=D.mistakes.some(function(x){return (x.date||'')===td&&(x.stem||'')===(w.q||'')&&(x.subject||'')===(first.subject||'')})
+          if(!dup){
+            D.mistakes.unshift({id:Date.now(),date:td,ts:Date.now(),by:'p',subject:first.subject||'',
+              qtype:'',kp:'',stem:String(w.q||w.text||'').slice(0,80),why:String(w.why||'').slice(0,20),
+              imgs:(_u?[_u]:[]),pass:[],from:'scan'})
+            actLog('AI发现错题',(first.subject||'')+' '+(w.no||''))
+          }
+        }catch(e){}
+        sv(D);render()
+        ts('📌 发现一处要再看一眼的：'+(first.subject||'')+' '+(w.no||''))
+        guideAsk(w.no,w.q,img,'wrong',w.why).then(function(g){
+          if(!g)return
+          rec.ask=g
+          chatPushAI(g,'')
+          sv(D)
+          if(typeof tb!=='undefined'&&tb==='chat')render()
+        })
+      }
+      if(_src2&&w.cell)cropCell(_src2,w.cell,_fin2)
+      else _fin2(null)
       return
     }
     sv(D);render()
