@@ -744,7 +744,10 @@ function scanPrompt(){
     '· cell：这道题在照片里的位置（照片当 3×3 九宫格），只能填：上左/上中/上右/左中/中心/右中/下左/下中/下右；拿不准填 中心；',
     '· wrong：**明显做错**的题（最多 3 条）：no/q/text/cell 同上；why 写清错在哪（20 字内，如"最后一步符号写反""把周长当面积算"）；',
     '· **只报你能一眼确定的**：看不清、拿不准、只是写法不同 → 一律不要报（宁可漏报，不要误报）。'
-  ].join('\n')
+  ].concat(_scanRedo.length?['· 另外【回查】这几道题他之前做错过，如果这张照片里有它们，请告诉我这次做对没有：'].concat(
+      _scanRedo.map(function(x,i){return '  '+String(i+1)+'. '+(x.no||'')+'：'+String(x.stem||'').slice(0,60)})
+    ).concat(['  在 JSON 里再加 "redo":[{"no":"第5题","seen":true,"ok":true}]（照片里没有这题 seen:false；看见了但还空着/还没做对 ok:false）']):[])
+    .join('\n')
 }
 /* 把照片按九宫格裁一块出来（给孩子看“就是这道题”） */
 function cellBox(cell){
@@ -768,11 +771,11 @@ function cropCell(src,cell,cb){
         let x=col*cw-mx,y=row*ch-my,w=cw+mx*2,h=ch+my*2
         x=Math.max(0,Math.min(x,W-1));y=Math.max(0,Math.min(y,H-1))
         w=Math.max(40,Math.min(W-x,w));h=Math.max(40,Math.min(H-y,h))
-        const sc=Math.min(1,560/w)
+        const sc=Math.min(1,520/w)
         const cv=document.createElement('canvas')
         cv.width=Math.round(w*sc);cv.height=Math.round(h*sc)
         cv.getContext('2d').drawImage(im,x,y,w,h,0,0,cv.width,cv.height)
-        _cb(cv.toDataURL('image/jpeg',0.85))   /* 裁图不要再压一次，免得二次糊 */
+        _cb(cv.toDataURL('image/jpeg',0.8))   /* 裁图不要再压一次（原图已 0.8） */
       }catch(e){_cb(null)}
     }
     im.onerror=function(){_cb(null)}
@@ -807,6 +810,7 @@ function chatPushAI(text,img){
   }catch(e){}
 }
 /* 让小搭按人设给一句“启发式引导”（不给答案） */
+let _scanRedo=[]
 async function guideAsk(no,q,img,kind,why){
   try{
     const isW=(kind==='wrong')
@@ -827,6 +831,8 @@ async function scanCheck(recId,urls,localB64){
   try{
     const rec=(D.checks||[]).find(function(x){return x.id===recId})
     if(!rec||!urls||!urls.length)return
+    _scanRedo=(D.mistakes||[]).filter(function(x){return x&&x.from==='scan'&&!x.done}).slice(0,3)
+      .map(function(x){return {no:String(x.no||''),stem:String(x.stem||'')}})
     const out=[]
     for(let i=0;i<Math.min(urls.length,SCAN_MAX);i++){
       if(!urls[i])continue
@@ -835,10 +841,25 @@ async function scanCheck(recId,urls,localB64){
       out.push({i:i+1,subject:String(j.subject||'').slice(0,6),kind:String(j.kind||'').slice(0,6),
         done:(j.done!==false),
         blank:(Array.isArray(j.blank)?j.blank:[]).slice(0,5).map(function(b){return {no:String((b&&b.no)||'').slice(0,12),q:String((b&&b.q)||'').slice(0,140),text:String((b&&b.text)||'').slice(0,40),cell:String((b&&b.cell)||'').slice(0,4)}}),
-        wrong:(Array.isArray(j.wrong)?j.wrong:[]).slice(0,3).map(function(b){return {no:String((b&&b.no)||'').slice(0,12),q:String((b&&b.q)||'').slice(0,140),text:String((b&&b.text)||'').slice(0,40),cell:String((b&&b.cell)||'').slice(0,4),why:String((b&&b.why)||'').slice(0,24)}})})
+        wrong:(Array.isArray(j.wrong)?j.wrong:[]).slice(0,3).map(function(b){return {no:String((b&&b.no)||'').slice(0,12),q:String((b&&b.q)||'').slice(0,140),text:String((b&&b.text)||'').slice(0,40),cell:String((b&&b.cell)||'').slice(0,4),why:String((b&&b.why)||'').slice(0,24)}}),
+        redo:(Array.isArray(j.redo)?j.redo:[]).slice(0,3).map(function(b){return {no:String((b&&b.no)||'').slice(0,12),seen:!!(b&&b.seen),ok:!!(b&&b.ok)}})})
     }
+    _scanRedo=[]
     if(!out.length)return
     rec.scan=out
+    /* 回查：他重拍后做对了 → 错题本那条标「已弄懂」 */
+    try{
+      const redos=[]
+      out.forEach(function(o){(o.redo||[]).forEach(function(r){if(r&&r.seen&&r.ok)redos.push(r)})})
+      redos.forEach(function(r){
+        const m=(D.mistakes||[]).find(function(x){return x&&x.from==='scan'&&!x.done&&String(x.no||'')===String(r.no||'')})
+        if(!m)return
+        m.done=true;m.doneAt=Date.now()
+        chatPushAI(nickName()+'，'+String(r.no||'这题')+'这次写对了 👍 我已经把错题本里那条标成「已弄懂」。')
+        actLog('错题弄懂',String(r.no||''))
+        ts('✅ '+(r.no||'那题')+'这次对了，错题本已标「已弄懂」')
+      })
+    }catch(e){}
     const bad=out.filter(function(o){return !o.done&&(o.blank||[]).length})
     if(bad.length){
       const one=bad[0]
@@ -894,7 +915,7 @@ async function scanCheck(recId,urls,localB64){
           const dup=D.mistakes.some(function(x){return (x.date||'')===td&&(x.stem||'')===(w.q||'')&&(x.subject||'')===(first.subject||'')})
           if(!dup){
             D.mistakes.unshift({id:Date.now(),date:td,ts:Date.now(),by:'p',subject:first.subject||'',
-              qtype:'',kp:'',stem:String(w.q||w.text||'').slice(0,80),why:String(w.why||'').slice(0,20),
+              qtype:'',kp:'',no:String(w.no||'').slice(0,12),stem:String(w.q||w.text||'').slice(0,80),why:String(w.why||'').slice(0,20),
               imgs:(_u?[_u]:[]),pass:[],from:'scan'})
             actLog('AI发现错题',(first.subject||'')+' '+(w.no||''))
           }
@@ -1269,6 +1290,7 @@ function mkRow(it,showSub){
   tags.appendChild(h('span',{style:'font-size:var(--fs-12);padding:1px 7px;border-radius:8px;background:var(--primary-weak);border:1px solid var(--primary-border);color:var(--primary-hover)'},it.kp||'未标注知识点'))
   if(it.qtype)tags.appendChild(h('span',{style:'font-size:var(--fs-12);padding:1px 7px;border-radius:8px;background:var(--bg-elev);border:1px solid var(--border-strong);color:var(--muted)'},it.qtype))
   if(it.why)tags.appendChild(h('span',{style:'font-size:var(--fs-12);padding:1px 7px;border-radius:8px;background:var(--warning-weak);border:1px solid var(--warning-border);color:var(--warning)'},it.why))
+  if(it.done)tags.appendChild(h('span',{style:'font-size:var(--fs-12);padding:1px 7px;border-radius:8px;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.45);color:#22c55e'},'✅ 已弄懂'))
   left.appendChild(tags)
   if(it.stem)left.appendChild(h('div',{style:'font-size:var(--fs-14);color:var(--muted);line-height:1.6'},it.stem))
   left.appendChild(h('div',{style:'font-size:var(--fs-12);color:var(--faint);margin-top:3px'},'📅 '+fd(it.date)+' 记录'))
@@ -3184,13 +3206,13 @@ function compressImage(file,cb){
     reader.onload=function(e){
       const img=new Image()
       img.onload=function(){
-        const maxW=1100      /* 以前 560，看不清题目；1100 宽 + 0.6 质量，裁一块出来还能认字 */
+        const maxW=1440      /* 560 → 1100 → 1440（看得清题目；裁一块出来还能认字） */
         const scale=Math.min(1,maxW/img.width)
         const cv=document.createElement('canvas')
         cv.width=Math.round(img.width*scale)
         cv.height=Math.round(img.height*scale)
         cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height)
-        cb(cv.toDataURL('image/jpeg',0.6))
+        cb(cv.toDataURL('image/jpeg',0.8))
       }
       img.onerror=function(){cb(null)}
       img.src=e.target.result
