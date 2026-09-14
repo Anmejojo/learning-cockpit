@@ -5228,7 +5228,7 @@ window.addEventListener('offline',function(){_offline=true;setCloudStatus('📴 
 window.addEventListener('online',function(){_offline=false;setCloudStatus('🔄 网络恢复，同步中...',true);if(_dirty){saveCloud(D)}else{checkCloudNewer()}})
 window.addEventListener('beforeunload',function(e){if(_dirty){e.preventDefault();e.returnValue=''}})
 document.addEventListener('visibilitychange',function(){
-  if(document.visibilityState==='visible'&&Date.now()-_lastVisCheck>120000){_lastVisCheck=Date.now();checkCloudNewer()}
+  if(document.visibilityState==='visible'&&Date.now()-_lastVisCheck>120000){_lastVisCheck=Date.now();checkCloudNewer();try{checkNewVersion()}catch(e){}}
 })
 /* ================= PWA：注册 Service Worker + 安卓“一键安装” ================= */
 let _installEv=null
@@ -5267,6 +5267,51 @@ function pwaInstalled(){try{return window.matchMedia('(display-mode: standalone)
 safePad()
 try{ if('serviceWorker' in navigator && location.protocol==='https:'){ navigator.serviceWorker.register('sw.js').catch(function(){}) } }catch(e){}
 
+/* =========================================================================
+   🔄 自动跟新：发现线上有新版就自己刷新
+   为什么要有：旧版本在内存里一直开着，它一写就会把云端整份盖掉。
+   现在它会自己比版本号，不一样就自动刷成最新的。
+   （本机有没传完的改动时不刷，避得扒丢；等下一次检查）
+   ========================================================================= */
+function verNum(v){const n=parseInt(String(v||'').replace(/\D/g,''),10);return isNaN(n)?0:n}
+function verNeedsReload(mine,online){
+  if(!mine||!online)return false
+  const a=verNum(mine),b=verNum(online)
+  if(!a||!b)return false
+  return b>a            /* 只在线上真的更新才刷，拿到旧的缓存就什么也不做 */
+}
+function myAppVer(){
+  try{
+    const s=document.querySelector("script[src*='app.js']")
+    const m=s&&s.src.match(/[?&]v(\w+)/)
+    return m?m[1]:''
+  }catch(e){return ''}
+}
+let _verChecked=0
+async function checkNewVersion(){
+  try{
+    if(Date.now()-_verChecked<60000)return
+    _verChecked=Date.now()
+    if(sessionStorage.getItem('lc_ver_reloaded')==='1')return
+    const mine=myAppVer();if(!mine)return
+    const r=await fetch('index.html?_v='+Date.now(),{cache:'reload'})
+    if(!r||!r.ok)return
+    const t=await r.text()
+    const m=t.match(/app\.js\?v(\w+)/)
+    if(!m)return
+    if(verNeedsReload(mine,m[1])&&!_dirty){
+      try{sessionStorage.setItem('lc_ver_reloaded','1')}catch(e){}
+      try{ts('🔄 发现新版本，正在更新…')}catch(e){}
+      setTimeout(function(){
+        try{
+          const u=location.href.replace(/[?&]_v=\d+/,'')+(location.href.indexOf('?')>=0?'&':'?')+'_v='+Date.now()
+          location.replace(u)
+        }catch(e){try{location.reload()}catch(e2){}}
+      },900)
+    }
+  }catch(e){}
+}
+
 initAuth()
 ;(async function boot(){
   const _tip=document.createElement('div');_tip.id='bootTip';_tip.textContent='☁️ 正在同步云端数据…';document.body.appendChild(_tip)
@@ -5304,4 +5349,5 @@ initAuth()
   }catch(e){}
   try{if(pendCount()){setTimeout(function(){pendRun()},1500)}}catch(e){}
   try{setTimeout(function(){guideMaybe()},900)}catch(e){}
+  try{setTimeout(function(){checkNewVersion()},5000)}catch(e){}
 })()
