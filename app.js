@@ -782,9 +782,20 @@ function cropCell(src,cell,cb){
     im.src=src
   }catch(e){_cb(null)}
 }
+async function aiCallRetry(prompt,image,kbq,tries){
+  const n=Math.max(1,Math.min(3,tries||2))
+  let last=null
+  for(let i=0;i<n;i++){
+    const r=await aiCall(prompt,image,kbq)
+    if(r&&r.ok&&r.text)return r
+    last=r
+    await new Promise(function(res){setTimeout(res,700)})
+  }
+  return last||{ok:false,err:'多次尝试都失败'}
+}
 async function scanOne(url){
   try{
-    const r=await aiCall(scanPrompt(),url,'')
+    const r=await aiCallRetry(scanPrompt(),url,'',2)
     if(!r||!r.ok||!r.text)return null
     const raw=String(r.text).replace(/```json/g,'').replace(/```/g,'')
     const m=raw.match(/[{][\s\S]*[}]/)
@@ -800,13 +811,28 @@ function scanLine(rec){
     return '第'+o.i+'张'+(o.subject?('·'+o.subject):'')+'：'+(o.blank||[]).map(function(b){return b.no||'某题'}).join('、')+'还空着'
   }).join('；')
 }
+/* 把图片传到云存储换链接（失败就保留原来的数据，不影响使用） */
+function cosPut(b64,cb){
+  try{
+    if(!b64||String(b64).indexOf('data:')!==0)return cb(b64)
+    if(!aiToken())return cb(b64)
+    fetch(AI_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({token:aiToken(),type:'upload',data:b64})})
+      .then(function(r){return r.json()})
+      .then(function(j){cb((j&&j.ok&&j.url)?j.url:b64)})
+      .catch(function(){cb(b64)})
+  }catch(e){cb(b64)}
+}
 function chatPushAI(text,img){
   try{
     const l=chatLog()
-    l.push({id:Date.now()+3,date:td,role:'a',text:text,ts:Date.now(),auto:true,img:(img||'')})
+    const m={id:Date.now()+3,date:td,role:'a',text:text,ts:Date.now(),auto:true,img:(img||'')}
+    l.push(m)
     noteAdd(text,'scan')
     chatTrim()
     if(typeof tb!=='undefined'&&tb==='chat')render()
+    /* 图片先本地显示，随后换成云存储链接（数据里就不再存图片本体，同步更快） */
+    if(m.img){cosPut(m.img,function(u){if(u&&u!==m.img){m.img=u;try{sv(D)}catch(e){};if(typeof tb!=='undefined'&&tb==='chat')render()}})}
   }catch(e){}
 }
 /* 让小搭按人设给一句“启发式引导”（不给答案） */
@@ -822,7 +848,7 @@ async function guideAsk(no,q,img,kind,why){
         : '请跟他说 1~2 句（一共不超过 80 字）：第一句用一句话点一下这题的关键在哪儿（**不要点破答案**），第二句问一个能让他自己动脑的问题（启发式）。',
       '不要讲大道理、不要给答案、不要提成绩、不要用书面语。'
     ].join('\n')
-    const r=await aiCall(p,img,'')
+    const r=await aiCallRetry(p,img,'',2)
     if(r&&r.ok&&r.text)return String(r.text).replace(/\s*\n\s*/g,' ').trim().slice(0,150)
   }catch(e){}
   return ''
@@ -834,15 +860,21 @@ async function scanCheck(recId,urls,localB64){
     _scanRedo=(D.mistakes||[]).filter(function(x){return x&&x.from==='scan'&&!x.done}).slice(0,3)
       .map(function(x){return {no:String(x.no||''),stem:String(x.stem||'')}})
     const out=[]
-    for(let i=0;i<Math.min(urls.length,SCAN_MAX);i++){
-      if(!urls[i])continue
-      const j=await scanOne(urls[i])
+    const _ids=[]
+    for(let i=0;i<Math.min(urls.length,SCAN_MAX);i++){if(urls[i])_ids.push(i)}
+    for(let b=0;b<_ids.length;b+=2){                      /* 每批 2 张并行：6 张从 1 分钟缩到 ~20 秒 */
+      const _part=_ids.slice(b,b+2)
+      const _res=await Promise.all(_part.map(function(i){return scanOne(urls[i]).then(function(j){return {i:i,j:j}})}))
+      _res.sort(function(a,b2){return a.i-b2.i})
+      for(const _r of _res){
+      const i=_r.i, j=_r.j
       if(!j)continue
       out.push({i:i+1,subject:String(j.subject||'').slice(0,6),kind:String(j.kind||'').slice(0,6),
         done:(j.done!==false),
         blank:(Array.isArray(j.blank)?j.blank:[]).slice(0,5).map(function(b){return {no:String((b&&b.no)||'').slice(0,12),q:String((b&&b.q)||'').slice(0,140),text:String((b&&b.text)||'').slice(0,40),cell:String((b&&b.cell)||'').slice(0,4)}}),
         wrong:(Array.isArray(j.wrong)?j.wrong:[]).slice(0,3).map(function(b){return {no:String((b&&b.no)||'').slice(0,12),q:String((b&&b.q)||'').slice(0,140),text:String((b&&b.text)||'').slice(0,40),cell:String((b&&b.cell)||'').slice(0,4),why:String((b&&b.why)||'').slice(0,24)}}),
         redo:(Array.isArray(j.redo)?j.redo:[]).slice(0,3).map(function(b){return {no:String((b&&b.no)||'').slice(0,12),seen:!!(b&&b.seen),ok:!!(b&&b.ok)}})})
+      }
     }
     _scanRedo=[]
     if(!out.length)return
@@ -1330,6 +1362,22 @@ function rckMk(){
   c.appendChild(h('div',{style:'font-size:var(--fs-14);color:var(--muted);margin-bottom:10px;line-height:1.7'},'拍一张错题 → 小搭自动认科目、认题型，存起来。记下来就行，不用重做。'))
   c.appendChild(h('button',{className:'btn btn-primary',onClick:mkAdd},'📷 拍错题（可多张）'))
   $c.appendChild(c)
+  /* 🎉 本周弄懂（他重拍后小搭确认做对的） */
+  try{
+    const _n0=new Date(), _d0=_n0.getDay()||7, _s0=new Date(_n0)
+    _s0.setDate(_n0.getDate()-_d0+1)
+    const _wk=ymd(_s0)
+    const _dn=(all||[]).filter(function(x){return x&&x.done&&x.doneAt&&ymd(new Date(x.doneAt))>=_wk})
+    if(_dn.length){
+      const _cnt={}
+      _dn.forEach(function(x){const k=x.subject||'未分类';_cnt[k]=(_cnt[k]||0)+1})
+      const _parts=Object.keys(_cnt).sort(function(a,b2){return _cnt[b2]-_cnt[a]}).map(function(k){return k+' '+_cnt[k]})
+      const wc=h('div',{className:'card'})
+      wc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🎉'}),'本周弄懂 '+_dn.length+' 道'))
+      wc.appendChild(h('div',{style:'font-size:var(--fs-14);color:var(--muted);line-height:1.7'},_parts.join(' · ')+'　—　这些是他重拍后、小搭确认“这次做对了”的。'))
+      $c.appendChild(wc)
+    }
+  }catch(e){}
   const _pb=pendBanner();if(_pb)$c.appendChild(_pb)
   if(!all.length){
     const e=h('div',{className:'card'})
@@ -4842,7 +4890,7 @@ function _rsetBody(){
   _lg.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🧾'}),'操作记录（'+_logN+' 条）'))
   _lg.appendChild(h('div',{style:'font-size:var(--fs-13);color:var(--muted);margin-bottom:8px;line-height:1.7'},'谁在什么时候做了什么——提交、通过、退回、删除、备份，全记着，一直留着。以后数据对不上，翻这里。'))
   const _sc=D._seenC
-  if(_sc&&_sc.ts)_lg.appendChild(h('div',{style:'font-size:var(--fs-14);margin-bottom:8px;background:var(--bg-elev);border:1px solid var(--border);border-radius:8px;padding:7px 10px'},'📱 孩子端上次打开：'+fd(ymd(new Date(_sc.ts)))+' '+fmtHM(_sc.ts)+'（'+devName(_sc.ua)+'）'))
+  if(_sc&&_sc.ts)_lg.appendChild(h('div',{style:'font-size:var(--fs-14);margin-bottom:8px;background:var(--bg-elev);border:1px solid var(--border);border-radius:8px;padding:7px 10px'},'📱 孩子端上次打开：'+fd(ymd(new Date(_sc.ts)))+' '+fmtHM(_sc.ts)))
   else _lg.appendChild(h('div',{style:'font-size:var(--fs-13);color:var(--warning);margin-bottom:8px'},'📱 还没有看到孩子端打开过（他打开一次这里就会显示时间）'))
   let _lgOpen=false
   const _lgBox=h('div',{style:'display:none;margin-top:6px;max-height:340px;overflow:auto'})
