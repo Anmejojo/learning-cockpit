@@ -22,7 +22,7 @@ function defData(){
     exams:[],parts:JSON.parse(JSON.stringify(PT)),dailyChecks:{},checkImgs:{},checks:[],points:[],sem:'初二上',
     rate:10,nick:'乐乐',_vcloud:'david',
     bl:{chinese:99,math:115,english:70,geo:67,history:81,dao:63,bio:58,physics:null,pe:null,chem:null},
-    handwritings:[],_noGate:false,phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,examDate:null,examTopic:'',mistakes:[],tasks:[],ritualTime:'20:00',smallGoals:[],mistakeMilestones:[],mistakeLog:{},wrd:{},
+    handwritings:[],_noGate:false,phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,examDate:null,examTopic:'',mistakes:[],tasks:[],ritualTime:'20:00',smallGoals:[],mistakeMilestones:[],mistakeLog:{},wrd:{},wdD:null,
     dci:[{key:'videoCall',icon:'📞',label:'视频通话',pts:2},{key:'askTeacher',icon:'🙋',label:'主动问老师',pts:3},{key:'noSkipStep',icon:'✅',label:'解题不跳步',pts:2},{key:'reciteMethod',icon:'🧠',label:'背英语用方法',pts:2},{key:'onTimeStudy',icon:'⏰',label:'按时开始学习',pts:2},{key:'water',icon:'💧',label:'喝水',pts:2},{key:'sport',icon:'🏃',label:'运动',pts:3},{key:'sleep',icon:'🌙',label:'按时作息（早睡早起）',pts:2}]
   }
 }
@@ -3461,8 +3461,9 @@ function rckWordRead(){
     row.onclick=function(){
       if(!D.wrd)D.wrd={}
       if(D.wrd[it[0]]){delete D.wrd[it[0]];row.className='w-li'}
-      else{D.wrd[it[0]]=1;row.className='w-li on'}
+      else{D.wrd[it[0]]=Date.now();row.className='w-li on'}
       sv(D)
+      wGoalCheck()
     }
     list.appendChild(row)
   })
@@ -3470,6 +3471,16 @@ function rckWordRead(){
 }
 function rckWordMap(){
   const bk=wBook(), bank=_wBank[bk]
+  /* 🎯 今天的小目标卡 */
+  const _gn=wTodayCount(), _gd=wGoalDone()
+  const gc=h('div',{className:'card w-goal'})
+  gc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🎯'}),'今天的小目标'))
+  gc.appendChild(h('div',{className:'w-goal-n'},'过一遍 / 做对 10 个词　'+(_gd?'✅ 已完成':(_gn+' / '+W_GOAL))))
+  const _gb=h('div',{className:'w-bar'})
+  _gb.appendChild(h('i',{style:'width:'+Math.min(100,Math.round(_gn/W_GOAL*100))+'%'}))
+  gc.appendChild(_gb)
+  gc.appendChild(h('div',{className:'t-faint mt6'},_gd?('✅ 今天 +'+W_GOAL_PTS+' 分已到账，明天再来。'):('点「📖 过一遍」认脸，或者直接开始做，都算；完成 +'+W_GOAL_PTS+' 分')))
+  $c.appendChild(gc)
   const head=h('div',{className:'card'})
   head.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🐸'}),'单词闯关'))
   head.appendChild(h('div',{className:'t-muted mb8'},'点一关开始。答错不扣分，青蛙掉下去再跳一次就行。'))
@@ -3628,6 +3639,31 @@ function wLoad(){
     if(tb==='word')render()
   })
 }
+/* ---- 🎯 每天小目标：过一遍 / 做对 10 个词（完成 +3 分，一天一次）---- */
+const W_GOAL=10, W_GOAL_PTS=3
+function wTodayCount(){
+  const seen={}
+  try{
+    const wd=D.wd||{},rd=D.wrd||{}
+    Object.keys(wd).forEach(function(w){const r=wd[w];if(r&&r.t&&ymd(new Date(r.t))===td)seen[w]=1})
+    Object.keys(rd).forEach(function(w){const v=rd[w];if(v&&typeof v==='number'&&v>1e11&&ymd(new Date(v))===td)seen[w]=1})
+  }catch(e){}
+  return Object.keys(seen).length
+}
+function wGoalDone(){return !!D.wdD&&D.wdD.d===td}
+function wGoalCheck(){
+  try{
+    if(wGoalDone())return
+    const n=wTodayCount()
+    if(n<W_GOAL)return
+    D.wdD={d:td,n:n,pts:W_GOAL_PTS}
+    D.points.push({date:td,source:'单词小目标',points:W_GOAL_PTS,type:'earn'})
+    sv(D)
+    try{ptBurst(W_GOAL_PTS,'单词小目标')}catch(e){}
+    ts('🎯 今天的目标完成！+'+W_GOAL_PTS+' 分')
+    if(typeof tb!=='undefined'&&tb==='word')render()
+  }catch(e){}
+}
 /* ---- 难度：星星 = 题型难度　★ 认词 / ★★ 补2个字母 / ★★★ 补3个字母 ---- */
 function wQLv(rec){const l=(rec&&rec.l)||0;return l<=0?1:(l===1?2:3)}
 function wMask(it){
@@ -3742,6 +3778,7 @@ function wRight(){
   const nl=Math.min(6,(r.l||0)+1)
   wState()[g.right[0]]={l:nl,ok:(r.ok||0)+1,bad:(r.bad||0),d:wYmdAdd(W_GAP[nl]),t:Date.now()}
   sv(D)
+  wGoalCheck()
   g.splash=1
   render()
   setTimeout(function(){ if(!_wg)return; _wg.splash=0; wNext(false); render() },420)
