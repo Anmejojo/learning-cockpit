@@ -735,10 +735,12 @@ function scanPrompt(){
   return ['你是初中老师。下面是学生刚交上来的作业 / 试卷照片（单张）。',
     '请判断：这张上有没有没做完的题（空着没写、只写一半、大题只做了第(1)问）？',
     '只输出一行 JSON，不要解释：',
-    '{"subject":"科目","kind":"试卷/作业/笔记/其他","done":true,"blank":[{"no":"第7题","text":"题目文字","cell":"下中"}]}',
+    '{"subject":"科目","kind":"试卷/作业/笔记/其他","done":true,"blank":[{"no":"第7题","q":"完整题干，最多120字","text":"题目文字","cell":"下中"}]}',
     '· subject 只能填：'+MK_SUBJECTS.join('/')+'（认不出填 其他）；',
     '· done：全做完了填 true；只要有空题 / 半截题就填 false；',
-    '· blank：把没做完的题按题号列出来（最多 5 条）；no 写题号（如 "第7题"、"12(2)"）；text 把这题问什么写成文字（30 字内，看不清写"看不清"）；',
+    '· blank：把没做完的题按题号列出来（最多 5 条）；no 写题号（如 "第7题"、"12(2)"）；',
+    '· q：把题干**原样完整**抄下来（数字、符号、字母都照抄，最多 120 字）；看不清写"看不清"；',
+    '· text：再把"这题问什么"20 字内概括（看不清写"看不清"）；',
     '· cell：这道题在照片里的位置（照片当 3×3 九宫格），只能填：上左/上中/上右/左中/中心/右中/下左/下中/下右；拿不准填 中心；',
     '· 不确定就不要报（宁可漏报，不要误报）。'
   ].join('\n')
@@ -803,6 +805,20 @@ function chatPushAI(text,img){
     if(typeof tb!=='undefined'&&tb==='chat')render()
   }catch(e){}
 }
+/* 让小搭按人设给一句“启发式引导”（不给答案） */
+async function guideAsk(no,q,img){
+  try{
+    const p=[chatPersona(),'',
+      '【现在这件事】他刚交上来的作业里，这道题空着没做：',
+      '【'+String(no||'某题')+'】'+String(q||''),
+      '请跟他说 1~2 句（一共不超过 80 字）：第一句用一句话点一下这题的关键在哪儿（**不要点破答案**），第二句问一个能让他自己动脑的问题（启发式）。',
+      '不要讲大道理、不要给答案、不要提成绩、不要用书面语。'
+    ].join('\n')
+    const r=await aiCall(p,img,'')
+    if(r&&r.ok&&r.text)return String(r.text).replace(/\s*\n\s*/g,' ').trim().slice(0,150)
+  }catch(e){}
+  return ''
+}
 async function scanCheck(recId,urls,localB64){
   try{
     const rec=(D.checks||[]).find(function(x){return x.id===recId})
@@ -814,7 +830,7 @@ async function scanCheck(recId,urls,localB64){
       if(!j)continue
       out.push({i:i+1,subject:String(j.subject||'').slice(0,6),kind:String(j.kind||'').slice(0,6),
         done:(j.done!==false),
-        blank:(Array.isArray(j.blank)?j.blank:[]).slice(0,5).map(function(b){return {no:String((b&&b.no)||'').slice(0,12),text:String((b&&b.text)||'').slice(0,40),cell:String((b&&b.cell)||'').slice(0,4)}})})
+        blank:(Array.isArray(j.blank)?j.blank:[]).slice(0,5).map(function(b){return {no:String((b&&b.no)||'').slice(0,12),q:String((b&&b.q)||'').slice(0,140),text:String((b&&b.text)||'').slice(0,40),cell:String((b&&b.cell)||'').slice(0,4)}})})
     }
     if(!out.length)return
     rec.scan=out
@@ -826,16 +842,27 @@ async function scanCheck(recId,urls,localB64){
         return (b.no||'某题')+t
       })
       const rest=bad.length>1?('，另外第'+bad[1].i+'张'+(bad[1].subject?('·'+bad[1].subject):'')+'也有空题'):''
-      const say=nickName()+'，刚看到你交的'+(one.subject||'作业')+'那张（第 '+one.i+' 张）：'+parts.join('、')+'还空着'+rest+'。'
+      const b0=(one.blank||[])[0]||{}
+      let say=nickName()+'，刚看到你交的'+(one.subject||'作业')+'那张（第 '+one.i+' 张）：'+parts.join('、')+'还空着'+rest+'。'
+      if(b0.q&&b0.q!=='看不清')say+='\n【'+(b0.no||'这题')+'】'+b0.q
       rec.needLook=true
+      rec.q=String(b0.q||'')
       const _src=((localB64&&localB64[one.i-1])||urls[one.i-1])   /* 优先用本机那份（data:），裁图不需要跨域 */
-      const _cell=((one.blank||[])[0]||{}).cell||''
+      const _cell=b0.cell||''
       const _fin=function(img){
-        const full=say+(img?'（我把那道题截出来了，你看下面这张）':'是没做完，还是没拍到？')
+        const full=say+(img?'\n（下面这张就是那道题）':'\n是没做完，还是没拍到？')
         rec.say=full
         chatPushAI(full,img)
         sv(D);render()
-        ts('📌 '+say+(img?'（已附截图）':''))
+        ts('📌 '+say.split('\n')[0]+(img?'（已附截图）':''))
+        /* 再补一句启发式引导（让他自己想，不给答案） */
+        guideAsk(b0.no,b0.q,img).then(function(g){
+          if(!g)return
+          rec.ask=g
+          chatPushAI(g,'')
+          sv(D)
+          if(typeof tb!=='undefined'&&tb==='chat')render()
+        })
       }
       if(_src&&_cell)cropCell(_src,_cell,_fin)
       else _fin(null)
