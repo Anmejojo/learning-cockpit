@@ -521,7 +521,13 @@ function authGateAfterLoad(){
   if(!_authPending)return
   _authPending=false
   const saved=localStorage.getItem('lc_lv')||''
+  const _dv=devRole()
   if(D._noGate&&ROLE.parent){applyLv(saved||'p');render();return}
+  if(_dv&&!saved){   /* 这台设备已经定过身份（本机记忆）→ 直接进，不用口令 */
+    applyLv(_dv==='kid'?'c':'p');render()
+    ts('📱 这台是'+(_dv==='kid'?'孩子设备':(_dv==='parent'?'家长设备':'制作电脑')))
+    return
+  }
   if(D._auth&&D._auth.p){
     if(saved==='p'||saved==='c'){applyLv(saved);render()}
     else showGate()
@@ -4581,6 +4587,21 @@ function _rsetBody(){
   gd.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){D._guide=0;guideShow(0)}},'🎬 重看一遍'))
   $c.appendChild(gd)
 
+  // 📱 这台设备（本机识别，不采集不上传）
+  const _dvCard=h('div',{className:'card edit-only'})
+  _dvCard.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📱'}),'这台设备'))
+  _dvCard.appendChild(h('div',{style:'font-size:var(--fs-14);margin-bottom:6px'},'识别到：'+devLabel()))
+  _dvCard.appendChild(h('div',{style:'font-size:var(--fs-12);color:var(--muted);margin-bottom:8px;line-height:1.7'},'只在这台设备上记一个“身份”，用来决定打开时进哪一版——不采集、不上传、不发给任何人。'))
+  const _dvBar=h('div',{style:'display:flex;gap:8px;flex-wrap:wrap'})
+  const _cur=devRole()
+  ;[['kid','👨‍🏫 孩子设备'],['parent','👩 家长设备'],['pc','💻 制作电脑']].forEach(function(x){
+    _dvBar.appendChild(h('button',{className:'btn btn-sm '+(_cur===x[0]?'btn-primary':'btn-outline'),onClick:function(){setDevRole(x[0])}},x[1]))
+  })
+  _dvCard.appendChild(_dvBar)
+  const _curTxt=(_cur==='kid'?'孩子版':(_cur==='parent'?'家长版':(_cur==='pc'?'制作电脑（打开是家长版）':'还没设（用口令进）')))
+  _dvCard.appendChild(h('div',{style:'font-size:var(--fs-12);color:var(--faint);margin-top:8px'},'当前：'+_curTxt))
+  $c.appendChild(_dvCard)
+
   // 顶部留白（防摄像头/刘海遮挡，本机设置）
   const _tp=h('div',{className:'card edit-only'})
   _tp.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📐'}),'顶部留白（防摄像头 / 刘海遮挡）'))
@@ -5389,6 +5410,49 @@ function devName(ua){
   if(/Windows/.test(u))return 'Windows 电脑'
   if(/Macintosh|Mac OS X/.test(u))return '苹果电脑'
   return '未知设备'
+}
+/* ---- 📱 这台设备是什么（本机识别，不采集、不上传）---- */
+function devModel(ua){
+  const u=String(ua||'')
+  let s=''
+  const m=u.match(/Android[^;)]*;\s*([^;)]+)/)
+  if(m)s=String(m[1]).replace(/\s*Build\/.*$/i,'').trim()
+  if(/iPad/.test(u)||(/Macintosh/.test(u)&&navigator.maxTouchPoints>1))s='iPad'
+  else if(/iPhone|iPod/.test(u)){
+    let w=0,h=0
+    try{w=Math.min(screen.width,screen.height);h=Math.max(screen.width,screen.height)}catch(e){}
+    if(!w){return 'iPhone'}
+    const MP={'393x852':'iPhone 15/16','402x874':'iPhone 16 Pro','430x932':'iPhone 15/16 Plus','390x844':'iPhone 13/14','375x812':'iPhone X/XS/11 Pro','414x896':'iPhone XR/11','428x926':'iPhone 12/13 Pro Max'}
+    s=MP[w+'x'+h]||'iPhone'
+  }
+  return s
+}
+function devInfo(){
+  const ua=String(navigator.userAgent||'')
+  let os='未知',kind='电脑'
+  if(/iPad|iPhone|iPod/.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1))os='苹果'
+  else if(/Android/i.test(ua))os='安卓'
+  else if(/Windows/i.test(ua))os='Windows'
+  else if(/Macintosh|Mac OS X/i.test(ua))os='Mac'
+  else if(/Linux/i.test(ua))os='Linux'
+  if(os==='安卓')kind=/Mobile/i.test(ua)?'手机':'平板'
+  else if(os==='苹果')kind=(/iPad/.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1))?'平板':'手机'
+  else kind='电脑'
+  let w=0,h=0
+  try{w=Math.min(screen.width,screen.height);h=Math.max(screen.width,screen.height)}catch(e){}
+  return {os:os,kind:kind,model:devModel(ua),w:w,h:h}
+}
+function devLabel(){
+  const d=devInfo()
+  const head=(d.model?d.model+' ':'')+d.os+d.kind
+  return head+(d.w?(' · '+d.w+'×'+d.h):'')
+}
+function devRole(){try{return localStorage.getItem('lc_dev')||''}catch(e){return ''}}
+function setDevRole(v){
+  try{localStorage.setItem('lc_dev',String(v||''))}catch(e){}
+  if(v==='kid'){applyLv('c');ts('✅ 这台 = 孩子设备（以后打开就是孩子版）')}
+  else{applyLv('p');ts('✅ 这台 = '+(v==='parent'?'家长设备':'制作电脑')+'（打开是家长版）')}
+  render()
 }
 function topPad(){try{return parseInt(localStorage.getItem('lc_toppad')||'0',10)||0}catch(e){return 0}}
 function setTopPad(v){
