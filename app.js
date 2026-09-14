@@ -769,7 +769,7 @@ function cropCell(src,cell,cb){
         const cv=document.createElement('canvas')
         cv.width=Math.round(w*sc);cv.height=Math.round(h*sc)
         cv.getContext('2d').drawImage(im,x,y,w,h,0,0,cv.width,cv.height)
-        _cb(cv.toDataURL('image/jpeg',0.6))
+        _cb(cv.toDataURL('image/jpeg',0.85))   /* 裁图不要再压一次，免得二次糊 */
       }catch(e){_cb(null)}
     }
     im.onerror=function(){_cb(null)}
@@ -3112,13 +3112,13 @@ function compressImage(file,cb){
     reader.onload=function(e){
       const img=new Image()
       img.onload=function(){
-        const maxW=560
+        const maxW=1100      /* 以前 560，看不清题目；1100 宽 + 0.6 质量，裁一块出来还能认字 */
         const scale=Math.min(1,maxW/img.width)
         const cv=document.createElement('canvas')
         cv.width=Math.round(img.width*scale)
         cv.height=Math.round(img.height*scale)
         cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height)
-        cb(cv.toDataURL('image/jpeg',0.5))
+        cb(cv.toDataURL('image/jpeg',0.6))
       }
       img.onerror=function(){cb(null)}
       img.src=e.target.result
