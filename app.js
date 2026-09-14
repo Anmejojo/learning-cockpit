@@ -3471,7 +3471,8 @@ function rckWordRead(){
 }
 function rckWordMap(){
   const bk=wBook(), bank=_wBank[bk]
-  /* 🎯 今天的小目标卡 */
+  /* 🎯 今天的小目标卡（进来就算一次：已经够 10 个就直接发奖） */
+  try{if(!wGoalDone()&&wTodayCount()>=W_GOAL)wGoalCheck()}catch(e){}
   const _gn=wTodayCount(), _gd=wGoalDone()
   const gc=h('div',{className:'card w-goal'})
   gc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🎯'}),'今天的小目标'))
