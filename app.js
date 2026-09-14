@@ -3531,7 +3531,9 @@ function rckWordPlay(){
         box.appendChild(h('div',{className:'w-mask',innerHTML:wMaskShow(b)}))
         const pool=h('div',{className:'w-pool'})
         b.pool.forEach(function(ch,pi){
-          pool.appendChild(h('button',{className:'w-key'+(b.used[pi]?' used':''),disabled:!!b.used[pi],onClick:function(){wTap(ch,pi)}},ch))
+          const kb=h('button',{className:'w-key'+(b.used[pi]?' used':''),onClick:function(){wTap(ch,pi)}},ch)
+          if(b.used[pi])kb.disabled=true      /* 注意：setAttribute('disabled',false) 也会被禁用，必须这样设 */
+          pool.appendChild(kb)
         })
         box.appendChild(pool)
         lv.appendChild(box)
