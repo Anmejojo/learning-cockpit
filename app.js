@@ -3673,14 +3673,20 @@ function wPickRound(ch){
     else if(r.d&&r.d<=td)due.push(x)
     else other.push(x)
   })
-  wShuffle(due);wShuffle(readed);wShuffle(fresh);wShuffle(other)
+  wShuffle(due);wShuffle(readed);wShuffle(fresh)
+  /* 老词按“该复习日期”从早到晚排（科学记忆法：该回来的先回来） */
+  other.sort(function(a,b){
+    const ra=wRec(a[0])||{},rb=wRec(b[0])||{}
+    return String(ra.d||'9999-99-99').localeCompare(String(rb.d||'9999-99-99'))
+  })
   const out=[],seen={}
   function takeN(a,max){let n=0;for(let i=0;i<a.length&&n<max;i++){const k=a[i][0];if(seen[k])continue;seen[k]=1;out.push(a[i]);n++}return n}
   let left=W_PER_ROUND
   left-=takeN(due,7)          // 到期该复习的，最多 7 个
   left-=takeN(readed,left)    // 先过一遍词汇表的（有印象，成功率最高）
-  left-=takeN(fresh,left)     // 新词，把剩下的名额补满
-  left-=takeN(other,left)     // 不到期的旧词
+  left-=takeN(fresh,Math.max(0,left-3))   // 新词：留 3 格给"老词升级题"（补字母），难度才有递进
+  left-=takeN(other,left)     // 不到期的旧词（最早该复习的排前面）
+  left-=takeN(fresh,left)     // 还不够就用新词补满
   left-=takeN(wShuffle((_wBank[wBook()]||[]).slice()),left)   // 还不够就从整本书里补
   if(out.length<4){ // 词太少（比如尾巴），就从整本书里补
     const pool=wShuffle((_wBank[wBook()]||[]).slice())
