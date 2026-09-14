@@ -94,37 +94,36 @@ function normalize(d){
   else if(d._vcloud===undefined||d._vcloud===null)d._vcloud=DEFAULT_VCLOUD
   return d
 }
-const CLOUD_SDK_URL='https://static.cloudbase.net/cloudbase-js-sdk/latest/cloudbase.full.js'
-function loadCloudSDK(){
-  return new Promise(function(res,rej){
-    if(typeof window!=='undefined'&&window.cloudbase)return res()
-    const sc=document.createElement('script')
-    sc.src=CLOUD_SDK_URL
-    sc.onload=function(){res()}
-    sc.onerror=function(){rej(new Error('SDK 加载失败'))}
-    document.head.appendChild(sc)
-  })
+/* ===== 云端读写：直接调 REST（不再依赖 200KB 的 CloudBase SDK）=====
+   2026-09-14：大哥的平板打不开 SDK（脚本来自 static.cloudbase.net），
+   结果他的打卡记录 / 小搭聊天永远存不进云端——现在换成同一条 REST 接口，
+   只要 HTTP 能通就能同步（顺带省掉首屏 200KB）。 */
+const CLOUD_REST='https://'+CLOUD_ENV+'.api.tcloudbasegateway.com/v1/rdb/rest/'+CLOUD_TABLE
+let _cloudRowExists=false
+function _clHead(extra){
+  const h={'Authorization':'Bearer '+CLOUD_KEY,'Accept':'application/json'}
+  if(extra)for(const k in extra)h[k]=extra[k]
+  return h
 }
 async function initCloud(){
   try{
     if(NOCLOUD){setCloudStatus('📴 本地模式（?local）',false);return false}
-    await loadCloudSDK()
-    if(typeof window==='undefined'||!window.cloudbase){setCloudStatus('SDK未加载',false);return false}
-    cloudApp=cloudbase.init({env:CLOUD_ENV,region:CLOUD_REGION,accessKey:CLOUD_KEY})
-    cloudRdb=cloudApp.rdb()
     cloudReady=true
     return true
-  }catch(e){console.error('云端初始化失败',e);setCloudStatus('连接失败',false);cloudReady=false;return false}
+  }catch(e){cloudReady=false;return false}
 }
 async function loadCloud(){
   if(!cloudReady)return null
   try{
-    const {data,error}=await cloudRdb.from(CLOUD_TABLE).select('*').eq('id',CLOUD_ID).limit(1)
-    if(error){console.error('云端读取失败',JSON.stringify(error));return null}
+    const r=await fetch(CLOUD_REST+'?id=eq.'+CLOUD_ID+'&select=id,data,updated_at',{headers:_clHead(),cache:'no-store'})
+    if(!r.ok){console.error('云端读取失败 HTTP '+r.status);return null}
+    const arr=await r.json()
+    const row=(Array.isArray(arr)&&arr[0])?arr[0]:null
     _cloudReadOk=true
-    if(data&&data.length>0&&data[0]&&data[0].data){
-      if(data[0].updated_at){const t=Date.parse(data[0].updated_at);if(!isNaN(t))_cloudTs=t}
-      return data[0].data
+    _cloudRowExists=!!(row&&row.data)
+    if(_cloudRowExists){
+      if(row.updated_at){const t=Date.parse(row.updated_at);if(!isNaN(t))_cloudTs=t}
+      return row.data
     }
     return null
   }catch(e){console.error('云端读取失败',e);return null}
@@ -232,8 +231,19 @@ async function saveCloud(d){
       }
     }catch(e){console.warn('保存前合并失败，按原样上传',e)}
     const ts=Date.now()
-    const r=await cloudRdb.from(CLOUD_TABLE).upsert({id:CLOUD_ID,data:_data,updated_at:new Date(ts).toISOString()})
-    if(r&&r.error)throw new Error(JSON.stringify(r.error))
+    const iso=new Date(ts).toISOString()
+    let r
+    if(_cloudRowExists){
+      r=await fetch(CLOUD_REST+'?id=eq.'+CLOUD_ID,{method:'PATCH',
+        headers:_clHead({'Content-Type':'application/json','Prefer':'return=minimal'}),
+        body:JSON.stringify({data:_data,updated_at:iso})})
+    }else{
+      r=await fetch(CLOUD_REST,{method:'POST',
+        headers:_clHead({'Content-Type':'application/json','Prefer':'return=minimal'}),
+        body:JSON.stringify({id:CLOUD_ID,data:_data,updated_at:iso})})
+    }
+    if(!r.ok){const _t=await r.text().catch(function(){return ''});throw new Error('HTTP '+r.status+' '+String(_t).slice(0,120))}
+    _cloudRowExists=true
     _cloudTs=ts
     markSynced(ts)
     return true
