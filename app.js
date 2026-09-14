@@ -168,6 +168,7 @@ function _mDict(A,B,preferA){
         const va=a[x],vb=b[x]
         if(va===undefined)o[x]=vb
         else if(vb===undefined)o[x]=va
+        else if(typeof va==='boolean'||typeof vb==='boolean')o[x]=preferA?va:vb
         else if(Array.isArray(va)&&Array.isArray(vb))o[x]=(va.length>=vb.length)?va:vb
         else if(va&&!vb)o[x]=va
         else if(vb&&!va)o[x]=vb
@@ -183,6 +184,15 @@ function mergeD(A,B,preferA){
     if(!B)return A
     if(!A)return B
     const out=JSON.parse(JSON.stringify(B))
+    /* 墓碑（删除过的东西）：两边合并，只留 90 天内的 */
+    const DEL={}
+    ;[A,B].forEach(function(x){
+      const m=(x&&x._del)||{}
+      Object.keys(m).forEach(function(k){DEL[k]=Math.max(DEL[k]||0,m[k]||0)})
+    })
+    const _nowT=Date.now()
+    Object.keys(DEL).forEach(function(k){if(_nowT-DEL[k]>90*24*3600*1000)delete DEL[k]})
+    out._del=DEL
     const keys={}
     Object.keys(A).forEach(function(k){keys[k]=1});Object.keys(B).forEach(function(k){keys[k]=1})
     Object.keys(keys).forEach(function(k){
@@ -190,12 +200,22 @@ function mergeD(A,B,preferA){
       if(a===undefined)return
       if(b===undefined){out[k]=a;return}
       if(MERGE_LIST.indexOf(k)>=0&&Array.isArray(a)&&Array.isArray(b)){
-        let u=_mList(a,b)
+        let u=_mList(a,b).filter(function(it){const t=DEL[_mId(it)];return !(t&&t>=(_mTs(it)||0))})
         if(k==='checks'||k==='exams')u.sort(function(x,y){return _mTs(y)-_mTs(x)})
         if(k==='_snaps'){u.sort(function(x,y){return (x&&x.at||0)-(y&&y.at||0)});if(u.length>5)u=u.slice(-5)}
         out[k]=u;return
       }
-      if(MERGE_DICT.indexOf(k)>=0){out[k]=_mDict(a,b,preferA);return}
+      if(MERGE_DICT.indexOf(k)>=0){
+        out[k]=_mDict(a,b,preferA)
+        if(k==='dailyChecks'){  /* 取消打卡过的，不能被另一台设备复活 */
+          const o=out[k]||{}
+          Object.keys(DEL).forEach(function(key){
+            const m=/^ck:(\d{4}-\d{2}-\d{2}):(.+)$/.exec(key)
+            if(m&&o[m[1]]&&Object.prototype.hasOwnProperty.call(o[m[1]],m[2]))o[m[1]][m[2]]=false
+          })
+        }
+        return
+      }
       if(k==='bl'){
         const o={},s={}
         Object.keys(b||{}).forEach(function(x){s[x]=1});Object.keys(a||{}).forEach(function(x){s[x]=1})
@@ -279,8 +299,34 @@ function ld(){
   return defData()
 }
 
+/* 删除墓碑：自动对比“上一次存的”和“这次要存的”，少了谁就记一笔 ——
+   否则删掉的记录 / 取消的打卡，会被另一台设备合并回来。 */
+function noteDeletes(prev,next){
+  try{
+    if(!prev||!next||typeof prev!=='object')return
+    if(!next._del)next._del={}
+    const now=Date.now()
+    MERGE_LIST.forEach(function(k){
+      const a=prev[k],b=next[k]
+      if(!Array.isArray(a)||!Array.isArray(b))return
+      const has={}
+      b.forEach(function(it){has[_mId(it)]=1})
+      a.forEach(function(it){const id=_mId(it);if(id&&!has[id])next._del[id]=now})
+    })
+    const pa=prev.dailyChecks||{},pb=next.dailyChecks||{}
+    Object.keys(pa).forEach(function(d){
+      const ra=pa[d]||{},rb=pb[d]||{}
+      Object.keys(ra).forEach(function(key){
+        const kk='ck:'+d+':'+key
+        if(ra[key]===true&&rb[key]===false)next._del[kk]=now
+        else if(ra[key]===false&&rb[key]===true)delete next._del[kk]
+      })
+    })
+  }catch(e){}
+}
 function sv(d){
   if(DEMO){try{localStorage.setItem('lc_demo',JSON.stringify(d))}catch(e){};maybeSnapshot();return}
+  try{const _pr=localStorage.getItem(SK);if(_pr)noteDeletes(JSON.parse(_pr),d)}catch(e){}
   let ok=true
   try{localStorage.setItem(SK,JSON.stringify(d));localStorage.setItem(SK+'_t',String(Date.now()))}
   catch(e){
