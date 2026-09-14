@@ -129,13 +129,110 @@ async function loadCloud(){
     return null
   }catch(e){console.error('云端读取失败',e);return null}
 }
+/* =========================================================================
+   🔀 mergeD —— 多设备「合并」写入（2026-09-14 数据丢失事故后加）
+   原来：整份 D 直接覆盖云端 —— 谁最后写谁赢，别人刚记的东西就没了。
+   现在：写之前先把云端那份读回来，两边合并：
+         · 列表（记录/成绩/积分…）按 id 求并集，同 id 取更新的那条
+         · 字典（习惯打卡/错题/照片）逐条合并，只会更多不会更少
+         · 其余设置类字段，听「更新的一方」
+   ========================================================================= */
+const MERGE_LIST=['checks','exams','points','mistakes','handwritings','smallGoals','tasks','msgs','_snaps']
+const MERGE_DICT=['dailyChecks','mistakeLog','checkImgs']
+function _mId(x){return (x&&x.id!=null)?('i'+x.id):('h'+JSON.stringify(x))}
+function _mTs(x){return (x&&(x.ts||x.at||x.t||x.time))||0}
+function _mRank(x){const st=x&&x.status;return st==='approved'?3:(st==='pending'?2:(st==='rejected'?1:0))}
+function _mList(A,B){
+  const out=[],idx={}
+  ;(A||[]).concat(B||[]).forEach(function(it){
+    if(it==null)return
+    const k=_mId(it)
+    if(!(k in idx)){idx[k]=out.length;out.push(it);return}
+    const i=idx[k],cur=out[i]
+    const ta=_mTs(it),tb=_mTs(cur)
+    if(ta>tb||(ta===tb&&_mRank(it)>_mRank(cur)))out[i]=it
+  })
+  return out
+}
+function _mDict(A,B,preferA){
+  A=A||{};B=B||{}
+  const out={},keys={}
+  Object.keys(A).forEach(function(k){keys[k]=1});Object.keys(B).forEach(function(k){keys[k]=1})
+  Object.keys(keys).forEach(function(k){
+    const a=A[k],b=B[k]
+    if(a===undefined){out[k]=b;return}
+    if(b===undefined){out[k]=a;return}
+    if(a&&b&&typeof a==='object'&&typeof b==='object'&&!Array.isArray(a)&&!Array.isArray(b)){
+      const o={},k2={}
+      Object.keys(a).forEach(function(x){k2[x]=1});Object.keys(b).forEach(function(x){k2[x]=1})
+      Object.keys(k2).forEach(function(x){
+        const va=a[x],vb=b[x]
+        if(va===undefined)o[x]=vb
+        else if(vb===undefined)o[x]=va
+        else if(Array.isArray(va)&&Array.isArray(vb))o[x]=(va.length>=vb.length)?va:vb
+        else if(va&&!vb)o[x]=va
+        else if(vb&&!va)o[x]=vb
+        else o[x]=preferA?va:vb
+      })
+      out[k]=o
+    }else out[k]=preferA?a:b
+  })
+  return out
+}
+function mergeD(A,B,preferA){
+  try{
+    if(!B)return A
+    if(!A)return B
+    const out=JSON.parse(JSON.stringify(B))
+    const keys={}
+    Object.keys(A).forEach(function(k){keys[k]=1});Object.keys(B).forEach(function(k){keys[k]=1})
+    Object.keys(keys).forEach(function(k){
+      const a=A[k],b=out[k]
+      if(a===undefined)return
+      if(b===undefined){out[k]=a;return}
+      if(MERGE_LIST.indexOf(k)>=0&&Array.isArray(a)&&Array.isArray(b)){
+        let u=_mList(a,b)
+        if(k==='checks'||k==='exams')u.sort(function(x,y){return _mTs(y)-_mTs(x)})
+        if(k==='_snaps'){u.sort(function(x,y){return (x&&x.at||0)-(y&&y.at||0)});if(u.length>5)u=u.slice(-5)}
+        out[k]=u;return
+      }
+      if(MERGE_DICT.indexOf(k)>=0){out[k]=_mDict(a,b,preferA);return}
+      if(k==='bl'){
+        const o={},s={}
+        Object.keys(b||{}).forEach(function(x){s[x]=1});Object.keys(a||{}).forEach(function(x){s[x]=1})
+        Object.keys(s).forEach(function(x){const va=a?a[x]:null;const vb=b?b[x]:null;o[x]=(va!=null?va:vb)})
+        out[k]=o;return
+      }
+      if(k==='parts'&&Array.isArray(a)&&Array.isArray(b)){
+        const m={};b.forEach(function(x){if(x&&x.id!=null)m[x.id]=x})
+        a.forEach(function(x){if(!x||x.id==null)return;const y=m[x.id];if(!y)m[x.id]=x;else m[x.id]=Object.assign({},y,{st:Math.max(y.st||0,x.st||0)})})
+        out[k]=b.map(function(x){return (x&&m[x.id])||x});return
+      }
+      if(preferA)out[k]=a
+    })
+    return out
+  }catch(e){console.warn('合并失败，按本机那份走',e);return A||B}
+}
 async function saveCloud(d){
   if(!cloudReady){markDirty();return false}
   if(_offline){markDirty();return false}
   if(!_cloudReadOk){_dirty=true;setCloudStatus('⏳ 等待云端确认（本机已存）',false);scheduleRetry();return false}
   try{
+    /* 先读云端 → 合并 → 再写：别的设备刚记的东西不会被这份覆盖 */
+    let _data=d
+    try{
+      const cd0=await loadCloud()
+      if(cd0){
+        const localT=parseInt(localStorage.getItem(SK+'_t')||'0',10)
+        const localNewer=(localT>_cloudTs+5000)
+        const mg=mergeD(d,cd0,localNewer)
+        const same=(JSON.stringify(mg)===JSON.stringify(cd0))
+        _data=same?cd0:mg
+        if(!same&&d===D){D=mg;try{localStorage.setItem(SK,JSON.stringify(mg))}catch(e){}}
+      }
+    }catch(e){console.warn('保存前合并失败，按原样上传',e)}
     const ts=Date.now()
-    const r=await cloudRdb.from(CLOUD_TABLE).upsert({id:CLOUD_ID,data:d,updated_at:new Date(ts).toISOString()})
+    const r=await cloudRdb.from(CLOUD_TABLE).upsert({id:CLOUD_ID,data:_data,updated_at:new Date(ts).toISOString()})
     if(r&&r.error)throw new Error(JSON.stringify(r.error))
     _cloudTs=ts
     markSynced(ts)
@@ -5126,18 +5223,14 @@ initAuth()
       _dirty=true;scheduleRetry()
     }else if(cd){
       const localT=parseInt(localStorage.getItem(SK+'_t')||'0',10)
-      /* 谁更全：云端明显比本机空时，宁可保留本机（并上传），避免"刷新后记录消失" */
-      const _rich=function(x){return (x.checks||[]).length*3+(x.exams||[]).length*3+(x.points||[]).length+(x.msgs||[]).length+(x.handwritings||[]).length+Object.keys(x.dailyChecks||{}).length}
-      const _lr=_rich(D),_cr=_rich(cd)
-      const _cloudThin=(_cr>0)?(_lr>_cr*2.5):(_lr>5)
-      const localNewer=(localT>_cloudTs+5000)||_cloudThin
-      if(!localNewer){
-        D=normalize(cd)
-        if(!D.dailyChecks[td]){const ds={};for(const it of (D.dci||defData().dci))ds[it.key]=false;D.dailyChecks[td]=ds}
-        render();markSynced(_cloudTs||Date.now())
-      }else{
-        render();await saveCloud(D)
-      }
+      /* 【2026-09-14 改】不再"二选一"覆盖，而是两边合并：任何一台设备的记录都不会被别人的写入抹掉 */
+      const localNewer=(localT>_cloudTs+5000)
+      const mg=mergeD(D,cd,localNewer)
+      const changed=(JSON.stringify(mg)!==JSON.stringify(cd))
+      D=normalize(mg)
+      if(!D.dailyChecks[td]){const ds={};for(const it of (D.dci||defData().dci))ds[it.key]=false;D.dailyChecks[td]=ds}
+      render()
+      if(changed){await saveCloud(D)}else{markSynced(_cloudTs||Date.now())}
     }else{
       await saveCloud(D)
     }
