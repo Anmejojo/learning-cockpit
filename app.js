@@ -3701,7 +3701,7 @@ function wGoalCheck(){
     const n=wTodayCount()
     if(n<W_GOAL)return
     D.wdD={d:td,n:n,pts:W_GOAL_PTS}
-    D.points.push({date:td,source:'单词小目标',points:W_GOAL_PTS,type:'earn'})
+    D.points.push({id:'wgoal-'+td,date:td,source:'单词小目标',points:W_GOAL_PTS,type:'earn'})   /* 带 id：多台设备都发过奖也只算一条 */
     sv(D)
     try{ptBurst(W_GOAL_PTS,'单词小目标')}catch(e){}
     ts('🎯 今天的目标完成！+'+W_GOAL_PTS+' 分')
