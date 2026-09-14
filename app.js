@@ -814,6 +814,7 @@ function scanLine(rec){
 /* 把图片传到云存储换链接（失败就保留原来的数据，不影响使用） */
 function cosPut(b64,cb){
   try{
+    if(DEMO)return cb(b64)          /* 测试台：只在本机玩，绝不往云存储丢东西 */
     if(!b64||String(b64).indexOf('data:')!==0)return cb(b64)
     if(!aiToken())return cb(b64)
     fetch(AI_URL,{method:'POST',headers:{'Content-Type':'application/json'},
@@ -3088,6 +3089,7 @@ function hwApply(urls){
   sv(D)
 }
 async function pendRun(){
+  if(DEMO)return                    /* 测试台不传云端（照片只在本机） */
   const list=pendList()
   if(!list.length)return
   for(const e of list){
