@@ -641,3 +641,7 @@ html[data-polish="1"] *{transition-timing-function:var(--ease)}
 .w-li-t{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
 .w-li-t b{font-size:var(--fs-15);color:var(--text)}
 .w-li-t span{font-size:var(--fs-12);color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* 🎯 每天小目标卡 */
+.w-goal{border-color:rgba(251,191,36,.38)}
+.w-goal-n{font-size:var(--fs-15);font-weight:700;margin:2px 0 7px;color:var(--text)}
