@@ -4068,6 +4068,7 @@ function rckWordGame(){
     ask.appendChild(h('div',{className:'wg-ask-t'},'听到的是哪个词？'))
     const rb=h('button',{className:'btn btn-outline btn-sm',onClick:function(){if(g.cur)wSay(g.cur[0])}},'🔊 再听一遍')
     ask.appendChild(rb)
+    if(typeof speechSynthesis==='undefined')ask.appendChild(h('div',{className:'wg-ask-t'},'（这台设备放不了声音，先看音标：/'+((g.cur||[])[2]||'')+'/）'))
     $c.appendChild(ask)
     const box=h('div',{className:'wg-opts'})
     ;(g.opts||[]).forEach(function(o,i){
