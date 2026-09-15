@@ -3641,7 +3641,11 @@ function rckWordRead(){
     const row=h('div',{className:'w-li'+(rd?' on':'')})
     row.appendChild(h('span',{className:'w-li-n'},String(idx+1)))
     const mid=h('div',{className:'w-li-t'})
-    mid.appendChild(h('b',null,it[0]))
+    const _ph=[(it[2]?('/'+it[2]+'/'):''),(it[3]||'')].filter(Boolean).join(' ')
+    const _l1=h('div',{className:'w-li-w'})
+    _l1.appendChild(h('b',null,it[0]))
+    if(_ph)_l1.appendChild(h('span',{className:'w-ph'},_ph))
+    mid.appendChild(_l1)
     mid.appendChild(h('span',null,it[1]||''))
     row.appendChild(mid)
     row.appendChild(h('button',{className:'btn btn-sm btn-outline',onClick:function(e){if(e&&e.stopPropagation)e.stopPropagation();wSay(it[0])}},'🔊'))
@@ -3713,12 +3717,26 @@ function rckWordPlay(){
   top.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:wQuit},'退出'))
   $c.appendChild(top)
   const q=h('div',{className:'w-q'})
+  const _it=g.right||[]
+  const _ph=_it[2]||'', _pos=_it[3]||''
   if(g.mode==='blank'&&g.blank){
-    q.appendChild(h('div',{className:'w-q-t'},'补上少的字母：'))
-    q.appendChild(h('div',{className:'w-q-w'},g.blank.zh||''))
+    q.appendChild(h('div',{className:'w-q-t'},'补上少的字母：'+(g.qlv>=3?'':'（看词性想想）')))
+    const _w1=h('div',{className:'w-q-w'})
+    _w1.appendChild(document.createTextNode(g.blank.zh||''))
+    if(_pos)_w1.appendChild(h('span',{className:'w-pos'},'（'+_pos+'）'))
+    q.appendChild(_w1)
   }else{
     q.appendChild(h('div',{className:'w-q-t'},g.dir==='c2e'?'选出这个词：':'选出它的意思：'))
-    q.appendChild(h('div',{className:'w-q-w'},g.dir==='c2e'?(g.right[1]||''):g.right[0]))
+    const _w2=h('div',{className:'w-q-w'})
+    if(g.dir==='c2e'){
+      _w2.appendChild(document.createTextNode(_it[1]||''))
+      if(_pos)_w2.appendChild(h('span',{className:'w-pos'},'（'+_pos+'）'))
+    }else{
+      _w2.appendChild(document.createTextNode(_it[0]||''))
+      const _m=[(_ph?('/'+_ph+'/'):''),(_pos?_pos:'')].filter(Boolean).join(' ')
+      if(_m)_w2.appendChild(h('span',{className:'w-ph2'},' '+_m))
+    }
+    q.appendChild(_w2)
   }
   $c.appendChild(q)
   const H=96, showN=3
