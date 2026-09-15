@@ -3925,7 +3925,7 @@ function wGameStart(kind){
       const g=_wg2
       if(!g||g.phase!=='play'){clearInterval(_wg2T2);_wg2T2=null;return}
       wGameSpawn()
-    },1400)
+    },2400)   /* 2.4 秒换一批：留够他读中文 + 找词的时间 */
   }else{
     wGameEarNext()
   }
@@ -3976,8 +3976,9 @@ function wGameDrawMoles(){
       const mo=h('div',{className:'wg-mole'+(m.dead?' hit':'')})
       mo.appendChild(h('span',{className:'wg-mole-e'},'🐹'))
       mo.appendChild(h('span',{className:'wg-mole-w'},m.w[0]))
-      mo.onclick=function(){wGameTap(m)}
       hole.appendChild(mo)
+      hole.onclick=function(){wGameTap(m)}      /* 整格都能点：平板手指粗也好按 */
+      hole.style.cursor='pointer'
     }
     box.appendChild(hole)
   }
@@ -4028,7 +4029,7 @@ function wGameEnd(){
   g.phase='done'
   const sc=g.score
   let pts=0
-  if(sc>=12)pts=3;else if(sc>=8)pts=2;else if(sc>=4)pts=1
+  if(sc>=8)pts=3;else if(sc>=5)pts=2;else if(sc>=3)pts=1
   let got=0
   try{
     const wd=D.wday||{d:'',n:0}
@@ -4083,7 +4084,7 @@ function rckWordGame(){
   }
   if(g.phase==='done'){
     const done=h('div',{className:'wg-done'})
-    done.appendChild(h('div',{className:'wg-done-t'},'🎉 '+(g.score>=12?'厉害！':(g.score>=8?'不错！':'再来一局'))))
+    done.appendChild(h('div',{className:'wg-done-t'},'🎉 '+(g.score>=8?'厉害！':(g.score>=5?'不错！':'再来一局'))))
     done.appendChild(h('div',{className:'wg-done-s'},'打中 '+g.score+' 个 · 最高连击 '+g.maxCombo+' · 错 '+g.wrong))
     if(g.pts)done.appendChild(h('div',{className:'t-muted mt6'},'✅ +'+g.pts+' 分已到账'))
     else done.appendChild(h('div',{className:'t-faint mt6'},'今天的单词分已经拿满（'+W_DAILY_ROUNDS+' 局），明天再来'))
