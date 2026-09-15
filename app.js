@@ -3612,6 +3612,7 @@ function rckWord(){
     }
     $c.appendChild(c);return
   }
+  if(_wg2)return rckWordGame()
   if(_wRead)return rckWordRead()
   if(_wg)return rckWordPlay()
   return rckWordMap()
@@ -3672,6 +3673,11 @@ function rckWordMap(){
   _gb.appendChild(h('i',{style:'width:'+Math.min(100,Math.round(_gn/W_GOAL*100))+'%'}))
   gc.appendChild(_gb)
   gc.appendChild(h('div',{className:'t-faint mt6'},_gd?('✅ 今天 +'+W_GOAL_PTS+' 分已到账，明天再来。'):('点「📖 过一遍」认脸，或者直接开始做，都算；完成 +'+W_GOAL_PTS+' 分')))
+  const _grow=h('div',{className:'row-mid mt8'})
+  _grow.appendChild(h('button',{className:'btn btn-sm btn-outline',onClick:function(){wGameStart('mole')}},'🔨 打地鼠'))
+  _grow.appendChild(h('button',{className:'btn btn-sm btn-outline',onClick:function(){wGameStart('ear')}},'👂 听音选词'))
+  _grow.appendChild(h('span',{className:'t-faint'},'30 秒一局 · 和闯关共用熟练度'))
+  gc.appendChild(_grow)
   $c.appendChild(gc)
   const head=h('div',{className:'card'})
   head.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🐸'}),'单词闯关'))
@@ -3870,6 +3876,222 @@ function wGoalCheck(){
     ts('🎯 今天的目标完成！+'+W_GOAL_PTS+' 分')
     if(typeof tb!=='undefined'&&tb==='word')render()
   }catch(e){}
+}
+/* ===== 🔨 单词打地鼠 / 👂 听音选词（和闯关共用词库·音标·词性·间隔复习）===== */
+let _wg2=null, _wg2T1=null, _wg2T2=null
+const W_GAME_SEC=30
+function wMark(w,ok){                      /* 和闯关共用的熟练度记录 */
+  try{
+    const r=wRec(w)||{l:0,ok:0,bad:0}
+    if(ok){const nl=Math.min(6,(r.l||0)+1);wState()[w]={l:nl,ok:(r.ok||0)+1,bad:(r.bad||0),d:wYmdAdd(W_GAP[nl]),t:Date.now()}}
+    else wState()[w]={l:Math.max(0,(r.l||0)-1),ok:(r.ok||0),bad:(r.bad||0)+1,d:wYmdAdd(1),t:Date.now()}
+    sv(D)
+  }catch(e){}
+}
+function wPickAny(n){                      /* 从整本书按“该练”的顺序拿词 */
+  const bank=(_wBank[wBook()]||[]).slice()
+  const due=[],readed=[],fresh=[],other=[]
+  bank.forEach(function(x){
+    const r=wRec(x[0])
+    if(!r){(D.wrd&&D.wrd[x[0]])?readed.push(x):fresh.push(x)}
+    else if(r.d&&r.d<=td)due.push(x)
+    else other.push(x)
+  })
+  other.sort(function(a,b){const ra=wRec(a[0])||{},rb=wRec(b[0])||{};return String(ra.d||'9').localeCompare(String(rb.d||'9'))})
+  wShuffle(due);wShuffle(readed);wShuffle(fresh)
+  const out=[],seen={}
+  function take(a,max){let c=0;for(let i=0;i<a.length&&c<max;i++){if(seen[a[i][0]])continue;seen[a[i][0]]=1;out.push(a[i]);c++}return c}
+  let left=n
+  left-=take(due,left);left-=take(readed,left);left-=take(fresh,left);left-=take(other,left)
+  return out
+}
+function wGameStart(kind){
+  const pool=wPickAny(12)
+  if(pool.length<4){ts('词库太小，先换个词库吧');return}
+  _wg2={kind:kind,phase:'play',left:W_GAME_SEC,score:0,combo:0,maxCombo:0,right:0,wrong:0,pool:pool,queue:pool.slice(),moles:[],opts:[],cur:null,locked:false}
+  render()
+  if(_wg2T1)clearInterval(_wg2T1)
+  _wg2T1=setInterval(function(){
+    const g=_wg2
+    if(!g||g.phase!=='play'){clearInterval(_wg2T1);_wg2T1=null;return}
+    g.left--
+    const el=document.getElementById('wgameTime');if(el)el.innerText=g.left+'s'
+    if(g.left<=0)wGameEnd()
+  },1000)
+  if(kind==='mole'){
+    wGameSpawn()
+    if(_wg2T2)clearInterval(_wg2T2)
+    _wg2T2=setInterval(function(){
+      const g=_wg2
+      if(!g||g.phase!=='play'){clearInterval(_wg2T2);_wg2T2=null;return}
+      wGameSpawn()
+    },1400)
+  }else{
+    wGameEarNext()
+  }
+}
+function wGameQuit(){
+  if(_wg2T1){clearInterval(_wg2T1);_wg2T1=null}
+  if(_wg2T2){clearInterval(_wg2T2);_wg2T2=null}
+  try{if(typeof speechSynthesis!=='undefined')speechSynthesis.cancel()}catch(e){}
+  _wg2=null;render()
+}
+function wGameSpawn(){
+  const g=_wg2;if(!g||g.phase!=='play')return
+  if(!g.queue.length)g.queue=g.pool.slice()
+  const right=g.queue.shift()
+  const others=wShuffle(g.pool.filter(function(x){return x[0]!==right[0]})).slice(0,2)
+  const slots=wShuffle([0,1,2,3,4,5,6,7,8]).slice(0,3)
+  const moles=wShuffle([{w:right,ok:true}].concat(others.map(function(x){return {w:x,ok:false}})))
+  g.cur=right;g.prompt=right;g.locked=false
+  g.moles=moles.map(function(m,i){m.slot=slots[i];m.dead=false;return m})
+  wGameDrawMoles();wGameDrawPrompt()
+}
+function wGameDrawPrompt(){
+  const g=_wg2;if(!g)return
+  const el=document.getElementById('wgameAsk');if(!el)return
+  const it=g.cur||[]
+  const pos=it[3]||''
+  el.innerHTML=''
+  const line=h('div',{className:'wg-ask-t'},g.kind==='mole'?'敲中对应的单词：':'听到的是哪个词？')
+  el.appendChild(line)
+  if(g.kind==='mole'){
+    const w1=h('div',{className:'wg-ask-w'})
+    w1.appendChild(document.createTextNode(it[1]||''))
+    if(pos)w1.appendChild(h('span',{className:'w-pos'},'（'+pos+'）'))
+    el.appendChild(w1)
+  }else{
+    el.appendChild(h('div',{className:'wg-ask-w'},'🔊 再听一遍'))
+    el.querySelector&&el.querySelector('.wg-ask-w')&&(el.querySelector('.wg-ask-w').onclick=function(){wSay(it[0])})
+  }
+}
+function wGameDrawMoles(){
+  const g=_wg2;if(!g)return
+  const box=document.getElementById('wgameMoles');if(!box)return
+  box.innerHTML=''
+  for(let s=0;s<9;s++){
+    const hole=h('div',{className:'wg-hole'})
+    const m=(g.moles||[]).filter(function(x){return x.slot===s})[0]
+    if(m){
+      const mo=h('div',{className:'wg-mole'+(m.dead?' hit':'')})
+      mo.appendChild(h('span',{className:'wg-mole-e'},'🐹'))
+      mo.appendChild(h('span',{className:'wg-mole-w'},m.w[0]))
+      mo.onclick=function(){wGameTap(m)}
+      hole.appendChild(mo)
+    }
+    box.appendChild(hole)
+  }
+}
+function wGameTap(m){
+  const g=_wg2;if(!g||g.phase!=='play'||g.locked||!m)return
+  if(m.ok){
+    m.dead=true
+    g.score++;g.right++;g.combo++;if(g.combo>g.maxCombo)g.maxCombo=g.combo
+    sfx(g.combo>=3?'combo':'ok')
+    wMark(m.w[0],true)
+    g.locked=true
+    wGameDrawMoles()
+    setTimeout(function(){if(_wg2&&_wg2.phase==='play')wGameSpawn()},320)
+  }else{
+    g.combo=0;g.wrong++
+    sfx('bad')
+    const t=(g.moles||[]).filter(function(x){return x.ok})[0]
+    try{ts('那个不是哦，再找找'+(t?('（提示：'+(t.w[1]||'')+'）'):''))}catch(e){}
+  }
+}
+function wGameEarNext(){
+  const g=_wg2;if(!g||g.phase!=='play')return
+  if(!g.queue.length)g.queue=g.pool.slice()
+  const right=g.queue.shift()
+  const others=wShuffle(g.pool.filter(function(x){return x[0]!==right[0]})).slice(0,3)
+  g.cur=right;g.locked=false
+  g.opts=wShuffle([{w:right,ok:true}].concat(others.map(function(x){return {w:x,ok:false}})))
+  render()
+  const it=right
+  setTimeout(function(){if(_wg2&&_wg2.phase==='play'&&!_wg2.answered)wSay(it[0])},260)
+}
+function wGameEarTap(i){
+  const g=_wg2;if(!g||g.phase!=='play'||g.locked)return
+  const o=(g.opts||[])[i];if(!o)return
+  g.locked=true;g.answered=true
+  g.lastPick=i;g.lastOk=!!o.ok
+  if(o.ok){g.score++;g.right++;g.combo++;if(g.combo>g.maxCombo)g.maxCombo=g.combo;sfx('ok');wMark(o.w[0],true)}
+  else{g.wrong++;g.combo=0;sfx('bad');wMark((g.cur||[])[0],false);try{ts('答案是 '+(g.cur||[])[0])}catch(e){}}
+  render()
+  setTimeout(function(){if(!_wg2||_wg2.phase!=='play')return;_wg2.answered=false;wGameEarNext()},900)
+}
+function wGameEnd(){
+  const g=_wg2;if(!g)return
+  if(_wg2T1){clearInterval(_wg2T1);_wg2T1=null}
+  if(_wg2T2){clearInterval(_wg2T2);_wg2T2=null}
+  try{if(typeof speechSynthesis!=='undefined')speechSynthesis.cancel()}catch(e){}
+  g.phase='done'
+  const sc=g.score
+  let pts=0
+  if(sc>=12)pts=3;else if(sc>=8)pts=2;else if(sc>=4)pts=1
+  let got=0
+  try{
+    const wd=D.wday||{d:'',n:0}
+    if(wd.d!==td){wd.d=td;wd.n=0}
+    if(pts&&wd.n<W_DAILY_ROUNDS){wd.n++;got=pts;D.points.push({id:'wgame-'+td+'-'+wd.n,date:td,source:(g.kind==='mole'?'单词打地鼠':'听音选词'),points:pts,type:'earn'})}
+    D.wday=wd
+  }catch(e){}
+  g.pts=got
+  sv(D)
+  if(got){try{ptBurst(got,'单词游戏')}catch(e){}}
+  try{sfx('win')}catch(e){}
+  render()
+}
+function rckWordGame(){
+  const g=_wg2
+  const c=h('div',{className:'card'})
+  const head=h('div',{className:'card-header'},h('span',{innerHTML:g.kind==='mole'?'🔨':'👂'}),g.kind==='mole'?'单词打地鼠':'听音选词')
+  c.appendChild(head)
+  $c.appendChild(c)
+  if(g.phase==='play'){
+    const bar=h('div',{className:'wg-bar'})
+    bar.appendChild(h('span',{className:'wg-time',id:'wgameTime'},g.left+'s'))
+    bar.appendChild(h('span',{className:'wg-score'},'打中 '+g.score+(g.combo>1?('  🔥连击 '+g.combo):'')))
+    const q=h('button',{className:'btn btn-outline btn-sm',onClick:wGameQuit},'退出')
+    bar.appendChild(q)
+    $c.appendChild(bar)
+  }
+  if(g.phase==='play'&&g.kind==='mole'){
+    const ask=h('div',{className:'wg-ask',id:'wgameAsk'})
+    $c.appendChild(ask)
+    const grid=h('div',{className:'wg-grid',id:'wgameMoles'})
+    $c.appendChild(grid)
+    setTimeout(function(){wGameDrawPrompt();wGameDrawMoles()},0)
+  }
+  if(g.phase==='play'&&g.kind==='ear'){
+    const ask=h('div',{className:'wg-ask',id:'wgameAsk'})
+    ask.appendChild(h('div',{className:'wg-ask-t'},'听到的是哪个词？'))
+    const rb=h('button',{className:'btn btn-outline btn-sm',onClick:function(){if(g.cur)wSay(g.cur[0])}},'🔊 再听一遍')
+    ask.appendChild(rb)
+    $c.appendChild(ask)
+    const box=h('div',{className:'wg-opts'})
+    ;(g.opts||[]).forEach(function(o,i){
+      const _cls='wg-opt'+((g.locked&&(g.lastPick===i||o.ok))?(o.ok?' right':' bad'):'')
+      box.appendChild(h('button',{className:_cls,onClick:function(){wGameEarTap(i)}},o.w[0]))
+    })
+    $c.appendChild(box)
+    if(g.locked&&g.cur){
+      const it=g.cur
+      $c.appendChild(h('div',{className:'wg-fb'},(g.lastOk?'✅ 对了':'❌ 正确答案：')+' '+it[0]+(it[2]?('  /'+it[2]+'/'):'')+(it[3]?('  '+it[3]):'')+(it[1]?('  '+it[1]):'')))
+    }
+  }
+  if(g.phase==='done'){
+    const done=h('div',{className:'wg-done'})
+    done.appendChild(h('div',{className:'wg-done-t'},'🎉 '+(g.score>=12?'厉害！':(g.score>=8?'不错！':'再来一局'))))
+    done.appendChild(h('div',{className:'wg-done-s'},'打中 '+g.score+' 个 · 最高连击 '+g.maxCombo+' · 错 '+g.wrong))
+    if(g.pts)done.appendChild(h('div',{className:'t-muted mt6'},'✅ +'+g.pts+' 分已到账'))
+    else done.appendChild(h('div',{className:'t-faint mt6'},'今天的单词分已经拿满（'+W_DAILY_ROUNDS+' 局），明天再来'))
+    const bar=h('div',{className:'row-mid mt10'})
+    bar.appendChild(h('button',{className:'btn btn-primary',onClick:function(){wGameStart(g.kind)}},'再来一局'))
+    bar.appendChild(h('button',{className:'btn btn-outline',onClick:wGameQuit},'回词表'))
+    done.appendChild(bar)
+    $c.appendChild(done)
+  }
 }
 /* ---- 难度：星星 = 题型难度　★ 认词 / ★★ 补2个字母 / ★★★ 补3个字母 ---- */
 function wQLv(rec){const l=(rec&&rec.l)||0;return l<=0?1:(l===1?2:3)}
