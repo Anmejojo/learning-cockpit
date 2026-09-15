@@ -3766,13 +3766,14 @@ function rckWordPlay(){
     }
     inner.appendChild(lv)
   }
+  /* 青蛙就住在河里：答对→一个明显的跳跃弧线（配合河道上滚，看起来就是它跳上荷叶） */
+  const _okNow=(g.mode==='blank')?!!((g.opts||[])[0]&&g.opts[0].ok):!!((g.opts||[])[g.pick]&&g.opts[g.pick].ok)
+  const _acted=(g.pick!==null)
+  const _splash=h('div',{className:'w-splash'+(_acted&&_okNow?' go':'')})
+  river.appendChild(_splash)
+  river.appendChild(h('div',{className:'w-frog2'+(_acted?(_okNow?' hop':' fall'):'')},'🐸'))
   river.appendChild(inner)
   $c.appendChild(river)
-  const bank=h('div',{className:'w-bank'})
-  const _okNow=(g.mode==='blank')?!!((g.opts||[])[0]&&g.opts[0].ok):!!((g.opts||[])[g.pick]&&g.opts[g.pick].ok)
-  const frogCls='w-frog'+((g.pick!==null)?(_okNow?' jump':' fall'):'')
-  bank.appendChild(h('div',{className:frogCls},'🐸'))
-  $c.appendChild(bank)
   if(g.tries>=1&&g.pick===null){
     const bar=h('div',{className:'w-wrongbar'})
     bar.appendChild(h('span',null,'刚那个错了（不扣分），再试一次：'))
@@ -3969,7 +3970,7 @@ function wRight(){
   wGoalCheck()
   g.splash=1
   render()
-  setTimeout(function(){ if(!_wg)return; _wg.splash=0; wNext(false); render() },420)
+  setTimeout(function(){ if(!_wg)return; _wg.splash=0; wNext(false); render() },520)
 }
 function wWrong(){
   const g=_wg
