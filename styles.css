@@ -645,3 +645,25 @@ html[data-polish="1"] *{transition-timing-function:var(--ease)}
 /* 🎯 每天小目标卡 */
 .w-goal{border-color:rgba(251,191,36,.38)}
 .w-goal-n{font-size:var(--fs-15);font-weight:700;margin:2px 0 7px;color:var(--text)}
+
+/* ===== 🐸 青蛙在河里跳（跳跃弧线 + 落水波纹）===== */
+.w-frog2{position:absolute;left:14px;bottom:8px;font-size:34px;line-height:1;z-index:3;
+  filter:drop-shadow(0 3px 4px rgba(0,0,0,.45));transform-origin:50% 90%}
+.w-frog2.hop{animation:wFrogHop .5s cubic-bezier(.32,.78,.3,1) both}
+.w-frog2.fall{animation:wFrogFall .5s ease-in both}
+@keyframes wFrogHop{
+  0%{transform:translateY(0) scale(1,1)}
+  14%{transform:translateY(8px) scale(1.2,.8)}
+  46%{transform:translateY(-104px) translateX(10px) scale(.88,1.14)}
+  74%{transform:translateY(-4px) translateX(2px) scale(1.14,.88)}
+  100%{transform:translateY(0) scale(1,1)}
+}
+@keyframes wFrogFall{
+  0%{transform:translateY(0) rotate(0) scale(1,1);opacity:1}
+  55%{transform:translateY(16px) rotate(22deg) scale(.9,.9);opacity:.85}
+  100%{transform:translateY(30px) rotate(34deg) scale(.8,.8);opacity:.15}
+}
+.w-splash{position:absolute;left:16px;bottom:6px;width:46px;height:16px;border-radius:50%;
+  border:2px solid rgba(125,211,252,.9);opacity:0;pointer-events:none;z-index:2}
+.w-splash.go{animation:wFrogSplash .62s ease-out .12s both}
+@keyframes wFrogSplash{0%{transform:scale(.35);opacity:.95}100%{transform:scale(1.9);opacity:0}}
