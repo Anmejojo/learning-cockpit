@@ -667,3 +667,9 @@ html[data-polish="1"] *{transition-timing-function:var(--ease)}
   border:2px solid rgba(125,211,252,.9);opacity:0;pointer-events:none;z-index:2}
 .w-splash.go{animation:wFrogSplash .62s ease-out .12s both}
 @keyframes wFrogSplash{0%{transform:scale(.35);opacity:.95}100%{transform:scale(1.9);opacity:0}}
+
+/* ===== 单词：音标 + 词性 ===== */
+.w-li-w{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap}
+.w-ph,.w-ph2{font-family:var(--font-mono,ui-monospace,monospace);font-size:var(--fs-12);color:#a5b4fc;letter-spacing:.2px}
+.w-ph2{font-family:inherit}
+.w-pos{font-size:var(--fs-13);color:var(--muted);margin-left:4px}
