@@ -3613,8 +3613,9 @@ function rckWord(){
     $c.appendChild(c);return
   }
   if(_wg2)return rckWordGame()
-  if(_wRead)return rckWordRead()
   if(_wg)return rckWordPlay()
+  if(_wRead)return rckWordRead()
+  if(_wHome)return rckWordHome()
   return rckWordMap()
 }
 /* 📖 先过一遍：把这一关的词当卡片认一遍（点一下就算认过）*/
@@ -3661,9 +3662,10 @@ function rckWordRead(){
   })
   $c.appendChild(list)
 }
-function rckWordMap(){
-  const bk=wBook(), bank=_wBank[bk]
-  /* 🎯 今天的小目标卡（进来就算一次：已经够 10 个就直接发奖） */
+function rckWordHome(){
+  const bk=wBook(), bank=_wBank[bk], chs=wChapters()
+  const kn=chs.reduce(function(a,c){return a+c.known},0)
+  const rd=chs.reduce(function(a,c){return a+c.read},0)
   try{if(!wGoalDone()&&wTodayCount()>=W_GOAL)wGoalCheck()}catch(e){}
   const _gn=wTodayCount(), _gd=wGoalDone()
   const gc=h('div',{className:'card w-goal'})
@@ -3672,13 +3674,44 @@ function rckWordMap(){
   const _gb=h('div',{className:'w-bar'})
   _gb.appendChild(h('i',{style:'width:'+Math.min(100,Math.round(_gn/W_GOAL*100))+'%'}))
   gc.appendChild(_gb)
-  gc.appendChild(h('div',{className:'t-faint mt6'},_gd?('✅ 今天 +'+W_GOAL_PTS+' 分已到账，明天再来。'):('点「📖 过一遍」认脸，或者直接开始做，都算；完成 +'+W_GOAL_PTS+' 分')))
-  const _grow=h('div',{className:'row-mid mt8'})
-  _grow.appendChild(h('button',{className:'btn btn-sm btn-outline',onClick:function(){wGameStart('mole')}},'🔨 打地鼠'))
-  _grow.appendChild(h('button',{className:'btn btn-sm btn-outline',onClick:function(){wGameStart('ear')}},'👂 听音选词'))
-  _grow.appendChild(h('span',{className:'t-faint'},'30 秒一局 · 和闯关共用熟练度'))
-  gc.appendChild(_grow)
+  gc.appendChild(h('div',{className:'t-faint mt6'},_gd?('✅ 今天 +'+W_GOAL_PTS+' 分已到账，明天再来。'):('完成 +'+W_GOAL_PTS+' 分；三种玩法都算')))
   $c.appendChild(gc)
+  const cards=[
+    {k:'map',icon:'🐸',n:'单词闯关',d:'一关一关过，答错不扣分，青蛙会跳上荷叶　·　已认 '+kn+' 词'},
+    {k:'mole',icon:'🔨',n:'单词打地鼠',d:'30 秒；看中文敲对应的单词，越熟越快'},
+    {k:'ear',icon:'👂',n:'听音选词',d:'听发音选单词；答完停下来慢慢看音标和词性'}
+  ]
+  const box=h('div',{className:'w-home'})
+  cards.forEach(function(c){
+    const card=h('div',{className:'w-hcard',onClick:function(){
+      if(c.k==='map'){_wHome=false;render()}
+      else wGameStart(c.k)
+    }})
+    card.appendChild(h('span',{className:'w-hcard-i'},c.icon))
+    const t=h('div',{className:'w-hcard-t'})
+    t.appendChild(h('div',{className:'w-hcard-n'},c.n))
+    t.appendChild(h('div',{className:'w-hcard-d'},c.d))
+    card.appendChild(t)
+    card.appendChild(h('span',{className:'w-hcard-go'},'›'))
+    box.appendChild(card)
+  })
+  $c.appendChild(box)
+  const head=h('div',{className:'card'})
+  head.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🐸'}),'词库'))
+  const row=h('div',{className:'row-mid'})
+  Object.keys(WORDBOOKS).forEach(function(k){
+    row.appendChild(h('button',{className:'btn btn-sm '+(k===bk?'btn-primary':'btn-outline'),onClick:function(){if(k===bk)return;D.wbookId=k;sv(D);render()}},WORDBOOKS[k].name))
+  })
+  head.appendChild(row)
+  head.appendChild(h('div',{className:'t-muted mt6'},'这本书共 '+((bank||[]).length)+' 词　·　过了一遍 '+rd+'　·　认过 '+kn))
+  $c.appendChild(head)
+}
+function rckWordMap(){
+  const bk=wBook(), bank=_wBank[bk]
+  const _back=h('div',{className:'w-top'})
+  _back.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_wHome=true;render()}},'← 返回'))
+  _back.appendChild(h('div',{className:'w-idx'},'共 '+wChapters().length+' 关'))
+  $c.appendChild(_back)
   const head=h('div',{className:'card'})
   head.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🐸'}),'单词闯关'))
   head.appendChild(h('div',{className:'t-muted mb8'},'点一关开始。答错不扣分，青蛙掉下去再跳一次就行。'))
@@ -3830,7 +3863,7 @@ const WORDBOOKS={
 const W_GAP=[0,1,2,4,7,15,30]        // 熟练度 0~6 对应的间隔天数
 const W_PER_ROUND=10                 // 一局 10 格
 const W_DAILY_ROUNDS=3               // 每天最多给分 3 局
-let _wBank={}, _wBad={}, _wLoadingId=0, _wg=null, _wRead=null
+let _wBank={}, _wBad={}, _wLoadingId=0, _wg=null, _wRead=null, _wHome=true
 
 function wBook(){try{return (D.wbookId&&WORDBOOKS[D.wbookId])?D.wbookId:'8'}catch(e){return '8'}}
 function wState(){if(!D.wd)D.wd={};return D.wd}
@@ -3952,7 +3985,7 @@ function wGameQuit(){
   if(_wg2T1){clearInterval(_wg2T1);_wg2T1=null}
   if(_wg2T2){clearInterval(_wg2T2);_wg2T2=null}
   try{if(typeof speechSynthesis!=='undefined')speechSynthesis.cancel()}catch(e){}
-  _wg2=null;render()
+  _wg2=null;_wHome=true;render()
 }
 function wGameSpawn(){
   const g=_wg2;if(!g||g.phase!=='play')return
@@ -4129,7 +4162,7 @@ function rckWordGame(){
     else done.appendChild(h('div',{className:'t-faint mt6'},'今天的单词分已经拿满（'+W_DAILY_ROUNDS+' 局），明天再来'))
     const bar=h('div',{className:'row-mid mt10'})
     bar.appendChild(h('button',{className:'btn btn-primary',onClick:function(){wGameStart(g.kind)}},'再来一局'))
-    bar.appendChild(h('button',{className:'btn btn-outline',onClick:wGameQuit},'回词表'))
+    bar.appendChild(h('button',{className:'btn btn-outline',onClick:wGameQuit},'回首页'))
     done.appendChild(bar)
     $c.appendChild(done)
   }
