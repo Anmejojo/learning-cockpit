@@ -993,6 +993,19 @@ function submitCheck(typeId,subject,imgsArr,append,localB64){
   _rec.noteSubmit=encTake()
   D.checks.unshift(_rec)
   D.points.push({date:_ds,source:'提交·'+_lbl,points:1,type:'earn'});try{ptBurst(1,'提交')}catch(e){}
+  /* 🌟 今日首胜 + 🍀 幸运双倍（可变的惊喜，克制：约 1/10） */
+  try{
+    if(!D.win)D.win={d:'',n:0}
+    if(D.win.d!==_ds){
+      D.win={d:_ds,n:1}
+      D.points.push({id:'win-'+_ds,date:_ds,source:'🌟 今日首胜',points:1,type:'earn'})
+      setTimeout(function(){try{ts('🌟 今日首胜 +1')}catch(e){};try{confetti(200)}catch(e){}},700)
+    }else D.win.n=(D.win.n||0)+1
+    if(Math.random()<0.1){
+      D.points.push({id:'lucky-'+_ds+'-'+Date.now(),date:_ds,source:'🍀 幸运双倍',points:2,type:'earn'})
+      setTimeout(function(){try{ts('🍀 幸运双倍 +2！')}catch(e){};try{confetti(220)}catch(e){}},1200)
+    }
+  }catch(e){}
   sv(D);render()
   ts('✅ 已收到 +1分 · '+_rec.noteSubmit)
   try{scanCheck(_rec.id,imgsArr||[],localB64)}catch(e){}
@@ -1046,6 +1059,79 @@ function weekStatsOf(ws){
 ﻿/* ================= AI 提问 / 惊喜提示 / 即时反馈 ================= */
 function askPool(){if(!D._enc)D._enc={today:null,queue:[],i:0};return D._enc}
 function weekKey(){const now=new Date();const day=now.getDay()||7;const ws=new Date(now);ws.setDate(now.getDate()-day+1);return ymd(ws)}
+
+/* ===== 🔥 连续链 / 每日首胜 / 周进度（赛季感）/ 身份标签 ===== */
+function ckHasDay(d){try{return (D.checks||[]).some(function(c){return c.date===d&&c.status==='approved'})}catch(e){return false}}
+function ckStreak(){
+  try{
+    let n=0; const dd=new Date()
+    if(!ckHasDay(ymd(dd)))dd.setDate(dd.getDate()-1)
+    for(let i=0;i<400;i++){const d=ymd(dd);if(ckHasDay(d)){n++;dd.setDate(dd.getDate()-1)}else break}
+    return n
+  }catch(e){return 0}
+}
+function ckChain(n){
+  const out=[]; const now=new Date()
+  for(let i=n-1;i>=0;i--){const d=new Date(now);d.setDate(now.getDate()-i);const t=ymd(d);out.push({d:t,on:ckHasDay(t),today:i===0})}
+  return out
+}
+function _weekSum(w,kind){
+  let n=0
+  try{
+    for(let i=0;i<7;i++){
+      const d=new Date(w.replace(/-/g,'/'));d.setDate(d.getDate()+i);const t=ymd(d)
+      if(kind==='days'){if(ckHasDay(t))n++}
+      else if(kind==='recs'){n+=(D.checks||[]).filter(function(c){return c.date===t}).length}
+      else if(kind==='words'){Object.keys(D.wd||{}).forEach(function(k){if(ymd(new Date(((D.wd[k]||{}).t)||0))===t)n++})}
+      else if(kind==='done'){(D.mistakes||[]).forEach(function(x){if(x.done&&x.doneAt&&ymd(new Date(x.doneAt))===t)n++})}
+    }
+  }catch(e){}
+  return n
+}
+function weekProgress(){
+  try{
+    const ws=weekKey()
+    const lws=(function(){const d=new Date(ws.replace(/-/g,'/'));d.setDate(d.getDate()-7);return ymd(d)})()
+    return {ws:ws,days:_weekSum(ws,'days'),daysLast:_weekSum(lws,'days'),recs:_weekSum(ws,'recs'),
+            words:_weekSum(ws,'words'),wordsLast:_weekSum(lws,'words'),done:_weekSum(ws,'done'),doneLast:_weekSum(lws,'done')}
+  }catch(e){return null}
+}
+function firstWinToday(){try{return !!(D.win&&D.win.d===td)}catch(e){return false}}
+function idLabel(){
+  try{
+    const st=ckStreak(), w=weekProgress()||{days:0}
+    if(st>=7)return '连着 '+st+' 天都没断的人'
+    if(st>=3)return '已经连着 '+st+' 天的人'
+    if(w.days>=3)return '这周交了 '+w.days+' 天的人'
+    if(st>=1)return '开始有连续性的人'
+    return '今天交一张就开局的人'
+  }catch(e){return ''}
+}
+function chainCard(){
+  const st=ckStreak(), w=weekProgress()
+  const c=h('div',{className:'card ck-chain'})
+  c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔥'}),'连续 '+st+' 天'+(firstWinToday()?'　·　🌟 今日首胜 ✓':'')))
+  c.appendChild(h('div',{className:'ck-id'},'🏷️ 你是「'+idLabel()+'」'))
+  const row=h('div',{className:'ck-days'})
+  ckChain(14).forEach(function(x){
+    row.appendChild(h('span',{className:'ck-day'+(x.on?' on':'')+(x.today?' today':''),title:x.d},x.on?'●':'○'))
+  })
+  c.appendChild(row)
+  if(w){
+    const bar=h('div',{className:'w-bar mt8'})
+    bar.appendChild(h('i',{style:'width:'+Math.min(100,Math.round(w.days/7*100))+'%'}))
+    c.appendChild(bar)
+    c.appendChild(h('div',{className:'t-muted mt6'},'本周（周一到今天）：交了 '+w.days+' 天　记录 '+w.recs+' 条　单词 '+w.words+' 个　弄懂 '+w.done+' 道'))
+    const cmp=[]
+    if(w.days!==w.daysLast)cmp.push('天数比上周'+(w.days>w.daysLast?'多 ':'少 ')+Math.abs(w.days-w.daysLast))
+    if(w.words!==w.wordsLast)cmp.push('单词比上周'+(w.words>w.wordsLast?'多 ':'少 ')+Math.abs(w.words-w.wordsLast))
+    if(w.done!==w.doneLast)cmp.push('弄懂比上周'+(w.done>w.doneLast?'多 ':'少 ')+Math.abs(w.done-w.doneLast))
+    c.appendChild(h('div',{className:'t-faint mt6'},cmp.length?('↔ 跟上周的自己比：'+cmp.join('，')):'↔ 这周刚开始，先跟昨天比'))
+    if(!ckHasDay(td))c.appendChild(h('div',{className:'ck-tip'},'今天还没交 → 交一张链子就不断（连续会变 '+(st+1)+' 天）'))
+    else c.appendChild(h('div',{className:'ck-tip ok'},'✅ 今天的链子已经接上了'))
+  }
+  return c
+}
 function askQuestions(){const p=askPool();return (p.asks&&p.asks.week===weekKey())?(p.asks.list||[]):[]}
 function asksPrompt(){
   const w=weekStatsOf(new Date(weekKey().replace(/-/g,'/')))
@@ -1639,6 +1725,10 @@ function chatSnapshot(){
     for(let i=0;i<400;i++){const d=ymd(dd);if(has(d)){stk++;dd.setDate(dd.getDate()-1)}else break}
   }catch(e){}
   const ds=dayStats(td),hs=habStats(td)
+  try{
+    const mem=(D._mem||[]).slice(-4)
+    if(mem.length)L.push('· 你以前记住的关于他的事（**可以自然地提一句**，别像念清单）：'+mem.map(function(m){return m.text}).join('；'))
+  }catch(e){}
   L.push('· 连续有记录：'+stk+' 天；今天已做 '+((ds.done+hs.done))+' 项（共 '+(ds.total+hs.total)+' 项）')
   // 成绩
   const exs=(D.exams||[]).filter(function(e){return e.status!=='rejected'})
@@ -3510,6 +3600,7 @@ function rtoday(){
   const _kids=Array.prototype.slice.call(_tmp.children||[]);
   const _pb=dailyBanner(); if(_pb)_pb.forEach(function(x){$c.appendChild(x)});
   _kids.slice(0,1).forEach(function(c){$c.appendChild(c)});
+  try{$c.appendChild(chainCard())}catch(e){}
   const btn=h('button',{className:'btn btn-outline btn-sm',style:'width:100%;margin-bottom:10px',onClick:function(){_todayMore=!_todayMore;render()}});
   btn.innerHTML=_todayMore?'▲ 收起（只看重点）':'▼ 展开更多（考试倒计时 / 成绩 / 寄语 / 留言）';
   $c.appendChild(btn);
