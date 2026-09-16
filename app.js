@@ -971,7 +971,7 @@ async function scanCheck(recId,urls,localB64){
   }catch(e){}
 }
 
-function submitCheck(typeId,subject,imgsArr,append,localB64){
+function submitCheck(typeId,subject,imgsArr,append,localB64,quick){
   const type=CHECK_TYPES.find(function(t){return t.id===typeId})
   if(!type)return
   if(!D.checks)D.checks=[]
@@ -1008,6 +1008,39 @@ function submitCheck(typeId,subject,imgsArr,append,localB64){
   }catch(e){}
   sv(D);render()
   ts('✅ 已收到 +1分 · '+_rec.noteSubmit)
+  /* 📷 随手拍：让 AI 认出科目 + 类型，回填到这条记录 */
+  if(quick&&imgsArr&&imgsArr[0]){
+    try{
+      aiCallRetry(quickPrompt(),String(imgsArr[0]),'',2).then(function(r){
+        if(!r||!r.ok||!r.text)return
+        let j=null
+        try{const m=String(r.text).replace(/```json/g,'').replace(/```/g,'').match(/[{][\s\S]*[}]/);j=JSON.parse(m?m[0]:r.text)}catch(e){}
+        if(!j)return
+        const rec=(D.checks||[]).filter(function(c){return c.id===_rec.id})[0]
+        if(!rec)return
+        const sub=(j.subject&&MK_SUBJECTS.indexOf(String(j.subject))>=0)?String(j.subject):''
+        const kind=String(j.kind||'')
+        const t2=CHECK_TYPES.filter(function(t){return t.name===kind})[0]
+        if(sub)rec.subject=sub
+        if(t2){rec.type=t2.id;rec.typeName=t2.name;rec.pts=t2.pts}
+        sv(D);render()
+        ts('🤖 认出来了：'+(sub||'没认出科目')+(t2?(' · '+t2.name):''))
+      })
+    }catch(e){}
+  }
+  /* 🎓 让他"当老师"：今天哪道题最得意（每天问一次） */
+  try{
+    if(!D.askProud||D.askProud.d!==_ds){
+      D.askProud={d:_ds}
+      setTimeout(function(){
+        try{
+          D.proudWait=1
+          chatPushAI(nickName()+'，今天哪道题你最得意？跟我说说，我记下来。')
+          sv(D)
+        }catch(e){}
+      },2000)
+    }
+  }catch(e){}
   try{scanCheck(_rec.id,imgsArr||[],localB64)}catch(e){}
 }
 function approveCheck(id){
@@ -1237,6 +1270,63 @@ function notifyAsk(){
   }catch(e){ts('这个浏览器不支持系统通知')}
 }
 function sysNotify(title,body){try{if(notifyPerm())new Notification(title,{body:body,icon:'icon-192.png'})}catch(e){}}
+/* ===== 💬 让它像"人"：首页小搭卡 / 一键回话 / 每日小礼物 ===== */
+const QUICK_SAY_SUB=['语文','数学','英语','都差不多']
+const QUICK_SAY_GK=['今天作业有点多','数学那几道不会','今天不太想学']
+const GIFTS=[
+ '☕ 问你个没用的：为什么数学里 0 最厉害？（提示：它什么都不加，却能让你进位）',
+ '🧩 消遣一下：一个三角形，两个内角是 55° 和 65°，第三个是多少？（不用写，心里算）',
+ '🎮 你知道吗：游戏里的"手感"其实就是"延迟低"——学习也一样，作业交得越快，忘得越少。',
+ '🔧 装机的冷知识：CPU 的性能不只靠频率，还靠"缓存命中率"——跟背单词一个道理。',
+ '😄 冷笑话：为什么数学书总是很忧郁？因为它有太多"问题"了。',
+ '🎯 今天的小目标不用大：交一张，就算你赢了。'
+]
+function dailyGift(){
+  try{
+    const seed=(function(){let h=7;const t=td;for(let i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))>>>0;return h})()
+    const mem=(D._mem||[]).slice(-1)[0]
+    if(mem&&mem.text&&(seed%3===1))return '🧠 我还记着：'+String(mem.text).slice(0,30)+'——要不要今天试试看？'
+    return GIFTS[seed%GIFTS.length]
+  }catch(e){return GIFTS[0]}
+}
+function dailyAsk(){
+  try{
+    const mem=(D._mem||[]).slice(-1)[0]
+    if(mem&&mem.text)return '上次你说「'+String(mem.text).slice(0,24)+'」——今天想从哪一件开始？'
+  }catch(e){}
+  return '今天最想先干掉哪一科？（点一下就行，不用打字）'
+}
+function chatQuickSend(t){
+  const v=String(t||'').trim()
+  if(!v)return
+  _draft=v
+  try{if(typeof tb!=='undefined'&&tb!=='chat')sw('chat')}catch(e){}
+  setTimeout(function(){
+    try{
+      const inp=document.getElementById('chatInput')
+      if(inp){inp.value=v;try{inp.dispatchEvent(new Event('input'))}catch(e){}}
+      chatSend()
+    }catch(e){}
+  },300)
+}
+function chatMiniCard(){
+  const c=h('div',{className:'card mini-chat'})
+  const top=h('div',{className:'mini-top'})
+  top.appendChild(h('span',{className:'mini-av'},'🐸'))
+  top.appendChild(h('span',{className:'mini-name'},'小搭'))
+  top.appendChild(h('span',{className:'mini-go'},'去聊天 ›'))
+  top.onclick=function(){try{sw('chat')}catch(e){}}
+  c.appendChild(top)
+  c.appendChild(h('div',{className:'mini-say'},nickName()+'，'+dailyAsk()))
+  const r1=h('div',{className:'mini-btns'})
+  QUICK_SAY_SUB.forEach(function(t){r1.appendChild(h('button',{className:'mini-btn',onClick:function(){chatQuickSend(t)}},t))})
+  c.appendChild(r1)
+  const r2=h('div',{className:'mini-btns'})
+  QUICK_SAY_GK.forEach(function(t){r2.appendChild(h('button',{className:'mini-btn gk',onClick:function(){chatQuickSend(t)}},t))})
+  c.appendChild(r2)
+  c.appendChild(h('div',{className:'mini-gift'},dailyGift()))
+  return c
+}
 function dailyBanner(){
   const out=[]
   try{
@@ -2630,6 +2720,18 @@ function chatSend(imgB64){
       }
     }
   }catch(e){}
+  if(D.proudWait){
+    D.proudWait=0
+    try{
+      const _t=String(v||'').replace(/[\r\n]+/g,' ').trim()
+      if(_t&&_t.length<=60){
+        const _mm=chatMem()
+        _mm.push({id:Date.now()+Math.random(),text:'他自己说最得意的是：'+_t,tags:['得意','他自己说的'],at:Date.now(),by:'k'})
+        if(_mm.length>40)D._mem=_mm.slice(-40)
+        setTimeout(function(){try{chatPushAI('记住了 ✓ 我把这条收进「小搭记得的事」了。')}catch(e){};sv(D);if(typeof tb!=='undefined'&&tb==='chat')render()},900)
+      }
+    }catch(e){}
+  }
   chatTrim()
   sv(D);render()
   const box=document.getElementById('chatOut')
@@ -2773,6 +2875,10 @@ function chatUI(){
   }else if(list.length&&list[0].date!==td){
     scroll.appendChild(h('div',{className:'chat-time'},'⬆️ 以前的聊天'))
   }
+  try{
+    const mem=(D._mem||[]).slice(-3)
+    if(mem.length)full.appendChild(h('div',{className:'mem-strip',onClick:function(){_memOpen=!_memOpen;render()}},'🧠 小搭记得：'+mem.map(function(m){return m.text}).join('；')))
+  }catch(e){}
   if(!list.length){
     scroll.appendChild(h('div',{className:'chat-empty'},'不会的题、不想学的时候，\n都可以跟他说一句'+(srSupported()?'\n\uff08不想打字就点 🎤 说话，说完点发送）':'')))
   }
@@ -3277,6 +3383,27 @@ function pickAndSubmit(type,subject,append){
   }
   inp.click()
 }
+function quickPrompt(){
+  return ['这是初中学生刚交上来的作业 / 笔记照片。只输出一行 JSON，不要解释：',
+    '{"subject":"'+MK_SUBJECTS.join('|')+'","kind":"作业拍照|课堂笔记|额外学习|其他"}',
+    '· subject 认不出就填 其他；kind 只能从那四个里选。'].join('\n')
+}
+function quickShot(){
+  const inp=document.createElement('input')
+  inp.type='file';inp.accept='image/*';inp.multiple=true
+  inp.onchange=function(e){
+    const files=Array.from(e.target.files||[]).slice(0,9)
+    if(!files.length)return
+    ts('⏳ 正在处理…')
+    compressAll(files,function(bs){
+      if(!bs.length){ts('照片处理失败，重拍一张');return}
+      bs.forEach(function(d,i){pendAdd({id:'q'+Date.now()+i+Math.random().toString(36).slice(2,5),kind:'check',typeId:'assignment',subject:'',append:false,quick:true,imgs:[{d:d,u:''}],ts:Date.now()})})
+      ts('⏳ 正在传（传完我自动认科目和类型）')
+      render();pendRun()
+    })
+  }
+  inp.click()
+}
 function startCheck(type,subject){
   pickAndSubmit(type,subject||'')
 }
@@ -3599,6 +3726,7 @@ function rtoday(){
   try{ _rtodayBody() } finally { $c=_host }
   const _kids=Array.prototype.slice.call(_tmp.children||[]);
   const _pb=dailyBanner(); if(_pb)_pb.forEach(function(x){$c.appendChild(x)});
+  try{$c.appendChild(chatMiniCard())}catch(e){}
   _kids.slice(0,1).forEach(function(c){$c.appendChild(c)});
   try{$c.appendChild(chainCard())}catch(e){}
   const btn=h('button',{className:'btn btn-outline btn-sm',style:'width:100%;margin-bottom:10px',onClick:function(){_todayMore=!_todayMore;render()}});
@@ -4807,6 +4935,7 @@ function rckList(){
   const ckd=ckDate()
   const cq=h('div',{className:'card'})
   cq.appendChild(h('div',{className:'card-header'},icoEl('camera',18),'记录今天（拍张照给家长看，通过后加分）'))
+  cq.appendChild(h('button',{className:'btn btn-primary quick-shot',onClick:quickShot},'📷 随手拍（拍完自动认科目，一步搞定）'))
   const _mkTip=h('div',{style:'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:2px 0 4px'})
   _mkTip.appendChild(h('span',{style:'font-size:var(--fs-12);color:var(--faint);line-height:1.6;flex:1'},'错题在「📕 错题本」页签，点右边按钮去拍 →'))
   _mkTip.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){sw('mistake')}},'📕 去错题本拍'))
