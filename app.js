@@ -3905,6 +3905,28 @@ function wPickAny(n){                      /* 从整本书按“该练”的顺�
   left-=take(due,left);left-=take(readed,left);left-=take(fresh,left);left-=take(other,left)
   return out
 }
+function wGameGap(){                      /* 出没间隔：词越熟越快；连击越快；敲错回慢一点（不挫败） */
+  const g=_wg2
+  if(!g)return 3200
+  let gap=3200
+  try{
+    const ls=(g.pool||[]).map(function(x){const r=wRec(x[0]);return (r&&r.l)||0})
+    const avg=ls.length?(ls.reduce(function(a,b){return a+b},0)/ls.length):0
+    if(avg>=2)gap=2100
+    else if(avg>=1)gap=2500
+    else if(avg>=0.5)gap=2900
+  }catch(e){}
+  gap-=Math.min(1000,(g.combo||0)*220)
+  gap+=Math.min(900,(g.wrong||0)*260)
+  return Math.max(1500,Math.min(3600,gap))
+}
+function wGameLoopNext(){
+  const g=_wg2
+  if(!g||g.phase!=='play')return
+  wGameSpawn()
+  if(_wg2T2)clearTimeout(_wg2T2)
+  _wg2T2=setTimeout(wGameLoopNext,wGameGap())
+}
 function wGameStart(kind){
   const pool=wPickAny(12)
   if(pool.length<4){ts('词库太小，先换个词库吧');return}
@@ -3919,13 +3941,8 @@ function wGameStart(kind){
     if(g.left<=0)wGameEnd()
   },1000)
   if(kind==='mole'){
-    wGameSpawn()
-    if(_wg2T2)clearInterval(_wg2T2)
-    _wg2T2=setInterval(function(){
-      const g=_wg2
-      if(!g||g.phase!=='play'){clearInterval(_wg2T2);_wg2T2=null;return}
-      wGameSpawn()
-    },2400)   /* 2.4 秒换一批：留够他读中文 + 找词的时间 */
+    if(_wg2T2)clearTimeout(_wg2T2)
+    wGameLoopNext()          /* 动态节奏：慢起步 → 越熟越快（见 wGameGap） */
   }else{
     wGameEarNext()
   }
@@ -3992,7 +4009,8 @@ function wGameTap(m){
     wMark(m.w[0],true)
     g.locked=true
     wGameDrawMoles()
-    setTimeout(function(){if(_wg2&&_wg2.phase==='play')wGameSpawn()},320)
+    if(_wg2T2)clearTimeout(_wg2T2)
+    _wg2T2=setTimeout(wGameLoopNext,320)   /* 打中后按当前节奏接着出 */
   }else{
     g.combo=0;g.wrong++
     sfx('bad')
@@ -4029,7 +4047,7 @@ function wGameEnd(){
   g.phase='done'
   const sc=g.score
   let pts=0
-  if(sc>=8)pts=3;else if(sc>=5)pts=2;else if(sc>=3)pts=1
+  if(sc>=6)pts=3;else if(sc>=4)pts=2;else if(sc>=2)pts=1
   let got=0
   try{
     const wd=D.wday||{d:'',n:0}
@@ -4053,6 +4071,10 @@ function rckWordGame(){
     const bar=h('div',{className:'wg-bar'})
     bar.appendChild(h('span',{className:'wg-time',id:'wgameTime'},g.left+'s'))
     bar.appendChild(h('span',{className:'wg-score'},'打中 '+g.score+(g.combo>1?('  🔥连击 '+g.combo):'')))
+    if(g.kind==='mole'){
+      const _gap=wGameGap()
+      bar.appendChild(h('span',{className:'wg-speed'},(_gap<=2100?'🐇 ':(_gap<=2600?'🐰 ':'🐢 '))+(Math.round(_gap/100)/10)+'s'))
+    }
     const q=h('button',{className:'btn btn-outline btn-sm',onClick:wGameQuit},'退出')
     bar.appendChild(q)
     $c.appendChild(bar)
@@ -4084,7 +4106,7 @@ function rckWordGame(){
   }
   if(g.phase==='done'){
     const done=h('div',{className:'wg-done'})
-    done.appendChild(h('div',{className:'wg-done-t'},'🎉 '+(g.score>=8?'厉害！':(g.score>=5?'不错！':'再来一局'))))
+    done.appendChild(h('div',{className:'wg-done-t'},'🎉 '+(g.score>=6?'厉害！':(g.score>=4?'不错！':'再来一局'))))
     done.appendChild(h('div',{className:'wg-done-s'},'打中 '+g.score+' 个 · 最高连击 '+g.maxCombo+' · 错 '+g.wrong))
     if(g.pts)done.appendChild(h('div',{className:'t-muted mt6'},'✅ +'+g.pts+' 分已到账'))
     else done.appendChild(h('div',{className:'t-faint mt6'},'今天的单词分已经拿满（'+W_DAILY_ROUNDS+' 局），明天再来'))
