@@ -714,3 +714,15 @@ html[data-polish="1"] *{transition-timing-function:var(--ease)}
 .wg-fb-t{font-size:var(--fs-16,16px);font-weight:700;margin-bottom:6px}
 .wg-fb-w{font-size:var(--fs-20,20px);margin-bottom:12px;line-height:1.5}
 .wg-fb .wg-next{min-width:150px}
+
+/* ===== 单词首页：三张卡片 ===== */
+.w-home{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+.w-hcard{display:flex;align-items:center;gap:14px;padding:16px;border:1px solid var(--border);
+  border-radius:var(--radius);background:var(--card);cursor:pointer;
+  transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease),background var(--dur) var(--ease)}
+.w-hcard:hover{border-color:var(--primary-border);background:var(--primary-weak);transform:translateY(-1px)}
+.w-hcard-i{font-size:30px;line-height:1;flex:0 0 auto}
+.w-hcard-t{flex:1;min-width:0}
+.w-hcard-n{font-size:var(--fs-17,17px);font-weight:700;color:var(--text);margin-bottom:3px}
+.w-hcard-d{font-size:var(--fs-12);color:var(--muted);line-height:1.5}
+.w-hcard-go{font-size:var(--fs-20,20px);color:var(--faint);flex:0 0 auto}
