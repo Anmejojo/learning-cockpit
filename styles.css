@@ -704,3 +704,5 @@ html[data-polish="1"] *{transition-timing-function:var(--ease)}
 .wg-opt.right{border-color:rgba(34,197,94,.7);background:rgba(34,197,94,.14)}
 .wg-opt.bad{border-color:rgba(248,113,113,.7);background:rgba(248,113,113,.14)}
 .wg-fb{margin-top:10px;text-align:center;font-size:var(--fs-14);color:var(--muted);font-family:inherit}
+
+.wg-speed{font-size:var(--fs-13);color:var(--muted);font-family:var(--font-mono,ui-monospace,monospace);flex:0 0 auto}
