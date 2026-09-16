@@ -1469,40 +1469,7 @@ function notifyAsk(){
   }catch(e){ts('这个浏览器不支持系统通知')}
 }
 function sysNotify(title,body){try{if(notifyPerm())new Notification(title,{body:body,icon:'icon-192.png'})}catch(e){}}
-/* ===== 💬 让它像"人"：首页小搭卡 / 一键回话 / 每日小礼物 ===== */
-const QUICK_SAY_SUB=['语文','数学','英语','都差不多']
-const QUICK_SAY_GK=['今天作业有点多','数学那几道不会','今天不太想学']
-const GIFTS=[
- '☕ 问你个没用的：为什么数学里 0 最厉害？（提示：它什么都不加，却能让你进位）',
- '🧩 消遣一下：一个三角形，两个内角是 55° 和 65°，第三个是多少？（不用写，心里算）',
- '🎮 你知道吗：游戏里的"手感"其实就是"延迟低"——学习也一样，作业交得越快，忘得越少。',
- '🔧 装机的冷知识：CPU 的性能不只靠频率，还靠"缓存命中率"——跟背单词一个道理。',
- '😄 冷笑话：为什么数学书总是很忧郁？因为它有太多"问题"了。',
- '🎯 今天的小目标不用大：交一张，就算你赢了。'
-]
-function dailyGift(){
-  try{
-    const seed=(function(){let h=7;const t=td;for(let i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))>>>0;return h})()
-    const mem=(D._mem||[]).slice(-1)[0]
-    if(mem&&mem.text&&(seed%3===1))return '🧠 我还记着：'+String(mem.text).slice(0,30)+'——要不要今天试试看？'
-    return GIFTS[seed%GIFTS.length]
-  }catch(e){return GIFTS[0]}
-}
-function memAskLine(m){
-  const t=String((m&&m.text)||'').slice(0,26)
-  if(!t)return ''
-  if(m.by==='k')return '你让我记住的：'+t
-  if(t.indexOf('他自己说')===0)return '你上次说'+t.slice(4)
-  return '我记得你'+t
-}
-function dailyAsk(){
-  try{
-    const mem=(D._mem||[]).slice(-1)[0]
-    const s=memAskLine(mem)
-    if(s)return s+'——今天想从哪一件开始？'
-  }catch(e){}
-  return '今天最想先干掉哪一科？（点一下就行，不用打字）'
-}
+/* 一键回话：打卡页/约定卡的快捷按钮用（聊天页仍可自己打字） */
 function chatQuickSend(t){
   const v=String(t||'').trim()
   if(!v)return
@@ -1515,24 +1482,6 @@ function chatQuickSend(t){
       chatSend()
     }catch(e){}
   },300)
-}
-function chatMiniCard(){
-  const c=h('div',{className:'card mini-chat'})
-  const top=h('div',{className:'mini-top'})
-  top.appendChild(h('span',{className:'mini-av'},'🐸'))
-  top.appendChild(h('span',{className:'mini-name'},'小搭'))
-  top.appendChild(h('span',{className:'mini-go'},'去聊天 ›'))
-  top.onclick=function(){try{sw('chat')}catch(e){}}
-  c.appendChild(top)
-  c.appendChild(h('div',{className:'mini-say'},nickName()+'，'+dailyAsk()))
-  const r1=h('div',{className:'mini-btns'})
-  QUICK_SAY_SUB.forEach(function(t){r1.appendChild(h('button',{className:'mini-btn',onClick:function(){chatQuickSend(t)}},t))})
-  c.appendChild(r1)
-  const r2=h('div',{className:'mini-btns'})
-  QUICK_SAY_GK.forEach(function(t){r2.appendChild(h('button',{className:'mini-btn gk',onClick:function(){chatQuickSend(t)}},t))})
-  c.appendChild(r2)
-  c.appendChild(h('div',{className:'mini-gift'},dailyGift()))
-  return c
 }
 function dailyBanner(){
   const out=[]
@@ -2024,7 +1973,7 @@ function chatSnapshot(){
   const ds=dayStats(td),hs=habStats(td)
   try{
     const mem=(D._mem||[]).slice(-4)
-    if(mem.length)L.push('· 你以前记住的关于他的事（**可以自然地提一句**，别像念清单）：'+mem.map(function(m){return m.text}).join('；'))
+    if(mem.length)L.push('· 你以前记住的关于他的事（**可以自然地提一句**，别像念清单；**别说\u201c你说过/你说\u201d——这里面有些是你看他作业判断出来的，不是他的原话**）：'+mem.map(function(m){return m.text}).join('；'))
   }catch(e){}
   L.push('· 连续有记录：'+stk+' 天；今天已做 '+((ds.done+hs.done))+' 项（共 '+(ds.total+hs.total)+' 项）')
   // 成绩
@@ -3969,7 +3918,6 @@ function rtoday(){
   try{ _rtodayBody() } finally { $c=_host }
   const _kids=Array.prototype.slice.call(_tmp.children||[]);
   const _pb=dailyBanner(); if(_pb)_pb.forEach(function(x){$c.appendChild(x)});
-  try{$c.appendChild(chatMiniCard())}catch(e){}
   _kids.slice(0,1).forEach(function(c){$c.appendChild(c)});
   try{$c.appendChild(chainCard())}catch(e){}
   try{const _pc=pactCard();if(_pc)$c.appendChild(_pc)}catch(e){}
