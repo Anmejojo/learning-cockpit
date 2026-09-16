@@ -726,3 +726,13 @@ html[data-polish="1"] *{transition-timing-function:var(--ease)}
 .w-hcard-n{font-size:var(--fs-17,17px);font-weight:700;color:var(--text);margin-bottom:3px}
 .w-hcard-d{font-size:var(--fs-12);color:var(--muted);line-height:1.5}
 .w-hcard-go{font-size:var(--fs-20,20px);color:var(--faint);flex:0 0 auto}
+
+/* ===== 🔥 连续链卡片 ===== */
+.ck-chain .ck-id{font-size:var(--fs-14);color:var(--text);margin:2px 0 8px}
+.ck-days{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:2px}
+.ck-day{width:20px;height:20px;line-height:20px;text-align:center;border-radius:6px;font-size:11px;
+  border:1px solid var(--border);color:var(--faint);background:var(--bg-elev)}
+.ck-day.on{background:rgba(251,191,36,.18);border-color:rgba(251,191,36,.55);color:#fbbf24}
+.ck-day.today{border-color:var(--primary-border);box-shadow:0 0 0 2px var(--primary-weak)}
+.ck-tip{margin-top:8px;font-size:var(--fs-13);color:var(--warning)}
+.ck-tip.ok{color:#22c55e}
