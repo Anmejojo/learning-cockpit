@@ -3936,6 +3936,7 @@ function wGameStart(kind){
   _wg2T1=setInterval(function(){
     const g=_wg2
     if(!g||g.phase!=='play'){clearInterval(_wg2T1);_wg2T1=null;return}
+    if(g.waiting){const el2=document.getElementById('wgameTime');if(el2)el2.innerText='⏸';return}   /* 等你看完反馈 */
     g.left--
     const el=document.getElementById('wgameTime');if(el)el.innerText=g.left+'s'
     if(g.left<=0)wGameEnd()
@@ -4036,8 +4037,14 @@ function wGameEarTap(i){
   g.lastPick=i;g.lastOk=!!o.ok
   if(o.ok){g.score++;g.right++;g.combo++;if(g.combo>g.maxCombo)g.maxCombo=g.combo;sfx('ok');wMark(o.w[0],true)}
   else{g.wrong++;g.combo=0;sfx('bad');wMark((g.cur||[])[0],false);try{ts('答案是 '+(g.cur||[])[0])}catch(e){}}
+  g.waiting=true            /* 停住：打钩 + 音标 + 词性 一直显示，等他点"下一个" */
   render()
-  setTimeout(function(){if(!_wg2||_wg2.phase!=='play')return;_wg2.answered=false;wGameEarNext()},900)
+}
+function wGameEarDone(){
+  const g=_wg2
+  if(!g||g.phase!=='play')return
+  g.waiting=false;g.answered=false;g.locked=false;g.lastPick=null;g.lastOk=null
+  wGameEarNext()
 }
 function wGameEnd(){
   const g=_wg2;if(!g)return
@@ -4101,7 +4108,17 @@ function rckWordGame(){
     $c.appendChild(box)
     if(g.locked&&g.cur){
       const it=g.cur
-      $c.appendChild(h('div',{className:'wg-fb'},(g.lastOk?'✅ 对了':'❌ 正确答案：')+' '+it[0]+(it[2]?('  /'+it[2]+'/'):'')+(it[3]?('  '+it[3]):'')+(it[1]?('  '+it[1]):'')))
+      const fb=h('div',{className:'wg-fb'+(g.lastOk?' ok':' no')})
+      fb.appendChild(h('div',{className:'wg-fb-t'},g.lastOk?'✅ 对了':'❌ 正确答案'))
+      const line=h('div',{className:'wg-fb-w'})
+      line.appendChild(h('b',null,it[0]))
+      if(it[2])line.appendChild(h('span',{className:'w-ph2'},'  /'+it[2]+'/'))
+      if(it[3])line.appendChild(h('span',{className:'w-ph2'},'  '+it[3]))
+      if(it[1])line.appendChild(h('span',{className:'w-ph2'},'  '+it[1]))
+      fb.appendChild(line)
+      fb.appendChild(h('button',{className:'btn btn-primary wg-next',onClick:wGameEarDone},'下一个 →'))
+      fb.appendChild(h('div',{className:'t-faint'},'看完点「下一个」（计时已暂停）'))
+      $c.appendChild(fb)
     }
   }
   if(g.phase==='done'){
