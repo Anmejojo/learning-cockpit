@@ -989,6 +989,7 @@ function submitCheck(typeId,subject,imgsArr,append,localB64){
   }
   const _rec={id:Date.now(),date:_ds,type:typeId,typeName:type.name,subject:_sub,imgs:imgsArr||[],pts:type.pts,status:'pending',ts:Date.now()}
   actLog('提交记录',_ds+' '+_lbl)
+  try{confetti(120)}catch(e){}
   _rec.noteSubmit=encTake()
   D.checks.unshift(_rec)
   D.points.push({date:_ds,source:'提交·'+_lbl,points:1,type:'earn'});try{ptBurst(1,'提交')}catch(e){}
@@ -1003,6 +1004,7 @@ function approveCheck(id){
   c.at=Date.now()
   c.note=encTake()
   actLog('通过记录',(c.date||'')+' '+((c.subject?c.subject+'·':'')+c.typeName))
+  try{confetti(140)}catch(e){}
   D.points.push({date:(c.date||td),source:(c.subject?c.subject+'·':'')+c.typeName,points:c.pts,type:'earn'});try{ptBurst(c.pts,c.typeName)}catch(e){}
   sv(D);render()
   ts('✅ 已通过 +'+c.pts+'分')
@@ -1231,7 +1233,7 @@ function mkCommit(urls){
     mkList().unshift(it)
     ts(j?('✅ 已归到「'+(it.subject||'待归类')+'」'+((it.kp||it.qtype)?('·'+(it.kp||'')+(it.qtype?(' '+it.qtype):'')):'')):'⚠️ 没认出来，先存着（家长可手动改科目）')
     actLog('上传错题',(it.subject||'待归类')+(it.kp?('·'+it.kp):''))
-    D.points.push({date:td,source:'错题本拍照',points:2,type:'earn'});try{ptBurst(2,'错题本')}catch(e){}
+    D.points.push({date:td,source:'错题本拍照',points:2,type:'earn'});try{ptBurst(2,'错题本')}catch(e){};try{confetti(110)}catch(e){}
     sv(D);render()
   })
 }
@@ -3083,7 +3085,7 @@ function hwApply(urls){
     if(add.length)_tw.imgs=cur.concat(add).slice(0,9)
   }else{
     _l.unshift({id:Date.now(),date:td,imgs:urls.slice(0,9),ts:Date.now()})
-    D.points.push({date:td,source:'硬笔字打卡',points:1,type:'earn'});try{ptBurst(1,'硬笔字')}catch(e){}
+    D.points.push({date:td,source:'硬笔字打卡',points:1,type:'earn'});try{ptBurst(1,'硬笔字')}catch(e){};try{confetti(120)}catch(e){}
     actLog('上传硬笔字',urls.length+' 张')
   }
   sv(D)
@@ -3906,8 +3908,57 @@ function wGoalCheck(){
     D.points.push({id:'wgoal-'+td,date:td,source:'单词小目标',points:W_GOAL_PTS,type:'earn'})   /* 带 id：多台设备都发过奖也只算一条 */
     sv(D)
     try{ptBurst(W_GOAL_PTS,'单词小目标')}catch(e){}
+    try{confetti(150)}catch(e){}
     ts('🎯 今天的目标完成！+'+W_GOAL_PTS+' 分')
     if(typeof tb!=='undefined'&&tb==='word')render()
+  }catch(e){}
+}
+/* ===== 🎉 庆祝：礼花 + 星星（纯 canvas，零文件，不挡操作）===== */
+function confetti(n){
+  try{
+    const cv=document.createElement('canvas')
+    cv.style.cssText='position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:9999'
+    document.body.appendChild(cv)
+    const ctx=cv.getContext('2d')
+    const W=cv.width=(window.innerWidth||360), H=cv.height=(window.innerHeight||640)
+    const COL=['#fbbf24','#f472b6','#60a5fa','#34d399','#a78bfa','#fb7185','#fde047']
+    const ps=[]
+    const N=Math.max(40,Math.min(240,n||130))
+    for(let i=0;i<N;i++){
+      ps.push({x:W*0.5+(Math.random()-0.5)*W*0.6, y:H*0.40,
+        vx:(Math.random()-0.5)*12, vy:-Math.random()*14-4,
+        g:0.30+Math.random()*0.22, s:5+Math.random()*7,
+        r:Math.random()*6.28, vr:(Math.random()-0.5)*0.38,
+        c:COL[(Math.random()*COL.length)|0], star:Math.random()<0.4})
+    }
+    let frames=0
+    const tick=function(){
+      frames++
+      ctx.clearRect(0,0,W,H)
+      let alive=0
+      for(let i=0;i<ps.length;i++){
+        const p=ps[i]
+        p.vy+=p.g; p.x+=p.vx; p.y+=p.vy; p.vx*=0.995; p.r+=p.vr
+        if(p.y<H+50){
+          alive++
+          ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.r)
+          ctx.fillStyle=p.c; ctx.globalAlpha=Math.max(0,1-frames/115)
+          if(p.star){
+            ctx.beginPath()
+            for(let k=0;k<5;k++){
+              const a=-Math.PI/2+k*2*Math.PI/5, a2=a+Math.PI/5
+              ctx.lineTo(Math.cos(a)*p.s,Math.sin(a)*p.s)
+              ctx.lineTo(Math.cos(a2)*p.s*0.45,Math.sin(a2)*p.s*0.45)
+            }
+            ctx.closePath(); ctx.fill()
+          }else ctx.fillRect(-p.s/2,-p.s/2,p.s,p.s*0.62)
+          ctx.restore()
+        }
+      }
+      if(alive>0&&frames<135)requestAnimationFrame(tick)
+      else try{cv.remove()}catch(e){}
+    }
+    requestAnimationFrame(tick)
   }catch(e){}
 }
 /* ===== 🔨 单词打地鼠 / 👂 听音选词（和闯关共用词库·音标·词性·间隔复习）===== */
@@ -4097,7 +4148,7 @@ function wGameEnd(){
   }catch(e){}
   g.pts=got
   sv(D)
-  if(got){try{ptBurst(got,'单词游戏')}catch(e){}}
+  if(got){try{ptBurst(got,'单词游戏')}catch(e){};try{confetti(sc>=6?160:110)}catch(e){}}
   try{sfx('win')}catch(e){}
   render()
 }
