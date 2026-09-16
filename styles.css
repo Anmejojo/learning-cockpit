@@ -737,19 +737,6 @@ html[data-polish="1"] *{transition-timing-function:var(--ease)}
 .ck-tip{margin-top:8px;font-size:var(--fs-13);color:var(--warning)}
 .ck-tip.ok{color:#22c55e}
 
-/* ===== 💬 首页小搭卡（一键回话 + 每日小礼物）===== */
-.mini-chat{border-color:rgba(129,140,248,.35)}
-.mini-top{display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer}
-.mini-av{font-size:22px;line-height:1}
-.mini-name{font-weight:700;color:var(--text);flex:1}
-.mini-go{font-size:var(--fs-12);color:var(--primary-hover)}
-.mini-say{font-size:var(--fs-15);color:var(--text);line-height:1.6;margin-bottom:10px}
-.mini-btns{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:7px}
-.mini-btn{padding:6px 11px;border-radius:999px;border:1px solid var(--primary-border);background:var(--primary-weak);
-  color:var(--primary-hover);font-size:var(--fs-13);cursor:pointer;font-family:inherit;transition:transform .12s var(--ease)}
-.mini-btn:hover{transform:translateY(-1px)}
-.mini-btn.gk{border-color:var(--border-strong);background:var(--bg-elev);color:var(--muted)}
-.mini-gift{margin-top:6px;padding-top:8px;border-top:1px dashed var(--border);font-size:var(--fs-13);color:var(--muted);line-height:1.6}
 .quick-shot{width:100%;margin:2px 0 10px}
 .mem-strip{margin:0 0 8px;padding:7px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg-elev);
   font-size:var(--fs-12);color:var(--muted);cursor:pointer;line-height:1.5}
