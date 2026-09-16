@@ -381,6 +381,8 @@ function demoData(){
     {id:205,date:y2,ts:Date.now()-176000000,by:'c',subject:'语文',qtype:'文言文阅读',kp:'文言实词',stem:'解释下面句中「之」的用法与意思',why:'根本不会',imgs:[],pass:[]}
   ]
   d._mem=[{id:1,text:'数学函数容易卡，看到图就发懵',tags:['函数'],at:Date.now()},{id:2,text:'不喜欢被问成绩',tags:['成绩'],at:Date.now()}]
+  d.pact={week:(function(){const n=new Date();const dd=n.getDay()||7;const ws=new Date(n);ws.setDate(n.getDate()-dd+1);return ws.getFullYear()+'-'+('0'+(ws.getMonth()+1)).slice(-2)+'-'+('0'+ws.getDate()).slice(-2)})(),text:'这周交 5 天',days:5,at:Date.now()-86400000}
+  d._pactAsk={week:d.pact.week,n:9,date:today}
   d._log=[{ts:Date.now()-3600000,by:'c',act:'提交记录',target:today+' 数学·作业拍照'},{ts:Date.now()-3300000,by:'p',act:'通过记录',target:today+' 数学·作业拍照'}]
   d._notes=[{ts:Date.now()-1700000,kind:'scan',text:'刚看到你交的数学那张（第 1 张）：第7题（解方程 3x-5=7）、第12题(2)（求三角形面积）还空着。是没做完，还是没拍到？'}]
   d._mkSummary={n:5,at:Date.now()-3600000,text:'这段时间共记了 5 道错题，数学占 2 道，且都落在「一次函数与x轴交点」这一块；题型上计算题和应用题各一道。说明他公式能背，但一道应用题就不知道怎么套。\n接下来建议做两件小事：一是让他把这两道题的图画出来（画图比算式更容易记住）；二是下次做函数题前，先让他说一句“这题问的是什么”再动笔。'}
@@ -1165,6 +1167,203 @@ function chainCard(){
   }
   return c
 }
+/* ===== 🤝 自我承诺 + 每周对账（这周的小约定是他自己说的） ===== */
+const CN_NUM={一:1,二:2,两:2,三:3,四:4,五:5,六:6,七:7}
+function cnNum(s){const t=String(s||'').trim();if(/^\d+$/.test(t))return parseInt(t,10);return CN_NUM[t]||0}
+function pactParse(t){
+  const s=String(t||'').replace(/\s+/g,'').replace(/[，。！？、,.!?~…—「」『』]/g,'').slice(0,30)
+  if(!s)return null
+  let days=0
+  if(/每天|天天|每一天/.test(s))days=7
+  else{
+    let m=/([0-9一二三四五六七两]{1,2})[天次回]/.exec(s)
+    if(m)days=cnNum(m[1])
+    else{m=/^([0-9一二三四五六七两]{1,2})$/.exec(s);if(m)days=cnNum(m[1])}
+  }
+  if(days<1||days>7)days=0
+  return {text:s,days:days}
+}
+function pactLooksLikePlan(t){
+  const s=String(t||'').replace(/\s+/g,'')
+  if(!s)return false
+  if(/[0-9一二三四五六七两]{1,2}[天次回]/.test(s))return true
+  if(/每天|天天|坚持|完成|写完|交作业|交一次|做一次|记一次/.test(s))return true
+  if(/^[0-9一二三四五六七两]{1,2}$/.test(s))return true
+  return false
+}
+function lastWeekKey(){const d=new Date(weekKey().replace(/-/g,'/'));d.setDate(d.getDate()-7);return ymd(d)}
+function pactDoneIn(w){try{return _weekSum(w,'days')}catch(e){return 0}}
+function pactThis(){try{const p=D.pact;return (p&&p.week===weekKey())?p:null}catch(e){return null}}
+function pactSkipWeek(){try{return !!(D._pactSkip&&D._pactSkip.week===weekKey())}catch(e){return false}}
+function pactSettleDue(){
+  try{
+    const p=D.pact
+    if(!p||!p.week)return null
+    if(D._pactSettle&&D._pactSettle.week===p.week)return null
+    if(p.week===weekKey())return (new Date().getDay()===0)?p:null
+    if(p.week===lastWeekKey())return p
+    return null
+  }catch(e){return null}
+}
+function pactAskDue(){
+  try{
+    if(!ROLE.kid)return false
+    if(pactThis())return false
+    if(pactSkipWeek())return false
+    if(pactSettleDue())return false
+    const a=D._pactAsk
+    if(!a||a.week!==weekKey())return true
+    return (a.n||0)<2&&a.date!==td
+  }catch(e){return false}
+}
+function pactSet(text){
+  const pp=pactParse(text)
+  if(!pp)return null
+  D.pact={week:weekKey(),text:pp.text,days:pp.days,at:Date.now()}
+  D._pactAsk={week:weekKey(),n:9,date:td}
+  return D.pact
+}
+function pactSettle(keep){
+  const p=D.pact
+  try{
+    if(!p)return
+    if(!D.pactLog)D.pactLog=[]
+    D.pactLog.push({week:p.week,text:p.text,days:p.days,actual:pactDoneIn(p.week),at:Date.now()})
+    if(D.pactLog.length>12)D.pactLog=D.pactLog.slice(-12)
+    D._pactSettle={week:p.week}
+    D.pact=null
+    D._pactAsk=null
+    D._pactNudge=null
+    if(!keep)ts('对完账了，这周重新来 👍')
+  }catch(e){}
+}
+function pactShort(t,n){const s=String(t||'');return s.length>(n||14)?(s.slice(0,n)+'…'):s}
+function pactCard(){
+  const c=h('div',{className:'card pact-card'})
+  const sd=pactSettleDue()
+  const p=pactThis()
+  if(sd){
+    const a=pactDoneIn(sd.week)
+    const met=sd.days>0&&a>=sd.days
+    c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📋'}),'这周对一下账'))
+    c.appendChild(h('div',{className:'pact-goal'},'你自己说的：「'+pactShort(sd.text,18)+'」'))
+    c.appendChild(h('div',{className:'pact-note'},met
+      ?('你说要 '+sd.days+' 天，你真的做到了 '+a+' 天 ✓')
+      :(sd.days>0?('你说要 '+sd.days+' 天，做到了 '+a+' 天，差 '+(sd.days-a)+' 天。'):('现在到周末了，这件事你自己说怎么算。'))))
+    if(ROLE.kid){
+      const bs=h('div',{className:'pact-btns'})
+      if(!met)bs.appendChild(h('button',{className:'pact-btn',onClick:function(){pactSettle(1);sw('checkin')}},'今天补一张'))
+      bs.appendChild(h('button',{className:'pact-btn ghost',onClick:function(){pactSettle();render()}},'这周就这样'))
+      c.appendChild(bs)
+      c.appendChild(h('div',{className:'pact-note'},'补不补都行，你自己定。'))
+    }else{
+      c.appendChild(h('div',{className:'pact-note'},'（这是他自己定的，周日在孩子那边一起对账，你这边看着就行）'))
+    }
+    return c
+  }
+  if(p){
+    const a=pactDoneIn(p.week)
+    c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🤝'}),ROLE.kid?'这周你跟小搭说的':'他这周自己说的'))
+    if(p.days>0){
+      c.appendChild(h('div',{className:'pact-goal'},'「这周交 '+p.days+' 天」'))
+      const row=h('div',{className:'pact-days'})
+      for(let i=0;i<p.days;i++)row.appendChild(h('i',{className:i<a?'on':''}))
+      c.appendChild(row)
+      c.appendChild(h('div',{className:'pact-note'},a>=p.days?('已经 '+a+' 天了，你说的数字到了 ✓ 剩下的随你。'):('现在 '+a+' 天，还差 '+(p.days-a)+' 天。不催你，想起来就交一张。')))
+    }else{
+      c.appendChild(h('div',{className:'pact-goal'},'「'+pactShort(p.text,18)+'」'))
+      c.appendChild(h('div',{className:'pact-note'},'这是他自己说的事，小搭记着，周末跟他对一下。'))
+    }
+    return c
+  }
+  if(ROLE.kid&&!pactSkipWeek()){
+    c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🤝'}),'要不要跟小搭定个小约定'))
+    c.appendChild(h('div',{className:'pact-note'},'这周你想做到什么？你自己说，说个数字就行。'))
+    const bs=h('div',{className:'pact-btns'})
+    ;['这周交 3 天','这周交 5 天','每天交一张'].forEach(function(t){
+      bs.appendChild(h('button',{className:'pact-btn',onClick:function(){chatQuickSend(t)}},t))
+    })
+    bs.appendChild(h('button',{className:'pact-btn ghost',onClick:function(){D._pactSkip={week:weekKey()};render()}},'这周先不定'))
+    c.appendChild(bs)
+    return c
+  }
+  return null
+}
+function pactPrompt(){
+  D.pactWait=1;D._pactWaitD=td
+  chatPushAI('这周想做到什么？说个数字就行，比如「交 3 天」。你说，我记着。')
+}
+function pactChatBar(){
+  if(!ROLE.kid)return null
+  const sd=pactSettleDue()
+  const p=pactThis()
+  if(sd){
+    return h('div',{className:'pact-strip',onClick:function(){sw('today')}},'📋 该对一下账了：你说的「'+pactShort(sd.text,12)+'」，做到 '+pactDoneIn(sd.week)+' 天 —— 点一下看看')
+  }
+  if(p){
+    const a=pactDoneIn(p.week)
+    return h('div',{className:'pact-strip',onClick:function(){sw('today')}},'🤝 你说过：'+(p.days>0?('这周交 '+p.days+' 天（现在 '+a+' 天）'):pactShort(p.text,14)))
+  }
+  if(D.pactWait)return h('div',{className:'pact-strip'},'🤝 在等你说这周想做到什么…（比如「交 3 天」）')
+  if(pactSkipWeek())return null
+  return h('div',{className:'pact-strip',onClick:function(){pactPrompt()}},'🤝 要不要跟小搭定个这周的小约定？点一下，说个数字就行')
+}
+function pactDailyNudge(){
+  try{
+    if(!ROLE.kid)return
+    if(D.pactWait&&D._pactWaitD!==td)D.pactWait=0
+    if(D._pactNudge===td)return
+    const hh=_hh()
+    if(hh>=22||hh<6)return
+    if(isClassTime())return
+    const sd=pactSettleDue()
+    const p=pactThis()
+    let msg=''
+    if(sd){
+      const a=pactDoneIn(sd.week)
+      msg=(sd.days>0&&a>=sd.days)?('上周你说要交 '+sd.days+' 天，你真做到了。这周想定多少？')
+        :('上周你说要交 '+(sd.days>0?sd.days:'?')+' 天，做到 '+a+' 天'+(sd.days>a?('，差 '+(sd.days-a)+' 天'):'')+'。今天补一张也行，这周算了也行，你说。')
+    }else if(p&&p.days>0){
+      const a=pactDoneIn(p.week),left=p.days-a
+      if(left<=0){
+        if(D._pactWin===p.week)return
+        D._pactWin=p.week
+        msg='你说的这周交 '+p.days+' 天，已经够了 ✓ 剩下的随你。'
+      }else msg='你跟我说这周想交 '+p.days+' 天，现在 '+a+' 天，还差 '+left+' 天。不催，就提一句。'
+    }else if(pactAskDue()){
+      const a=D._pactAsk
+      D._pactAsk={week:weekKey(),n:((a&&a.week===weekKey())?(a.n||0):0)+1,date:td}
+      D.pactWait=1;D._pactWaitD=td
+      msg='这周想做到什么？说个数字就行，比如「交 3 天」。你说，我记着。'
+    }
+    if(!msg)return
+    D._pactNudge=td
+    chatPushAI(msg)
+    sv(D)
+  }catch(e){}
+}
+function pactText(){
+  const L=[]
+  try{
+    const p=pactThis(), sd=pactSettleDue()
+    if(p){
+      const a=pactDoneIn(p.week),left=p.days>0?(p.days-a):0
+      L.push('【他这周自己定的约定】（不是你要的，是他自己说的；提的时候要用\u201c你自己说的\u201d这种口气）')
+      L.push('· 他说的：\u201c'+p.text+'\u201d'+(p.days>0?('（想交 '+p.days+' 天）'):''))
+      if(p.days>0)L.push('· 到现在：'+a+' 天'+(left>0?('，还差 '+left+' 天'):'，已经够了'))
+      L.push('· 一天最多自然提一次；他够了就一个字都别提。不许命令句、不许\u201c你应该\u201d、不许问\u201c怎么还没做\u201d。')
+    }
+    if(sd){
+      L.push('【该跟他对一下账了（周日，或周一补）】')
+      L.push('· 他上周说：\u201c'+sd.text+'\u201d'+(sd.days>0?('（'+sd.days+' 天）'):''))
+      L.push('· 实际做到：'+pactDoneIn(sd.week)+' 天')
+      L.push('· 用他自己的话对账：做到了就说\u201c你说 X 天，你真做到了\u201d；没做到就说\u201c你说 X 天，做到 Y 天，差 Z 天，要不要今天补上？补不补都行\u201d。不许责备、不许叹气、不许讲坚持的道理。')
+    }
+    if(D.pactWait)L.push('【你刚问了他这周想做到什么】他这句如果是在回答（比如\u201c3 天\u201d），确认一句就够，别再追问；如果是在说别的，就正常聊，别硬拉回来。')
+  }catch(e){}
+  return L.join('\n')
+}
+
 function askQuestions(){const p=askPool();return (p.asks&&p.asks.week===weekKey())?(p.asks.list||[]):[]}
 function asksPrompt(){
   const w=weekStatsOf(new Date(weekKey().replace(/-/g,'/')))
@@ -2088,6 +2287,10 @@ function chatOpenerPrompt(){
   const c=careText()
   if(c)L.push(c)
   else if(last&&last.role==='u'&&last.text)L.push('【他昨天最后一句是】"'+String(last.text).slice(0,60)+'"（可以顺着这句接，也可以不提）')
+  if(pactAskDue())L.push(['【该约这周的小计划了】','今天你主动问他一句：这周想做到什么。要求：',
+    '1) 让他自己说，别替他定；先给个样例（比如\u201c这周交 3 天\u201d）；',
+    '2) 一句话，不许出现\u201c任务/打卡/要求/必须\u201d；',
+    '3) 他要是敷衍或不说，就\u201c行，想说再说\u201d，别追。'].join('\n'))
   if(weekAskDue())L.push(['【这次不是闲聊，是你该问的那一句】',
     '今天是周末（或周一），你主动问他一句：“这周最卡的是哪件事？”（用你自己的话说，别照拄）。',
     '只问这一个，不许一次问三个；他答了就先陪他把那件事说完，别马上转到学习或下一步。',
@@ -2105,6 +2308,7 @@ function chatOpenerFallback(){
   const h=_hh(),care=pendingCare(),stk=safeStreak()
   if(care)return '上次那事儿后来怎么样了？'
   if(weekAskDue())return '这周最卡的是哪件事？'
+  if(pactAskDue())return '这周想做到什么？说个数字就行'
   if(h>=22||h<6)return '还不睡呢？'
   if(h<9)return '起来没，早饭吃了没'
   if(h<12)return '早，今天咋样'
@@ -2732,8 +2936,34 @@ function chatSend(imgB64){
       }
     }catch(e){}
   }
+  /* 🤝 他在回\u201c这周想做到什么\u201d → 记下他自己说的约定；对账时说\u201c算了\u201d也算数 */
+  let _pactReply=''
+  try{
+    const _pt=String(v||'').replace(/[\s\r\n]+/g,' ').trim()
+    if(D.pactWait){
+      D.pactWait=0
+      if(_pt&&pactLooksLikePlan(_pt)){
+        const _p=pactSet(_pt)
+        if(_p)_pactReply='行，这周就按你说的：'+(_p.days>0?(_p.days+' 天'):pactShort(_p.text,12))+'。我记下了，一天提你一句，不催。做不到也不说你，你说一声就行。'
+      }
+    }
+    if(!_pactReply&&pactSettleDue()&&/^(算了|不补了|不补|不用了|这周就算了|就这样吧|下周再说)$/.test(_pt)){
+      pactSettle()
+      _pactReply='行，这周就算了，你说了算。'
+    }
+  }catch(e){}
   chatTrim()
   sv(D);render()
+  if(_pactReply){
+    try{
+      const _l2=chatLog()
+      let _h2=false
+      for(let i=0;i<_l2.length;i++){if(_l2[i].id===_tk.id){_l2[i].text=_pactReply;_l2[i].pending=false;_l2[i].ts=Date.now();_h2=true;break}}
+      if(!_h2)_l2.push({id:Date.now()+7,date:td,role:'a',text:_pactReply,ts:Date.now()})
+    }catch(e){}
+    sv(D);render()
+    return
+  }
   const box=document.getElementById('chatOut')
   if(box){box.style.display='';box.textContent=AI_NAME+' 正在看…'}
   const ctx=chatLog().slice(-8).map(function(m){return (m.role==='u'?'他：':'你：')+(m.text||'')}).join('\n')
@@ -2759,6 +2989,7 @@ function chatSend(imgB64){
     [chatPersona(),0],
     [_askSite?chatSiteMap():'',0],
     [chatSnapshot(),0],
+    [pactText(),0],
     ['【你的角色卡】\n'+chatCard().desc,1],
     ['【说话方式看这几个例子，照着这个长度和口气】\n'+chatExamplesText(),1],
     [_mem,0],
@@ -2903,6 +3134,7 @@ function chatUI(){
     prevTs=m.ts
   })
   full.appendChild(scroll)
+  try{const _pcb=pactChatBar();if(_pcb)full.appendChild(_pcb)}catch(e){}
 
   const bottom=h('div',{className:'chat-bottom'})
   if(ROLE.kid){
@@ -3714,6 +3946,7 @@ function render(){
   else if(tb==='points')rpk()
   else if(tb==='settings')rset()
   updateTabBadges()
+  try{pactDailyNudge()}catch(e){}
   try{fabEnsure()}catch(e){}
 }
 
@@ -3729,6 +3962,7 @@ function rtoday(){
   try{$c.appendChild(chatMiniCard())}catch(e){}
   _kids.slice(0,1).forEach(function(c){$c.appendChild(c)});
   try{$c.appendChild(chainCard())}catch(e){}
+  try{const _pc=pactCard();if(_pc)$c.appendChild(_pc)}catch(e){}
   const btn=h('button',{className:'btn btn-outline btn-sm',style:'width:100%;margin-bottom:10px',onClick:function(){_todayMore=!_todayMore;render()}});
   btn.innerHTML=_todayMore?'▲ 收起（只看重点）':'▼ 展开更多（考试倒计时 / 成绩 / 寄语 / 留言）';
   $c.appendChild(btn);
