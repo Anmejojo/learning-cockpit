@@ -380,7 +380,7 @@ function demoData(){
     {id:204,date:y1,ts:Date.now()-88000000,by:'c',subject:'物理',qtype:'计算题',kp:'欧姆定律',stem:'已知 R=10Ω，两端电压 5V，求通过它的电流',why:'计算错误',imgs:[],pass:[Date.now()-80000000,Date.now()-70000000]},
     {id:205,date:y2,ts:Date.now()-176000000,by:'c',subject:'语文',qtype:'文言文阅读',kp:'文言实词',stem:'解释下面句中「之」的用法与意思',why:'根本不会',imgs:[],pass:[]}
   ]
-  d._mem=[{id:1,text:'数学函数容易卡，看到图就发懵',tags:['函数'],at:Date.now()},{id:2,text:'不喜欢被问成绩',tags:['成绩'],at:Date.now()}]
+  d._mem=[{id:1,text:'数学函数容易卡，看到图就发懵',tags:['函数'],at:Date.now()},{id:2,text:'几何题习惯先看图再动笔',tags:['数学','几何'],at:Date.now()}]
   d.pact={week:(function(){const n=new Date();const dd=n.getDay()||7;const ws=new Date(n);ws.setDate(n.getDate()-dd+1);return ws.getFullYear()+'-'+('0'+(ws.getMonth()+1)).slice(-2)+'-'+('0'+ws.getDate()).slice(-2)})(),text:'这周交 5 天',days:5,at:Date.now()-86400000}
   d._pactAsk={week:d.pact.week,n:9,date:today}
   d._log=[{ts:Date.now()-3600000,by:'c',act:'提交记录',target:today+' 数学·作业拍照'},{ts:Date.now()-3300000,by:'p',act:'通过记录',target:today+' 数学·作业拍照'}]
@@ -1488,10 +1488,18 @@ function dailyGift(){
     return GIFTS[seed%GIFTS.length]
   }catch(e){return GIFTS[0]}
 }
+function memAskLine(m){
+  const t=String((m&&m.text)||'').slice(0,26)
+  if(!t)return ''
+  if(m.by==='k')return '你让我记住的：'+t
+  if(t.indexOf('他自己说')===0)return '你上次说'+t.slice(4)
+  return '我记得你'+t
+}
 function dailyAsk(){
   try{
     const mem=(D._mem||[]).slice(-1)[0]
-    if(mem&&mem.text)return '上次你说「'+String(mem.text).slice(0,24)+'」——今天想从哪一件开始？'
+    const s=memAskLine(mem)
+    if(s)return s+'——今天想从哪一件开始？'
   }catch(e){}
   return '今天最想先干掉哪一科？（点一下就行，不用打字）'
 }
@@ -3178,7 +3186,9 @@ function chatSummaryPrompt(){
     '{"summary":"90字以内：①他今天聊了什么 ②情绪状态（要有依据） ③家长今晚可以做什么（一条具体动作，不要提成绩）",',
     ' "memories":[{"text":"关于他的1条稳定事实，20字内","tags":["关键词1","关键词2"]}],',
     ' "cope":[{"trouble":"他今天卡在哪、为什么烦（15字内）","help":"后来（或建议）是怎么缓下来的（15字内）","tags":["关键词"]}]}',
-    'memories 要记"关于他这个人"的稳定事实（如"不喜欢被问成绩""数学函数容易卡""和同桌关系不错"），不是当天流水；最多 2 条，没有就空数组。',
+    'memories 只能写聊天记录里**能直接对上原话**的稳定事实（如"几何证明题容易卡""英语填空错得多""习惯先把题读完再动笔"）；',
+    '**他不明说的心理判断一律不写**（如"不喜欢被问成绩""和同学关系不好""压力大""没自信"这类，没有原话就别写）；',
+    '宁可返回空数组 [] 也不要猜；最多 2 条，不是当天流水。',
     '平实、不夸大；如果只是问了题目，只说"主要是问功课"，不要过度解读。',
     '如果出现自我否定、被欺负、和家里冲突、不想上学，summary 里要如实说，并提醒家长先关心人。',
     '',
