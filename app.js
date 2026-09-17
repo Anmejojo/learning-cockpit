@@ -540,6 +540,58 @@ function authGateAfterLoad(){
 /* ================= AI 助手（密钥在云函数里，网页端不存） ================= */
 const AI_URL='https://jiajia-study-d6gjyod13d77728d6-1483465315.ap-shanghai.app.tcloudbase.com/ai'
 function aiToken(){return localStorage.getItem('lc_tok')||''}
+/* ⚠️ 云函数 HTTP 通道「单次请求体积上限」（2026-09-17 实测）：
+   请求体 102400 字节通过、103000 字节被网关挡回 413 EXCEED_MAX_PAYLOAD_SIZE。
+   照片是转成 base64 塞进 body 的，所以 base64 必须 ≲90KB，否则整张照片传不上去
+   （表现就是：一直卡在「有 N 批照片还没传完（已存在本机）」，孩子说"传不上去"）。
+   这里统一做「发之前先压到能过」；万一还被挡回，就再降一档重试。 */
+const AI_B64_MAX=90000
+function b64TooBig(s,n){return typeof s==='string'&&s.slice(0,5)==='data:'&&s.length>(n||AI_B64_MAX)}
+function shrinkDataURL(src,budget){
+  return new Promise(function(resolve){
+    const s=String(src||'')
+    if(!s||s.slice(0,5)!=='data:'||s.length<=budget)return resolve(s)
+    try{
+      const img=new Image()
+      img.onload=function(){
+        const trials=[[1440,0.8],[1280,0.72],[1150,0.66],[1050,0.62],[950,0.58],[850,0.55],[750,0.5],[650,0.48],[560,0.45],[460,0.4]]
+        let last=s
+        for(let i=0;i<trials.length;i++){
+          try{
+            const sc=Math.min(1,trials[i][0]/img.width)
+            const cv=document.createElement('canvas')
+            cv.width=Math.max(1,Math.round(img.width*sc));cv.height=Math.max(1,Math.round(img.height*sc))
+            cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height)
+            last=cv.toDataURL('image/jpeg',trials[i][1])
+            if(last.length<=budget)break
+          }catch(e){}
+        }
+        resolve(last)
+      }
+      img.onerror=function(){resolve(s)}
+      img.src=s
+    }catch(e){resolve(s)}
+  })
+}
+/* 统一的「带图请求」：先压到 90KB base64 以内；被 413 挡回就降一档再发 */
+async function aiFetch(payload){
+  const p=Object.assign({token:aiToken()},payload||{})
+  const key=(typeof p.image==='string'&&p.image.slice(0,5)==='data:')?'image':((typeof p.data==='string'&&p.data.slice(0,5)==='data:')?'data':'')
+  let budget=AI_B64_MAX,last=null
+  for(let i=0;i<4;i++){
+    if(key&&p[key].length>budget)p[key]=await shrinkDataURL(p[key],budget)
+    const r=await fetch(AI_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)})
+    const txt=await r.text()
+    let j=null
+    try{j=JSON.parse(txt)}catch(e){}
+    const tooBig=(r.status===413)||(j&&String(j.code||'')==='EXCEED_MAX_PAYLOAD_SIZE')
+    last={status:r.status,text:txt,json:j,tooBig:!!tooBig,body:p}
+    if(!tooBig)return last
+    if(key&&i<3){budget=Math.floor(budget*0.55);continue}
+    return last
+  }
+  return last||{status:0,text:'',json:null,tooBig:true}
+}
 /* AI 令牌同步：家长端把令牌登记进数据并上传；孩子端读到后换成本地令牌（读完云端数据后再调一次） */
 async function authTokenSync(){
   try{
@@ -553,17 +605,13 @@ async function authTokenSync(){
 async function aiCall(prompt,image,kbq){
   if(!aiToken())return {ok:false,err:'请先设置口令，再使用 AI'}
   try{
-    const res=await fetch(AI_URL,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({token:aiToken(),prompt:prompt,image:(image||''),kbq:(kbq||'')})
-    })
-    const txt=await res.text()
-    let j=null
-    try{j=JSON.parse(txt)}catch(e){}
+    const _r=await aiFetch({prompt:prompt,image:(image||''),kbq:(kbq||'')})
+    const txt=_r.text
+    const j=_r.json
     if(j&&j.ok)return {ok:true,text:String(j.text||'')}
     if(j&&j.err)return {ok:false,err:j.err}
-    return {ok:false,err:'返回异常(HTTP '+res.status+')：'+txt.slice(0,120)}
+    if(_r.tooBig)return {ok:false,err:'照片太大，云端没接收（已自动压缩重试仍超限）'}
+    return {ok:false,err:'返回异常(HTTP '+_r.status+')：'+txt.slice(0,120)}
   }catch(e){
     console.error('AI 调用失败',e)
     return {ok:false,err:'网络请求失败：'+String((e&&e.message)||e).slice(0,140)}
@@ -819,10 +867,8 @@ function cosPut(b64,cb){
     if(DEMO)return cb(b64)          /* 测试台：只在本机玩，绝不往云存储丢东西 */
     if(!b64||String(b64).indexOf('data:')!==0)return cb(b64)
     if(!aiToken())return cb(b64)
-    fetch(AI_URL,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({token:aiToken(),type:'upload',data:b64})})
-      .then(function(r){return r.json()})
-      .then(function(j){cb((j&&j.ok&&j.url)?j.url:b64)})
+    aiFetch({type:'upload',data:b64})
+      .then(function(r){const j=r&&r.json;cb((j&&j.ok&&j.url)?j.url:b64)})
       .catch(function(){cb(b64)})
   }catch(e){cb(b64)}
 }
@@ -3447,6 +3493,7 @@ function updateTabBadges(){
 }
 /* ================= 上传草稿：中途刷新/关页面也不会丢，回来自动接着传 ================= */
 const PEND_KEY='lc_pending'
+let _upFailWarned=false      /* 上传失败只提示一次，别刷屏 */
 function pendList(){try{return JSON.parse(localStorage.getItem(PEND_KEY)||'[]')}catch(e){return []}}
 function pendSave(list){try{localStorage.setItem(PEND_KEY,JSON.stringify(list))}catch(e){ts('⚠️ 本机存不下草稿，请先传完别刷新')}}
 function pendAdd(e){const l=pendList();l.push(e);pendSave(l)}
@@ -3481,18 +3528,28 @@ async function pendRun(){
   if(DEMO)return                    /* 测试台不传云端（照片只在本机） */
   const list=pendList()
   if(!list.length)return
+  let _why=''
   for(const e of list){
     let allOk=true
     for(const im of (e.imgs||[])){
       if(im.u)continue
-      try{
-        const r=await fetch(AI_URL,{method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({token:aiToken(),type:'upload',data:im.d})})
-        const j=await r.json()
-        if(j&&j.ok&&j.url){im.u=j.url;pendSave(pendList())}
-        else{allOk=false}
-      }catch(err){allOk=false}
-      if(!allOk)break
+      let okOne=false
+      for(let k=0;k<3&&!okOne;k++){
+        try{
+          /* 云函数网关单次请求上限 100KB：先压到能过再发；被 413 挡回就再小一档 */
+          if(b64TooBig(im.d,AI_B64_MAX))im.d=await shrinkDataURL(im.d,Math.max(20000,Math.floor(AI_B64_MAX*Math.pow(0.6,k))))
+          const res=await aiFetch({type:'upload',data:im.d})
+          const j=res.json
+          if(j&&j.ok&&j.url){im.u=j.url;pendSave(pendList());okOne=true}
+          else if(res.tooBig){continue}
+          else{_why=(j&&j.err)||('HTTP '+res.status);break}
+        }catch(err){_why=String((err&&err.message)||err).slice(0,60);break}
+      }
+      if(!okOne){allOk=false;break}
+    }
+    if(!allOk){
+      if(!_upFailWarned){_upFailWarned=true;ts('⚠️ 照片没传上去'+(_why?('（'+_why+'）'):'')+'：照片还在本机，不会丢')}
+      break
     }
     if(allOk&&(e.imgs||[]).every(function(im){return im.u})){
       try{
