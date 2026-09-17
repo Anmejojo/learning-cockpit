@@ -592,6 +592,25 @@ async function aiFetch(payload){
   }
   return last||{status:0,text:'',json:null,tooBig:true}
 }
+/* 🚀 直传云存储（2026-09-17）：先向云函数要一个 PUT 签名，再由浏览器直接把照片
+   PUT 到对象存储 —— 照片不经过云函数，就没有那个 100KB 通道限制，1440px 原样保留。
+   云函数还没升级 / 桶没配 CORS / 网络不通时：返回 null，自动退回"压缩后走云函数"。 */
+let _directOff=false
+async function cosDirectPut(b64,ext){
+  if(DEMO||_directOff)return null
+  if(!aiToken())return null
+  if(String(b64||'').indexOf('data:')!==0)return null
+  try{
+    const blob=await (await fetch(b64)).blob()
+    if(!blob||!blob.size)return null
+    const s=await aiFetch({type:'sign',ext:ext||'jpg'})
+    const j=s&&s.json
+    if(!(j&&j.ok&&j.url&&j.headers)){_directOff=true;return null}
+    const r=await fetch(j.url,{method:'PUT',headers:j.headers,body:blob})
+    if(!r||!r.ok){_directOff=true;return null}
+    return j.publicUrl||j.url
+  }catch(e){_directOff=true;return null}
+}
 /* AI 令牌同步：家长端把令牌登记进数据并上传；孩子端读到后换成本地令牌（读完云端数据后再调一次） */
 async function authTokenSync(){
   try{
@@ -867,8 +886,9 @@ function cosPut(b64,cb){
     if(DEMO)return cb(b64)          /* 测试台：只在本机玩，绝不往云存储丢东西 */
     if(!b64||String(b64).indexOf('data:')!==0)return cb(b64)
     if(!aiToken())return cb(b64)
-    aiFetch({type:'upload',data:b64})
-      .then(function(r){const j=r&&r.json;cb((j&&j.ok&&j.url)?j.url:b64)})
+    cosDirectPut(b64,'jpg')
+      .then(function(u){return u||aiFetch({type:'upload',data:b64}).then(function(r){const j=r&&r.json;return (j&&j.ok&&j.url)?j.url:''})})
+      .then(function(u){cb(u||b64)})
       .catch(function(){cb(b64)})
   }catch(e){cb(b64)}
 }
@@ -3534,6 +3554,10 @@ async function pendRun(){
     for(const im of (e.imgs||[])){
       if(im.u)continue
       let okOne=false
+      /* ① 先试直传（不受 100KB 限制，照片更清楚） */
+      const _du=await cosDirectPut(im.d,'jpg')
+      if(_du){im.u=_du;pendSave(pendList());okOne=true}
+      /* ② 直传不可用 → 压缩后走云函数 */
       for(let k=0;k<3&&!okOne;k++){
         try{
           /* 云函数网关单次请求上限 100KB：先压到能过再发；被 413 挡回就再小一档 */
