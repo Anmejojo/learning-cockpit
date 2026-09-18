@@ -3630,47 +3630,31 @@ function ckStatCard(){
   try{
     if(!ROLE.parent)return null
     const c=h('div',{className:'card'})
-    c.appendChild(h('div',{className:'card-header'},icoEl('bar-chart-3',18),'各科作业提交统计'))
-    /* 时间窗 */
-    const seg=h('div',{style:'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px'})
+    const hd=h('div',{className:'card-header'},icoEl('bar-chart-3',18),'作业提交统计')
+    const winBox=h('div',{style:'margin-left:auto;display:flex;gap:2px'})
     ;[['week','本周'],['month','本月'],['all','全部']].forEach(function(w){
-      seg.appendChild(h('button',{className:'btn btn-sm '+(_ckStatWin===w[0]?'btn-primary':'btn-outline'),onClick:function(){_ckStatWin=w[0];render()}},w[1]))
+      const on=_ckStatWin===w[0]
+      winBox.appendChild(h('span',{style:'font-size:var(--fs-13);padding:3px 9px;border-radius:10px;cursor:pointer;'+(on?'background:var(--primary);color:#fff':'color:var(--muted)'),onClick:function(){_ckStatWin=w[0];render()}},w[1]))
     })
-    c.appendChild(seg)
+    hd.appendChild(winBox)
+    c.appendChild(hd)
     const d=ckStatData(_ckStatWin)
     if(!d.rows.length){
       c.appendChild(h('div',{className:'t-muted',style:'padding:8px 0'},'这个时间段还没有提交记录。'))
       return c
     }
-    c.appendChild(h('div',{className:'t-muted mb8'},'共 '+d.tot.n+' 次提交　｜　待审核 '+d.tot.pending+'　｜　已通过 '+d.tot.approved+(d.tot.rejected?('　｜　已退回 '+d.tot.rejected):'')))
-    const head=h('div',{style:'display:flex;gap:8px;font-size:var(--fs-12);color:var(--faint);padding:0 0 5px;border-bottom:1px solid var(--border)'})
-    head.appendChild(h('span',{style:'flex:1'},'科目'))
-    head.appendChild(h('span',{style:'width:46px;text-align:right'},'提交'))
-    head.appendChild(h('span',{style:'width:46px;text-align:right'},'待审'))
-    head.appendChild(h('span',{style:'width:46px;text-align:right'},'通过'))
-    head.appendChild(h('span',{style:'width:54px;text-align:right'},'最近'))
-    c.appendChild(head)
+    c.appendChild(h('div',{className:'t-muted',style:'margin:0 0 6px'},'共 '+d.tot.n+' 次'+(d.tot.pending?('　·　⏳ 待审核 '+d.tot.pending+' 条'):'　·　都看过了')))
     const max=d.rows[0].n||1
     d.rows.forEach(function(r){
-      const row=h('div',{style:'display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:var(--fs-14)'})
-      const left=h('div',{style:'flex:1;min-width:0'})
-      left.appendChild(h('div',{style:'font-weight:600'},r.sub+(r.rejected?('　↩️'+r.rejected):'')))
-      const bar=h('div',{style:'height:5px;border-radius:3px;background:var(--bg-elev);margin-top:4px;overflow:hidden'})
-      bar.appendChild(h('i',{style:'display:block;height:100%;width:'+Math.max(4,Math.round(r.n/max*100))+'%;background:var(--primary)'}))
-      left.appendChild(bar)
-      row.appendChild(left)
-      row.appendChild(h('span',{style:'width:46px;text-align:right;font-weight:600'},String(r.n)))
-      row.appendChild(h('span',{style:'width:46px;text-align:right;color:'+(r.pending?'var(--warning)':'var(--faint)')},String(r.pending||0)))
-      row.appendChild(h('span',{style:'width:46px;text-align:right;color:'+(r.approved?'var(--success)':'var(--faint)')},String(r.approved||0)))
-      const _lp=r.last?r.last.split('-'):null
-      row.appendChild(h('span',{style:'width:54px;text-align:right;font-size:var(--fs-12);color:var(--muted);white-space:nowrap'},_lp?(parseInt(_lp[1],10)+'月'+parseInt(_lp[2],10)+'日'):'—'))
+      const row=h('div',{style:'display:flex;align-items:center;gap:10px;padding:5px 0'})
+      row.appendChild(h('div',{style:'flex:0 0 60px;font-size:var(--fs-14);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'},r.sub==='（未认科目）'?'未认科目':r.sub))
+      const track=h('div',{style:'flex:1;height:9px;border-radius:5px;background:var(--bg-elev);overflow:hidden'})
+      track.appendChild(h('i',{style:'display:block;height:100%;border-radius:5px;width:'+Math.max(6,Math.round(r.n/max*100))+'%;background:var(--primary)'}))
+      row.appendChild(track)
+      row.appendChild(h('div',{style:'flex:0 0 24px;text-align:right;font-size:var(--fs-15);font-weight:700'},String(r.n)))
+      row.appendChild(h('div',{style:'flex:0 0 36px;text-align:right;font-size:var(--fs-12);color:var(--warning)'},r.pending?('⏳'+r.pending):''))
       c.appendChild(row)
     })
-    const named=d.rows.filter(function(r){return r.sub!=='（未认科目）'})
-    if(named.length>1){
-      c.appendChild(h('div',{className:'t-faint mt8'},'交得最多：'+named[0].sub+' '+named[0].n+' 次　｜　最少：'+named[named.length-1].sub+' '+named[named.length-1].n+' 次'))
-    }
-    c.appendChild(h('div',{className:'t-faint mt6'},'「最近」是最后一次提交的日期；同一科重复提交会算多次。'))
     return c
   }catch(e){return null}
 }
