@@ -137,7 +137,7 @@ async function loadCloud(){
          · 其余设置类字段，听「更新的一方」
    ========================================================================= */
 const MERGE_LIST=['checks','exams','points','mistakes','handwritings','smallGoals','tasks','msgs','_snaps','_chat','_notes','act','mistakeMilestones']
-const MERGE_DICT=['dailyChecks','mistakeLog','checkImgs','wrd']
+const MERGE_DICT=['dailyChecks','mistakeLog','checkImgs','wrd','imgHash']
 function _mId(x){return (x&&x.id!=null)?('i'+x.id):('h'+JSON.stringify(x))}
 function _mTs(x){return (x&&(x.ts||x.at||x.t||x.time))||0}
 function _mRank(x){const st=x&&x.status;return st==='approved'?3:(st==='pending'?2:(st==='rejected'?1:0))}
@@ -3544,15 +3544,76 @@ function hwApply(urls){
   }
   sv(D)
 }
+/* ===== 🔁 照片查重（2026-09-18 佳佳：“提交的照片如果重复过，跳个提示，后台别重复保存”）=====
+   指纹 = 8x8 灰度均值哈希（aHash）：把图缩到 8x8 取灰度、跟平均值比大小 → 64 bit（16 位十六进制）。
+   同一张照片重传、或者同一张照片交到不同科目，指纹都一样；轻微重新拍照（角度/光线变了）指纹会不同，
+   这时候不去拦（宁可漏拦，也不要误拦他真的重拍）。 */
+function imgFingerprint(dataUrl){
+  return new Promise(function(resolve){
+    let done=false
+    const fin=function(v){if(!done){done=true;resolve(v)}}
+    try{
+      if(!dataUrl||String(dataUrl).indexOf('data:')!==0)return fin('')
+      const img=new Image()
+      img.onload=function(){
+        try{
+          const cv=document.createElement('canvas');cv.width=8;cv.height=8
+          const cx=cv.getContext('2d')
+          cx.drawImage(img,0,0,8,8)
+          const d=cx.getImageData(0,0,8,8).data
+          const g=[];let sum=0
+          for(let i=0;i<64;i++){const v=d[i*4]*0.299+d[i*4+1]*0.587+d[i*4+2]*0.114;g.push(v);sum+=v}
+          const avg=sum/64
+          let bits=''
+          for(let i=0;i<64;i++)bits+=(g[i]>=avg?'1':'0')
+          let hx=''
+          for(let i=0;i<64;i+=4)hx+=parseInt(bits.substr(i,4),2).toString(16)
+          fin(hx)
+        }catch(e){fin('')}
+      }
+      img.onerror=function(){fin('')}
+      img.src=dataUrl
+      setTimeout(function(){fin('')},1500)     /* 万一画布/图片不响应，别把上传卡住 */
+    }catch(e){fin('')}
+  })
+}
+function fpDistance(a,b){
+  if(!a||!b||a.length!==b.length)return 99
+  let d=0
+  for(let i=0;i<a.length;i++){let x=parseInt(a[i],16)^parseInt(b[i],16);while(x){d+=x&1;x>>=1}}
+  return d
+}
+function findDupImage(fp){
+  try{
+    if(!fp)return null
+    const map=D.imgHash||{}
+    for(const k in map){if(fpDistance(k,fp)<=3)return map[k]||{date:''}}
+  }catch(e){}
+  return null
+}
+function rememberImg(fp,info){
+  try{
+    if(!fp)return
+    if(!D.imgHash)D.imgHash={}
+    D.imgHash[fp]=info||{date:td,at:Date.now()}
+    const ks=Object.keys(D.imgHash)
+    if(ks.length>800){ks.slice(0,ks.length-800).forEach(function(k){delete D.imgHash[k]})}
+  }catch(e){}
+}
 async function pendRun(){
   if(DEMO)return                    /* 测试台不传云端（照片只在本机） */
   const list=pendList()
   if(!list.length)return
   let _why=''
   for(const e of list){
-    let allOk=true
+    let allOk=true,_dupN=0,_dupInfo=null,_tot=0
     for(const im of (e.imgs||[])){
       if(im.u)continue
+      _tot++
+      /* 🔁 先查重：交过的照片不重复上传、不重复保存 */
+      if(!im.h)im.h=await imgFingerprint(im.d)
+      const _dup=findDupImage(im.h)
+      if(_dup){im.dup=1;_dupN++;_dupInfo=_dup;pendSave(pendList());continue}
       let okOne=false
       /* ① 先试直传（不受 100KB 限制，照片更清楚） */
       const _du=await cosDirectPut(im.d,'jpg')
@@ -3575,16 +3636,23 @@ async function pendRun(){
       if(!_upFailWarned){_upFailWarned=true;ts('⚠️ 照片没传上去'+(_why?('（'+_why+'）'):'')+'：照片还在本机，不会丢')}
       break
     }
-    if(allOk&&(e.imgs||[]).every(function(im){return im.u})){
-      try{
-        const urls=e.imgs.map(function(im){return im.u})
-        if(e.kind==='check')submitCheck(e.typeId,e.subject,urls,e.append,(e.imgs||[]).map(function(im){return im.d}))
-        else if(e.kind==='mk')mkCommit(urls)
-        else hwApply(urls)
-      }catch(err){console.warn('草稿落地失败',err)}
+    /* 整批都是重复的：不产生记录，只提示一句 */
+    if(_tot>0&&_dupN===_tot){
       pendDel(e.id)
-      ts('✅ 照片传完了')
-    }else break
+      ts('⚠️ 这张照片之前交过了'+((_dupInfo&&_dupInfo.date)?('（'+fd(_dupInfo.date)+'）'):'')+'，没有重复保存')
+      continue
+    }
+    const _keep=(e.imgs||[]).filter(function(im){return im.u&&!im.dup})
+    if(!_keep.length){pendDel(e.id);continue}
+    try{
+      const urls=_keep.map(function(im){return im.u})
+      if(e.kind==='check')submitCheck(e.typeId,e.subject,urls,e.append,_keep.map(function(im){return im.d}))
+      else if(e.kind==='mk')mkCommit(urls)
+      else hwApply(urls)
+      _keep.forEach(function(im){rememberImg(im.h,{date:td,at:Date.now(),kind:e.kind||''})})
+    }catch(err){console.warn('草稿落地失败',err)}
+    pendDel(e.id)
+    ts(_dupN?('✅ 传完了（跳过了 '+_dupN+' 张重复的照片）'):'✅ 照片传完了')
   }
   if(typeof render==='function')render()
 }
