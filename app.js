@@ -3648,7 +3648,7 @@ function ckStatCard(){
     head.appendChild(h('span',{style:'width:46px;text-align:right'},'提交'))
     head.appendChild(h('span',{style:'width:46px;text-align:right'},'待审'))
     head.appendChild(h('span',{style:'width:46px;text-align:right'},'通过'))
-    head.appendChild(h('span',{style:'width:76px;text-align:right'},'最近'))
+    head.appendChild(h('span',{style:'width:54px;text-align:right'},'最近'))
     c.appendChild(head)
     const max=d.rows[0].n||1
     d.rows.forEach(function(r){
@@ -3662,7 +3662,8 @@ function ckStatCard(){
       row.appendChild(h('span',{style:'width:46px;text-align:right;font-weight:600'},String(r.n)))
       row.appendChild(h('span',{style:'width:46px;text-align:right;color:'+(r.pending?'var(--warning)':'var(--faint)')},String(r.pending||0)))
       row.appendChild(h('span',{style:'width:46px;text-align:right;color:'+(r.approved?'var(--success)':'var(--faint)')},String(r.approved||0)))
-      row.appendChild(h('span',{style:'width:76px;text-align:right;font-size:var(--fs-12);color:var(--muted)'},r.last?fd(r.last):'—'))
+      const _lp=r.last?r.last.split('-'):null
+      row.appendChild(h('span',{style:'width:54px;text-align:right;font-size:var(--fs-12);color:var(--muted);white-space:nowrap'},_lp?(parseInt(_lp[1],10)+'月'+parseInt(_lp[2],10)+'日'):'—'))
       c.appendChild(row)
     })
     const named=d.rows.filter(function(r){return r.sub!=='（未认科目）'})
