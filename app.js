@@ -3598,6 +3598,40 @@ function pendBanner(){
 }
 
 /* ===== 已通过记录（按时间倒序，家长/孩子都能看）===== */
+/* ===== ⏳ 待审核汇总（只家长版，2026-09-18）=====
+   为什么要有：顶部红点只数"待审核条数"，但「记录今天」只看选中那天的、而且按科目分卡片 ——
+   所以「补交的、没认科目的、以前留下的」待审核记录在界面上找不到（佳佳：'还有一天待审核的是什么？我找不到'）。
+   这里把**所有**待审核记录按时间倒序列出来，直接点通过/退回。 */
+function ckPendingCard(){
+  try{
+    if(!ROLE.parent)return null
+    const list=(D.checks||[]).filter(function(c){return c.status==='pending'})
+    if(!list.length)return null
+    list.sort(function(a,b){return (b.ts||0)-(a.ts||0)})
+    const c=h('div',{className:'card'})
+    c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'⏳'}),'待审核（'+list.length+' 条）'))
+    c.appendChild(h('div',{className:'t-muted',style:'margin:-4px 0 8px;line-height:1.7'},'所有没审的都列在这里（含以前补交的、没认科目的）。点「通过」加分，点「退回」就不计。'))
+    list.forEach(function(rec){
+      const row=h('div',{style:'display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)'})
+      const left=h('div',{className:'grow'})
+      left.appendChild(h('div',{style:'font-size:var(--fs-14);font-weight:600'},(rec.subject?rec.subject+'·':'')+(rec.typeName||rec.type||'记录')+'　'+fd(rec.date)))
+      left.appendChild(h('div',{style:'font-size:var(--fs-12);color:var(--muted);margin-top:2px'},(rec.ts?('提交 '+fmtHM(rec.ts)):'')+(rec.noteSubmit?('　💬 '+rec.noteSubmit):'')))
+      const _im=checkImgs(rec)
+      if(_im.length){
+        const ir=h('div',{style:'display:flex;gap:4px;flex-wrap:wrap;margin-top:6px'})
+        _im.slice(0,4).forEach(function(b){ir.appendChild(photoImg(b,_im,'width:52px;height:52px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer'))})
+        left.appendChild(ir)
+      }
+      row.appendChild(left)
+      const br=h('div',{style:'display:flex;flex-direction:column;gap:5px'})
+      br.appendChild(h('button',{className:'btn btn-success btn-sm',onClick:function(){approveCheck(rec.id)}},'✅ 通过'))
+      br.appendChild(h('button',{className:'btn btn-danger btn-sm',onClick:function(){rejectCheck(rec.id)}},'↩️ 退回'))
+      row.appendChild(br)
+      c.appendChild(row)
+    })
+    return c
+  }catch(e){return null}
+}
 /* ===== 📊 各科作业提交统计（只家长版，2026-09-18 佳佳要的）=====
    数据来源：D.checks 里每条记录都带 subject / date / status，所以按科目一分就有。
    为什么只家长看：孩子版不做"哪科交得少"的排行榜，免得变成比较（跟错题本常错知识点同一个原则）。 */
@@ -5272,6 +5306,7 @@ function rck(){
 
 function rckList(){
   const _pb=pendBanner();if(_pb)$c.appendChild(_pb);
+  const _pc=ckPendingCard();if(_pc)$c.appendChild(_pc);
   const ckd=ckDate()
   const cq=h('div',{className:'card'})
   cq.appendChild(h('div',{className:'card-header'},icoEl('camera',18),'记录今天（拍张照给家长看，通过后加分）'))
