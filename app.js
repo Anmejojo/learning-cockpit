@@ -3598,6 +3598,81 @@ function pendBanner(){
 }
 
 /* ===== 已通过记录（按时间倒序，家长/孩子都能看）===== */
+/* ===== 📊 各科作业提交统计（只家长版，2026-09-18 佳佳要的）=====
+   数据来源：D.checks 里每条记录都带 subject / date / status，所以按科目一分就有。
+   为什么只家长看：孩子版不做"哪科交得少"的排行榜，免得变成比较（跟错题本常错知识点同一个原则）。 */
+let _ckStatWin='week'
+function ckStatFrom(win){
+  if(win==='all')return '0000-00-00'
+  if(win==='month'){const n=new Date();return ymd(new Date(n.getFullYear(),n.getMonth(),1))}
+  return weekKey()
+}
+function ckStatData(win){
+  const from=ckStatFrom(win)
+  const list=(D.checks||[]).filter(function(c){return String(c.date||'')>=from})
+  const map={}
+  list.forEach(function(c){
+    const s=c.subject||'（未认科目）'
+    const o=map[s]||(map[s]={sub:s,n:0,pending:0,approved:0,rejected:0,last:''})
+    o.n++
+    if(c.status==='approved')o.approved++
+    else if(c.status==='pending')o.pending++
+    else if(c.status==='rejected')o.rejected++
+    if(String(c.date||'')>o.last)o.last=String(c.date||'')
+  })
+  const rows=Object.keys(map).map(function(k){return map[k]})
+  rows.sort(function(a,b){return (b.n-a.n)||String(a.sub).localeCompare(String(b.sub))})
+  const tot={n:0,pending:0,approved:0,rejected:0}
+  rows.forEach(function(r){tot.n+=r.n;tot.pending+=r.pending;tot.approved+=r.approved;tot.rejected+=r.rejected})
+  return {rows:rows,tot:tot,from:from}
+}
+function ckStatCard(){
+  try{
+    if(!ROLE.parent)return null
+    const c=h('div',{className:'card'})
+    c.appendChild(h('div',{className:'card-header'},icoEl('bar-chart-3',18),'各科作业提交统计'))
+    /* 时间窗 */
+    const seg=h('div',{style:'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px'})
+    ;[['week','本周'],['month','本月'],['all','全部']].forEach(function(w){
+      seg.appendChild(h('button',{className:'btn btn-sm '+(_ckStatWin===w[0]?'btn-primary':'btn-outline'),onClick:function(){_ckStatWin=w[0];render()}},w[1]))
+    })
+    c.appendChild(seg)
+    const d=ckStatData(_ckStatWin)
+    if(!d.rows.length){
+      c.appendChild(h('div',{className:'t-muted',style:'padding:8px 0'},'这个时间段还没有提交记录。'))
+      return c
+    }
+    c.appendChild(h('div',{className:'t-muted mb8'},'共 '+d.tot.n+' 次提交　｜　待审核 '+d.tot.pending+'　｜　已通过 '+d.tot.approved+(d.tot.rejected?('　｜　已退回 '+d.tot.rejected):'')))
+    const head=h('div',{style:'display:flex;gap:8px;font-size:var(--fs-12);color:var(--faint);padding:0 0 5px;border-bottom:1px solid var(--border)'})
+    head.appendChild(h('span',{style:'flex:1'},'科目'))
+    head.appendChild(h('span',{style:'width:46px;text-align:right'},'提交'))
+    head.appendChild(h('span',{style:'width:46px;text-align:right'},'待审'))
+    head.appendChild(h('span',{style:'width:46px;text-align:right'},'通过'))
+    head.appendChild(h('span',{style:'width:76px;text-align:right'},'最近'))
+    c.appendChild(head)
+    const max=d.rows[0].n||1
+    d.rows.forEach(function(r){
+      const row=h('div',{style:'display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:var(--fs-14)'})
+      const left=h('div',{style:'flex:1;min-width:0'})
+      left.appendChild(h('div',{style:'font-weight:600'},r.sub+(r.rejected?('　↩️'+r.rejected):'')))
+      const bar=h('div',{style:'height:5px;border-radius:3px;background:var(--bg-elev);margin-top:4px;overflow:hidden'})
+      bar.appendChild(h('i',{style:'display:block;height:100%;width:'+Math.max(4,Math.round(r.n/max*100))+'%;background:var(--primary)'}))
+      left.appendChild(bar)
+      row.appendChild(left)
+      row.appendChild(h('span',{style:'width:46px;text-align:right;font-weight:600'},String(r.n)))
+      row.appendChild(h('span',{style:'width:46px;text-align:right;color:'+(r.pending?'var(--warning)':'var(--faint)')},String(r.pending||0)))
+      row.appendChild(h('span',{style:'width:46px;text-align:right;color:'+(r.approved?'var(--success)':'var(--faint)')},String(r.approved||0)))
+      row.appendChild(h('span',{style:'width:76px;text-align:right;font-size:var(--fs-12);color:var(--muted)'},r.last?fd(r.last):'—'))
+      c.appendChild(row)
+    })
+    const named=d.rows.filter(function(r){return r.sub!=='（未认科目）'})
+    if(named.length>1){
+      c.appendChild(h('div',{className:'t-faint mt8'},'交得最多：'+named[0].sub+' '+named[0].n+' 次　｜　最少：'+named[named.length-1].sub+' '+named[named.length-1].n+' 次'))
+    }
+    c.appendChild(h('div',{className:'t-faint mt6'},'「最近」是最后一次提交的日期；同一科重复提交会算多次。'))
+    return c
+  }catch(e){return null}
+}
 function rckDone(){
   const _pb=pendBanner();if(_pb)$c.appendChild(_pb);
   const all=(D.checks||[]).filter(function(c){return c.status==='approved'})
@@ -5192,15 +5267,22 @@ function rchat(){
 }
 
 function rck(){
-  $c.appendChild(segBar([
+  const _segs=[
     {label:'📷 记录今天',on:_ckView==='list',fn:function(){_ckView='list';render()}},
     {label:'📅 记录日历',on:_ckView==='cal',fn:function(){_ckView='cal';render()}},
     {label:'✅ 已通过记录',on:_ckView==='done',fn:function(){_ckView='done';render()}}
-  ]))
+  ]
+  if(ROLE.parent)_segs.push({label:'📊 各科统计',on:_ckView==='stat',fn:function(){_ckView='stat';render()}})
+  $c.appendChild(segBar(_segs))
   const box=h('div',null)
   $c.appendChild(box)
   const host=$c; $c=box
-  try{ if(_ckView==='cal')rcal(); else if(_ckView==='done')rckDone(); else rckList() } finally{ $c=host }
+  try{
+    if(_ckView==='cal')rcal()
+    else if(_ckView==='done')rckDone()
+    else if(_ckView==='stat'){const _st=ckStatCard();if(_st)$c.appendChild(_st)}
+    else rckList()
+  } finally{ $c=host }
 }
 
 function rckList(){
