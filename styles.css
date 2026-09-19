@@ -805,3 +805,6 @@ html[data-polish="1"] *{transition-timing-function:var(--ease)}
   border:1px solid var(--border);background:rgba(255,255,255,.03);font-size:var(--fs-13);color:var(--text);cursor:pointer;
   -webkit-tap-highlight-color:transparent}
 .more-item:hover{border-color:var(--primary-border);background:var(--primary-weak)}
+/* ④ 键盘焦点可见（桌面端按 Tab 时能看见停在哪；WCAG 2.4.7） */
+:focus-visible{outline:2px solid var(--primary-hover);outline-offset:2px}
+.btn:focus-visible,.tab-btn:focus-visible,.more-item:focus-visible{outline:2px solid var(--primary-hover);outline-offset:2px;border-radius:8px}
