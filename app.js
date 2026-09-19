@@ -5485,11 +5485,32 @@ function hwStatus(x){const r=hwRec(x);return r?(r.status==='approved'?'approved'
 function hwMiss(){return hwToday().filter(function(x){return hwStatus(x)==='todo'}).length}
 function hwShort(it){return ((it.subj&&it.subj!=='其他')?it.subj+'·':'')+String(it.text||'').slice(0,7)}
 function hwKey(it){return String(it.subj||'')+'|'+String(it.text||'').replace(/\s+/g,'')}
-function hwPush(subj,text,kind){
+/* 来源标签：登记本 / 老师另布置的 / 妈妈加的 / 孩子说的 */
+function hwSrcLabel(src){return src==='sheet'?'📷 登记本':(src==='teacher'?'📢 老师另布置':(src==='mom'?'👩 妈妈加的':(src==='kid'?'🙋 我自己加的':'')))}
+/* 把一段多行文字拆成清单项：去掉序号/项目符号，认科目，背诵类自动标 recite */
+function hwParseLines(txt){
+  const out=[]
+  String(txt||'').split(/[\r\n;；]+/).forEach(function(ln){
+    let s=String(ln||'').replace(/^\s*[-–—•·*●○□☐✔✓※>]+\s*/,'').replace(/^\s*\(?\d+\s*[\)）.、:：]\s*/,'').replace(/\s+/g,' ').trim()
+    if(!s)return
+    if(s.length>60)s=s.slice(0,60)
+    let subj=''
+    let m=s.match(/^[【\[\(（]\s*([\u4e00-\u9fa5A-Za-z]{2,4})\s*[】\]\)）]\s*(.+)$/)
+    if(!m)m=s.match(/^([\u4e00-\u9fa5]{2,4})\s*[：:]\s*(.+)$/)
+    if(m&&(MK_SUBJECTS.indexOf(m[1])>=0||m[1]==='其他')){subj=m[1];s=m[2]}
+    else{for(const sj of MK_SUBJECTS){if(s.indexOf(sj)===0&&s.length>sj.length){subj=sj;s=s.slice(sj.length).replace(/^[：:、，,\.\s]+/,'');break}}}
+    s=String(s||'').trim()
+    if(!s)return
+    const kind=/背诵|默写|朗读|朗诵|复述|口头|听写|背|默/.test(s)?'recite':'written'
+    out.push({subj:subj,text:s,kind:kind})
+  })
+  return out
+}
+function hwPush(subj,text,kind,src){
   try{
     if(!D.hw)D.hw=[]
     const it={id:Date.now()+Math.floor(Math.random()*900),date:td,subj:subj||'',text:String(text||'').slice(0,60),
-      kind:(kind||'written'),src:'',at:Date.now(),recId:null}
+      kind:(kind||'written'),src:(src||''),at:Date.now(),recId:null}
     D.hw.push(it);return it
   }catch(e){return null}
 }
@@ -5506,7 +5527,7 @@ function hwMerge(items){
       const k=subj+'|'+text.replace(/\s+/g,'')
       if(have[k])return
       have[k]=1
-      hwPush(subj,text,it.kind==='recite'?'recite':(it.kind==='written'?'written':'other'))
+      hwPush(subj,text,it.kind==='recite'?'recite':(it.kind==='written'?'written':'other'),'sheet')
       n++
     })
     return n
@@ -5586,7 +5607,7 @@ function hwRow(it){
   const sc=st==='approved'?'var(--success)':st==='pending'?'var(--warning)':st==='rejected'?'var(--danger)':'var(--muted)'
   const lab=st==='approved'?'✅ 家长已通过':st==='pending'?'⏳ 等家长审核':st==='rejected'?'↩️ 被打回，重新交':'⬜ 还没交'
   L.appendChild(h('div',{style:'font-size:var(--fs-12);margin-top:2px;color:'+sc},
-    (it.kind==='recite'?'📝 背诵 · 要交草稿本照片':'✏️ 书面')+' · '+lab))
+    (it.kind==='recite'?'📝 背诵 · 要交草稿本照片':'✏️ 书面')+' · '+lab+(hwSrcLabel(it.src)?(' · '+hwSrcLabel(it.src)):'')))
   const im=checkImgs(r)
   if(im.length){
     const ir=h('div',{style:'display:flex;gap:4px;flex-wrap:wrap;margin-top:5px'})
@@ -5622,10 +5643,8 @@ function hwCard(){
     c.appendChild(h('div',{style:'font-size:var(--fs-13);color:var(--muted);line-height:1.7;margin-bottom:8px'},
       '拍一张「作业登记本」（黑板上抄的 / 作业本上抄的），我帮你列出今天要交的，一项一项对。'))
     c.appendChild(h('button',{className:'btn btn-primary quick-shot',onClick:pickHwSheet},'📷 拍作业登记本（30 秒）'))
-    if(ROLE.parent){
-      c.appendChild(h('button',{className:'btn btn-outline btn-sm mt8',onClick:function(){_hwAdd=!_hwAdd;render()}},'✏️ 手动加一项'))
-      if(_hwAdd)c.appendChild(hwAddRow())
-    }
+    c.appendChild(h('button',{className:'btn btn-outline btn-sm mt8',onClick:function(){_hwAdd=!_hwAdd;render()}},'✏️ 手动加一项（老师另布置 / 漏抄的）'))
+    if(_hwAdd)c.appendChild(hwAddRow())
     return c
   }
   const miss=list.filter(function(x){return hwStatus(x)==='todo'||hwStatus(x)==='rejected'})
@@ -5639,27 +5658,52 @@ function hwCard(){
   list.forEach(function(it){c.appendChild(hwRow(it))})
   const bar=h('div',{style:'display:flex;gap:6px;flex-wrap:wrap;margin-top:10px'})
   bar.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:pickHwSheet},'📷 重拍登记本'))
-  if(ROLE.parent)bar.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_hwAdd=!_hwAdd;render()}},'✏️ 加一项'))
+  bar.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_hwAdd=!_hwAdd;render()}},'✏️ 加一项（漏抄 / 老师另布置）'))
   c.appendChild(bar)
-  if(_hwAdd&&ROLE.parent)c.appendChild(hwAddRow())
+  if(_hwAdd)c.appendChild(hwAddRow())
   return c
 }
 function hwAddRow(){
-  const row=h('div',{style:'display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px'})
-  const sel=h('select',{style:'width:100px',id:'hwSubSel'})
+  const box=h('div',{style:'margin-top:8px;display:flex;flex-direction:column;gap:6px'})
+  const r1=h('div',{style:'display:flex;gap:6px;flex-wrap:wrap;align-items:center'})
+  const sel=h('select',{style:'width:96px',id:'hwSubSel'})
   MK_SUBJECTS.forEach(function(x){sel.appendChild(h('option',{value:x},x))})
-  const kind=h('select',{style:'width:112px',id:'hwKindSel'})
+  sel.appendChild(h('option',{value:'其他'},'其他'))
+  const kind=h('select',{style:'width:118px',id:'hwKindSel'})
   kind.appendChild(h('option',{value:'written'},'✏️ 书面'));
   kind.appendChild(h('option',{value:'recite'},'📝 背诵(要草稿)'));
   kind.appendChild(h('option',{value:'other'},'其他'))
-  const txt=h('input',{type:'text',id:'hwTxtIn',placeholder:'如：练习册 P32 1-8 题',style:'flex:1;min-width:150px'})
+  const src=h('select',{style:'width:132px',id:'hwSrcSel'})
+  src.appendChild(h('option',{value:'teacher'},'📢 老师另布置'))
+  src.appendChild(h('option',{value:'mom'},'👩 妈妈加的'))
+  src.appendChild(h('option',{value:'kid'},'🙋 孩子说的'))
+  if(!ROLE.parent)src.value='kid'
+  r1.appendChild(sel);r1.appendChild(kind);r1.appendChild(src);box.appendChild(r1)
+  const txt=h('textarea',{id:'hwTxtIn',rows:'3',placeholder:'一行一项，可以直接粘老师群里的消息，例如：\n英语：Unit3 单词默写\n数学 练习册 P32 1-8 题\n历史 背诵第 5 课',style:'width:100%;font-size:var(--fs-14);line-height:1.7'})
+  box.appendChild(txt)
+  const r2=h('div',{style:'display:flex;gap:6px;flex-wrap:wrap;align-items:center'})
   const add=h('button',{className:'btn btn-primary btn-sm',id:'hwAddBtn',onClick:function(){
-    const t=String(txt.value||'').trim()
-    if(!t){ts('先写一下这项作业是什么');return}
-    hwPush(sel.value,t,kind.value);sv(D);render();ts('✅ 加了一项')
-  }},'加')
-  row.appendChild(sel);row.appendChild(kind);row.appendChild(txt);row.appendChild(add)
-  return row
+    const items=hwParseLines(txt.value)
+    if(!items.length){ts('先写一下这项作业是什么');return}
+    const s0=sel.value,k0=kind.value,src0=src.value
+    const have={};hwToday().forEach(function(x){have[hwKey(x)]=1})
+    let n=0
+    items.forEach(function(x){
+      const subj=x.subj||(s0==='其他'?'':s0)
+      const kv=(!k0||k0==='written')?x.kind:k0
+      const kk=String(subj||'')+'|'+String(x.text||'').replace(/\s+/g,'')
+      if(have[kk])return
+      have[kk]=1
+      if(hwPush(subj,x.text,kv,src0))n++
+    })
+    try{if(D.hwMeta)D.hwMeta.n=hwToday().length}catch(e){}
+    sv(D);_hwAdd=false;render()
+    ts(n?('✅ 加了 '+n+' 项'):'这几项今天的清单里已经有了')
+  }},'➕ 加进清单')
+  r2.appendChild(add)
+  if(ROLE.parent)r2.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_hwAdd=false;render()}},'取消'))
+  box.appendChild(r2)
+  return box
 }
 function rckList(){
   const _pb=pendBanner();if(_pb)$c.appendChild(_pb);
