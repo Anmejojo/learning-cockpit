@@ -23,7 +23,7 @@ function defData(){
     exams:[],parts:JSON.parse(JSON.stringify(PT)),dailyChecks:{},checkImgs:{},checks:[],points:[],sem:'初二上',
     rate:10,nick:'乐乐',_vcloud:'david',
     bl:{chinese:99,math:115,english:70,geo:67,history:81,dao:63,bio:58,physics:null,pe:null,chem:null},
-    handwritings:[],_noGate:false,phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,examDate:null,examTopic:'',mistakes:[],tasks:[],ritualTime:'20:00',smallGoals:[],mistakeMilestones:[],mistakeLog:{},wrd:{},wdD:null,
+    handwritings:[],_noGate:false,phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,examDate:null,examTopic:'',mistakes:[],tasks:[],hw:[],ritualTime:'20:00',smallGoals:[],mistakeMilestones:[],mistakeLog:{},wrd:{},wdD:null,
     dci:[{key:'videoCall',icon:'📞',label:'视频通话',pts:1},{key:'askTeacher',icon:'🙋',label:'主动问老师',pts:1},{key:'noSkipStep',icon:'✅',label:'解题不跳步',pts:1},{key:'reciteMethod',icon:'🧠',label:'背英语用方法',pts:1},{key:'onTimeStudy',icon:'⏰',label:'按时开始学习',pts:1},{key:'water',icon:'💧',label:'喝水',pts:1},{key:'sport',icon:'🏃',label:'运动',pts:1},{key:'sleep',icon:'🌙',label:'按时作息（早睡早起）',pts:1}]
   }
 }
@@ -138,7 +138,7 @@ async function loadCloud(){
          · 字典（习惯打卡/错题/照片）逐条合并，只会更多不会更少
          · 其余设置类字段，听「更新的一方」
    ========================================================================= */
-const MERGE_LIST=['checks','exams','points','mistakes','handwritings','smallGoals','tasks','msgs','_snaps','_chat','_notes','act','mistakeMilestones']
+const MERGE_LIST=['checks','exams','points','mistakes','handwritings','smallGoals','tasks','hw','msgs','_snaps','_chat','_notes','act','mistakeMilestones']
 const MERGE_DICT=['dailyChecks','mistakeLog','checkImgs','wrd','imgHash']
 function _mId(x){return (x&&x.id!=null)?('i'+x.id):('h'+JSON.stringify(x))}
 function _mTs(x){return (x&&(x.ts||x.at||x.t||x.time))||0}
@@ -1083,13 +1083,13 @@ async function scanCheck(recId,urls,localB64){
   }catch(e){}
 }
 
-function submitCheck(typeId,subject,imgsArr,append,localB64,quick){
+function submitCheck(typeId,subject,imgsArr,append,localB64,quick,forceNew){
   const type=CHECK_TYPES.find(function(t){return t.id===typeId})
   if(!type)return
   if(!D.checks)D.checks=[]
   const _ds=_checkDate||td
   const _sub=subject||''
-  const old=(D.checks||[]).find(function(c){return c.date===_ds&&c.subject===_sub&&c.type===typeId})
+  const old=forceNew?null:(D.checks||[]).find(function(c){return c.date===_ds&&c.subject===_sub&&c.type===typeId})
   const _lbl=(_sub?_sub+'·':'')+type.name
   if(old&&old.status!=='approved'){
     old.imgs=(append?((old.imgs||[]).concat(imgsArr||[])):(imgsArr||[])).slice(0,6)
@@ -1097,7 +1097,7 @@ function submitCheck(typeId,subject,imgsArr,append,localB64,quick){
     old.noteSubmit=encTake()
     sv(D);render();ts('✅ 已更新 · '+old.noteSubmit)
     try{scanCheck(old.id,old.imgs||[],localB64)}catch(e){}
-    return
+    return old
   }
   const _rec={id:Date.now(),date:_ds,type:typeId,typeName:type.name,subject:_sub,imgs:imgsArr||[],pts:type.pts,status:'pending',ts:Date.now()}
   actLog('提交记录',_ds+' '+_lbl)
@@ -1157,6 +1157,7 @@ function submitCheck(typeId,subject,imgsArr,append,localB64,quick){
     }
   }catch(e){}
   try{scanCheck(_rec.id,imgsArr||[],localB64)}catch(e){}
+  return _rec
 }
 function approveCheck(id){
   const c=(D.checks||[]).find(function(x){return x.id===id})
@@ -1636,6 +1637,8 @@ function dailyBanner(){
       const ds=dayStats(td),hs=habStats(td)
       const doneN=ds.done+hs.done
       const hh=new Date().getHours()
+      const _hwM=hwToday().filter(function(x){return hwStatus(x)==='todo'}).length
+      if(_hwM)out.push('📋 作业清单还差 '+_hwM+' 项没交。')
       if(doneN===0&&hh>=17)out.push('🌙 今天还一条都没记。等你哪天想弄，就从最小的一件开始。')
       else if(doneN>0&&hh>=19)out.push('👍 今天已经记了 '+doneN+' 件。剩下的不急，想弄再弄。')
     }else{
@@ -3726,6 +3729,7 @@ async function pendRun(){
       const urls=_keep.map(function(im){return im.u})
       if(e.kind==='check')submitCheck(e.typeId,e.subject,urls,e.append,_keep.map(function(im){return im.d}))
       else if(e.kind==='mk')mkCommit(urls)
+      else if(e.kind==='hwitem')hwItemCommit(e.hwId,urls)
       else hwApply(urls)
       _keep.forEach(function(im){rememberImg(im.h,{date:td,at:Date.now(),kind:e.kind||''})})
     }catch(err){console.warn('草稿落地失败',err)}
@@ -5430,9 +5434,195 @@ function rck(){
   } finally{ $c=host }
 }
 
+/* ================= 📋 今日作业清单（2026-09-19 佳佳要的）=================
+   为什么做：app 原来不知道"学校今天布置了什么"，所以只能看他"有没有打卡"，
+   发现不了"漏了哪一科哪一项"。现在：拍一张作业登记本 → AI 读成清单 →
+   一项一项交照片（**书面交作业本、背诵交草稿本**）→ 漏了哪项一眼可见。
+   注意：清单项**只能靠交照片完成**，没有"打个钩就算"的口子（背诵尤其如此）。 */
+let _hwAdd=false
+function hwToday(){try{return (D.hw||[]).filter(function(x){return x&&x.date===td})}catch(e){return []}}
+function hwRec(x){try{return (x&&x.recId)?((D.checks||[]).filter(function(c){return c.id===x.recId})[0]||null):null}catch(e){return null}}
+function hwStatus(x){const r=hwRec(x);return r?(r.status==='approved'?'approved':(r.status==='rejected'?'rejected':'pending')):'todo'}
+function hwMiss(){return hwToday().filter(function(x){return hwStatus(x)==='todo'}).length}
+function hwShort(it){return ((it.subj&&it.subj!=='其他')?it.subj+'·':'')+String(it.text||'').slice(0,7)}
+function hwKey(it){return String(it.subj||'')+'|'+String(it.text||'').replace(/\s+/g,'')}
+function hwPush(subj,text,kind){
+  try{
+    if(!D.hw)D.hw=[]
+    const it={id:Date.now()+Math.floor(Math.random()*900),date:td,subj:subj||'',text:String(text||'').slice(0,60),
+      kind:(kind||'written'),src:'',at:Date.now(),recId:null}
+    D.hw.push(it);return it
+  }catch(e){return null}
+}
+function hwMerge(items){
+  try{
+    if(!D.hw)D.hw=[]
+    const have={}
+    hwToday().forEach(function(x){have[hwKey(x)]=1})
+    let n=0
+    ;(items||[]).forEach(function(it){
+      const subj=MK_SUBJECTS.indexOf(String(it.subj))>=0?String(it.subj):(String(it.subj||'').slice(0,6)||'其他')
+      const text=String(it.text||'').replace(/\s+/g,' ').trim().slice(0,60)
+      if(!text)return
+      const k=subj+'|'+text.replace(/\s+/g,'')
+      if(have[k])return
+      have[k]=1
+      hwPush(subj,text,it.kind==='recite'?'recite':(it.kind==='written'?'written':'other'))
+      n++
+    })
+    return n
+  }catch(e){return 0}
+}
+function hwPrompt(){
+  return ['你是初中班主任助手。下面是学生抄的「今天的作业登记」（可能是黑板上的作业记录、或者作业本上抄的清单）。',
+    '请把它读成一份清单。只输出一行 JSON，不要解释：',
+    '{"items":[{"subj":"英语","text":"单词 Unit3 默写","kind":"recite"}]}',
+    '· subj 只能填：'+MK_SUBJECTS.join('/')+'（认不出填 其他）；',
+    '· text：那一项作业的要点（最多 20 字），如「练习册 P32 1-8 题」「背诵《观沧海》」「Unit3 单词默写」；',
+    '· kind：书面作业填 written；背诵 / 默写 / 朗读 / 口头这类需要开口或用草稿本的填 recite；其他填 other；',
+    '· **不确定的不要猜**；一张图最多列 12 条；完全没有作业就返回 {"items":[]}。'].join('\n')
+}
+function hwParse(txt){
+  try{
+    const raw=String(txt||'').replace(/```json/g,'').replace(/```/g,'')
+    const m=raw.match(/[{][\s\S]*[}]/)
+    const j=JSON.parse(m?m[0]:raw)
+    return (j&&Array.isArray(j.items))?j.items:[]
+  }catch(e){return []}
+}
+function pickHwSheet(){
+  const inp=document.createElement('input')
+  inp.type='file';inp.accept='image/*'
+  inp.onchange=function(e){
+    const f=(e.target.files||[])[0]
+    if(!f)return
+    ts('⏳ 正在读这张登记本…')
+    compressImage(f,function(b64){
+      if(!b64){ts('⚠️ 照片处理失败，重拍一张');return}
+      cosPut(b64,function(url){
+        const img=String(url||b64)
+        try{ if(String(img).indexOf('http')===0)D.hwMeta={date:td,img:img,at:Date.now()} }catch(e){}
+        aiCallRetry(hwPrompt(),img,'',2).then(function(r){
+          const items=hwParse(r&&r.ok?r.text:'')
+          const n=hwMerge(items)
+          try{ if(D.hwMeta)D.hwMeta.n=hwToday().length }catch(e){}
+          sv(D);render()
+          ts(n?('✅ 读到 '+n+' 项作业'):(hwToday().length?'这次的清单和已有的一样':'⚠️ 没读出内容，可以点「加一项」手动加'))
+        }).catch(function(){ts('⚠️ 读清单失败，稍后再试（也可以手动加一项）')})
+      })
+    })
+  }
+  inp.click()
+}
+function hwPick(it){
+  const inp=document.createElement('input')
+  inp.type='file';inp.accept='image/*';inp.multiple=true
+  inp.onchange=function(e){
+    const files=Array.from(e.target.files||[])
+    if(!files.length)return
+    ts('⏳ 正在传 '+(it.kind==='recite'?'草稿本':'作业')+'照片（'+files.length+' 张）...')
+    compressAll(files,function(bs){
+      if(!bs.length){ts('⚠️ 照片处理失败，重试一次');return}
+      if(DEMO){hwItemCommit(it.id,bs);render();return}   /* 本地测试台：直接落地，不上云 */
+      pendAdd({id:'h'+Date.now(),kind:'hwitem',hwId:it.id,imgs:bs.map(function(d){return {d:d,u:''}}),ts:Date.now()})
+      render();pendRun()
+    })
+  }
+  inp.click()
+}
+function hwItemCommit(hwId,urls){
+  try{
+    const it=(D.hw||[]).filter(function(x){return x.id===hwId})[0]
+    const typeId=(it&&it.kind==='recite')?'recite':'assignment'
+    const subj=(it&&it.subj&&it.subj!=='其他')?it.subj:''
+    const rec=submitCheck(typeId,subj,urls,false,null,false,true)
+    if(it&&rec){it.recId=rec.id;it.doneAt=Date.now();sv(D)}
+  }catch(e){console.warn('作业清单落地失败',e)}
+}
+function hwRow(it){
+  const st=hwStatus(it),r=hwRec(it)
+  const row=h('div',{style:'display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)'})
+  const L=h('div',{className:'grow'})
+  L.appendChild(h('div',{style:'font-size:var(--fs-15);line-height:1.5'},(it.subj&&it.subj!=='其他'?('【'+it.subj+'】'):'')+String(it.text||'')))
+  const sc=st==='approved'?'var(--success)':st==='pending'?'var(--warning)':st==='rejected'?'var(--danger)':'var(--muted)'
+  const lab=st==='approved'?'✅ 家长已通过':st==='pending'?'⏳ 等家长审核':st==='rejected'?'↩️ 被打回，重新交':'⬜ 还没交'
+  L.appendChild(h('div',{style:'font-size:var(--fs-12);margin-top:2px;color:'+sc},
+    (it.kind==='recite'?'📝 背诵 · 要交草稿本照片':'✏️ 书面')+' · '+lab))
+  const im=checkImgs(r)
+  if(im.length){
+    const ir=h('div',{style:'display:flex;gap:4px;flex-wrap:wrap;margin-top:5px'})
+    im.slice(0,3).forEach(function(b){ir.appendChild(photoImg(b,im,'width:46px;height:46px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer'))})
+    L.appendChild(ir)
+  }
+  row.appendChild(L)
+  const btns=h('div',{style:'flex:0 0 auto;display:flex;flex-direction:column;gap:5px'})
+  if(st==='todo'||st==='rejected'){
+    btns.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){hwPick(it)}},it.kind==='recite'?'📷 交草稿本':'📷 交这项'))
+  }
+  if(ROLE.parent){
+    const d=h('button',{className:'btn btn-outline btn-sm',onClick:function(){
+      if(confirm('从今天的清单里删掉「'+String(it.text||'').slice(0,20)+'」？')){D.hw=(D.hw||[]).filter(function(x){return x.id!==it.id});sv(D);render()}
+    }})
+    d.innerHTML='✕'
+    btns.appendChild(d)
+  }
+  row.appendChild(btns)
+  return row
+}
+function hwCard(){
+  const list=hwToday().slice().sort(function(a,b){
+    const oa=hwStatus(a),ob=hwStatus(b)
+    const ra=(oa==='todo'?0:(oa==='rejected'?1:(oa==='pending'?2:3))),rb=(ob==='todo'?0:(ob==='rejected'?1:(ob==='pending'?2:3)))
+    return ra-rb||String(a.subj||'').localeCompare(String(b.subj||''))
+  })
+  const c=h('div',{className:'card'})
+  const ok=list.filter(function(x){return hwStatus(x)==='approved'}).length
+  c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📋'}),
+    '今日作业清单'+(list.length?('（'+ok+'/'+list.length+' 已通过）'):'')))
+  if(!list.length){
+    c.appendChild(h('div',{style:'font-size:var(--fs-13);color:var(--muted);line-height:1.7;margin-bottom:8px'},
+      '拍一张「作业登记本」（黑板上抄的 / 作业本上抄的），我帮你列出今天要交的，一项一项对。'))
+    c.appendChild(h('button',{className:'btn btn-primary quick-shot',onClick:pickHwSheet},'📷 拍作业登记本（30 秒）'))
+    if(ROLE.parent){
+      c.appendChild(h('button',{className:'btn btn-outline btn-sm mt8',onClick:function(){_hwAdd=!_hwAdd;render()}},'✏️ 手动加一项'))
+      if(_hwAdd)c.appendChild(hwAddRow())
+    }
+    return c
+  }
+  const miss=list.filter(function(x){return hwStatus(x)==='todo'||hwStatus(x)==='rejected'})
+  c.appendChild(h('div',{style:'font-size:var(--fs-14);line-height:1.8;margin-bottom:4px'},
+    '今天该交 '+list.length+' 项 ｜ 已通过 '+ok+' 项'+(miss.length?(' ｜ 还差 '+miss.length+' 项：'+miss.slice(0,4).map(hwShort).join('、')+(miss.length>4?' …':'')):' ｜ 全交齐了 ✓')))
+  if(list.some(function(x){return x.kind==='recite'}))
+    c.appendChild(h('div',{style:'font-size:var(--fs-12);color:var(--warning);line-height:1.6;margin-bottom:4px'},'📝 背诵 / 默写项：要交「草稿本照片」才算（不能只打钩）。'))
+  list.forEach(function(it){c.appendChild(hwRow(it))})
+  const bar=h('div',{style:'display:flex;gap:6px;flex-wrap:wrap;margin-top:10px'})
+  bar.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:pickHwSheet},'📷 重拍登记本'))
+  if(ROLE.parent)bar.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_hwAdd=!_hwAdd;render()}},'✏️ 加一项'))
+  c.appendChild(bar)
+  if(_hwAdd&&ROLE.parent)c.appendChild(hwAddRow())
+  return c
+}
+function hwAddRow(){
+  const row=h('div',{style:'display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px'})
+  const sel=h('select',{style:'width:100px',id:'hwSubSel'})
+  MK_SUBJECTS.forEach(function(x){sel.appendChild(h('option',{value:x},x))})
+  const kind=h('select',{style:'width:112px',id:'hwKindSel'})
+  kind.appendChild(h('option',{value:'written'},'✏️ 书面'));
+  kind.appendChild(h('option',{value:'recite'},'📝 背诵(要草稿)'));
+  kind.appendChild(h('option',{value:'other'},'其他'))
+  const txt=h('input',{type:'text',id:'hwTxtIn',placeholder:'如：练习册 P32 1-8 题',style:'flex:1;min-width:150px'})
+  const add=h('button',{className:'btn btn-primary btn-sm',id:'hwAddBtn',onClick:function(){
+    const t=String(txt.value||'').trim()
+    if(!t){ts('先写一下这项作业是什么');return}
+    hwPush(sel.value,t,kind.value);sv(D);render();ts('✅ 加了一项')
+  }},'加')
+  row.appendChild(sel);row.appendChild(kind);row.appendChild(txt);row.appendChild(add)
+  return row
+}
 function rckList(){
   const _pb=pendBanner();if(_pb)$c.appendChild(_pb);
   const _pc=ckPendingCard();if(_pc)$c.appendChild(_pc);
+  const _hc=hwCard();if(_hc)$c.appendChild(_hc);
   const ckd=ckDate()
   const cq=h('div',{className:'card'})
   cq.appendChild(h('div',{className:'card-header'},icoEl('camera',18),'记录今天（拍张照给家长看，通过后加分）'))
