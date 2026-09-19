@@ -16,7 +16,6 @@ const CHECK_TYPES=[
   {id:'assignment',name:'作业内容',icon:'📋',subject:false,pts:1}
 ]
 const SUBJECTS=['语文','数学','英语','物理','化学','地理','生物','历史','道法']
-const EXAM_TYPES=[{id:'quiz',name:'小测试',big:false},{id:'mid',name:'期中',big:true},{id:'final',name:'期末',big:true},{id:'monthly',name:'月考',big:true},{id:'mock',name:'模拟考',big:true},{id:'zk',name:'中考',big:true}]
 function defData(){
   return {
     exams:[],parts:JSON.parse(JSON.stringify(PT)),dailyChecks:{},checkImgs:{},checks:[],points:[],sem:'初二上',
@@ -29,11 +28,10 @@ function defData(){
 const SK='lc_v3'
 // ===== 腾讯云开发接入（PostgreSQL + rdb）=====
 const CLOUD_ENV='jiajia-study-d6gjyod13d77728d6'
-const CLOUD_REGION='ap-shanghai'
 const CLOUD_KEY='eyJhbGciOiJSUzI1NiIsImtpZCI6IjNhNjk3Y2I2LWRjMDMtNGFkMi04ZGQ2LTFkMWNjNjZhNGQ5MSJ9.eyJpc3MiOiJodHRwczovL2ppYWppYS1zdHVkeS1kNmdqeW9kMTNkNzc3MjhkNi5hcC1zaGFuZ2hhaS50Y2ItYXBpLnRlbmNlbnRjbG91ZGFwaS5jb20iLCJzdWIiOiJhbm9uIiwiYXVkIjoiamlhamlhLXN0dWR5LWQ2Z2p5b2QxM2Q3NzcyOGQ2IiwiZXhwIjo0MDkyNTI4NDk2LCJpYXQiOjE3ODg4NDUyOTYsIm5vbmNlIjoiODhqMEJEQV9Tci1qTVNMT1BhVWFBZyIsImF0X2hhc2giOiI4OGowQkRBX1NyLWpNU0xPUGFVYUFnIiwibmFtZSI6IkFub255bW91cyIsInNjb3BlIjoiYW5vbnltb3VzIiwicHJvamVjdF9pZCI6ImppYWppYS1zdHVkeS1kNmdqeW9kMTNkNzc3MjhkNiIsIm1ldGEiOnsicGxhdGZvcm0iOiJQdWJsaXNoYWJsZUtleSJ9LCJyb2xlIjoiYW5vbiIsImlzX2Fub255bW91cyI6dHJ1ZSwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiYW5vbnltb3VzIiwicHJvdmlkZXJzIjpbImFub255bW91cyJdfSwidXNlcl9tZXRhZGF0YSI6eyJuYW1lIjoiQW5vbnltb3VzIn0sInVzZXJfdHlwZSI6IiIsImNsaWVudF90eXBlIjoiY2xpZW50X3VzZXIiLCJpc19zeXN0ZW1fYWRtaW4iOmZhbHNlfQ.Mp-ZotDDKuzD-fXrSi9TvnFQLh_HhZqfy3ZHON4TWnhbuG6y2atGQSk6fjYMJqNX3QYajY5ZaQ3gAcrLYUF_Sx3CFRj3Ugeask5lKlWFnlEkn7PpY9joBFcSP7-TXeNwssT4FoiuqlzoEetJw8pQFtTo8iB3vOYLBsWAw5O3uNPysNWRN9YKA3RXSvcqQOOMMWXjmVEJsuTLzK_w0VmuahW_RyXIvJk_mpnZ-PeAA21uWhGJws5spytiKEyG9OXen4_SeICfTUYBxLncReGrluLxRU9nyDnPTyq3aKemz0I5AbPJdngwsRtxk3W17Os6OxvUBwbWfGbeJOwFn74O8Q'
 const CLOUD_TABLE='study_data'
 const CLOUD_ID=1
-let cloudApp=null,cloudRdb=null,cloudReady=false
+let cloudReady=false
 let _syncT=0,_cloudTs=0,_dirty=false,_retryTimer=null,_offline=false,_failNotified=false,_lastVisCheck=Date.now(),_cloudReadOk=false,_quotaWarned=false
 function fmtHM(t){const d=new Date(t||Date.now());return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)}
 function setCloudStatus(txt,ok){
@@ -56,7 +54,7 @@ function scheduleRetry(){
     _retryTimer=null
     if(!cloudReady)return
     if(!_cloudReadOk){retryRead();return}
-    if(_dirty)saveCloud(D)
+    if(_dirty)flushCloud()
   },15000)
 }
 async function retryRead(){
@@ -67,12 +65,14 @@ async function retryRead(){
   if(cd&&!(localT>_cloudTs+5000)){
     D=normalize(cd);render();markSynced(_cloudTs||Date.now());ts('🔄 已连接云端，载入最新数据')
   }else{
-    if(_dirty)saveCloud(D)
+    if(_dirty)flushCloud()
   }
 }
 async function syncNow(){
   if(!cloudReady){ts('⚠️ 云端未连接，数据已存在本机');return}
   if(_offline){ts('📴 当前离线，联网后会自动上传');return}
+  if(_saveSaving){ts('⏳ 正在同步中，稍等一下');return}
+  if(_saveTimer){clearTimeout(_saveTimer);_saveTimer=null;_savePendAt=0}
   setCloudStatus('🔄 同步中...',true)
   const ok=await saveCloud(D)
   ts(ok?'☁️ 已同步到云端':'⚠️ 同步失败，稍后自动重试')
@@ -141,6 +141,17 @@ const MERGE_DICT=['dailyChecks','mistakeLog','checkImgs','wrd','imgHash']
 function _mId(x){return (x&&x.id!=null)?('i'+x.id):('h'+JSON.stringify(x))}
 function _mTs(x){return (x&&(x.ts||x.at||x.t||x.time))||0}
 function _mRank(x){const st=x&&x.status;return st==='approved'?3:(st==='pending'?2:(st==='rejected'?1:0))}
+/* 记录里内嵌 base64 照片的总长度：0 = 已全部换成云链接（更省流量，合并时优先） */
+function _mB64(x){
+  let n=0
+  const scan=function(v){
+    if(typeof v==='string'){if(v.indexOf('data:')===0)n+=v.length;return}
+    if(Array.isArray(v)){for(const t of v)scan(t);return}
+    if(v&&typeof v==='object'){for(const k in v)scan(v[k])}
+  }
+  if(x){scan(x.imgs);scan(x.img)}
+  return n
+}
 function _mList(A,B){
   const out=[],idx={}
   ;(A||[]).concat(B||[]).forEach(function(it){
@@ -149,7 +160,10 @@ function _mList(A,B){
     if(!(k in idx)){idx[k]=out.length;out.push(it);return}
     const i=idx[k],cur=out[i]
     const ta=_mTs(it),tb=_mTs(cur)
-    if(ta>tb||(ta===tb&&_mRank(it)>_mRank(cur)))out[i]=it
+    const ra=_mRank(it),rb=_mRank(cur)
+    /* 同一份记录、时间和状态都一样时：优先要「照片已上云」的那份
+       （否则迁移过的照片会被旧设备的 base64 盖回去） */
+    if(ta>tb||(ta===tb&&(ra>rb||(ra===rb&&_mB64(it)<_mB64(cur)))))out[i]=it
   })
   return out
 }
@@ -275,6 +289,33 @@ async function saveCloud(d){
     return false
   }
 }
+/* ===== 保存防抖 + 单飞锁（2026-09-19 优化）=====
+   以前每改一下就「读云端 → 合并 → 写云端」各一次；数据 1.5MB 时一次约 3MB 流量。
+   现在同一批改动合并成一次，且同一时刻只跑一个写请求。 */
+const SAVE_DEBOUNCE_MS=1200,SAVE_MAXWAIT_MS=8000
+let _saveTimer=null,_saveSaving=false,_saveAgain=false,_savePendAt=0
+function cloudSoon(){
+  if(!cloudReady)return
+  if(_offline){markDirty();return}
+  const now=Date.now()
+  if(!_savePendAt)_savePendAt=now
+  if(_saveTimer)clearTimeout(_saveTimer)
+  const wait=(now-_savePendAt>=SAVE_MAXWAIT_MS)?0:SAVE_DEBOUNCE_MS
+  _saveTimer=setTimeout(function(){_saveTimer=null;flushCloud()},wait)
+}
+async function flushCloud(){
+  if(_saveTimer){clearTimeout(_saveTimer);_saveTimer=null}
+  _savePendAt=0
+  if(_saveSaving){_saveAgain=true;return false}
+  _saveSaving=true
+  let ok=false
+  try{ok=await saveCloud(D)}catch(e){console.warn('保存失败',e)}
+  finally{
+    _saveSaving=false
+    if(_saveAgain){_saveAgain=false;cloudSoon()}
+  }
+  return ok
+}
 function ld(){
   try{
     if(DEMO){
@@ -345,9 +386,7 @@ function sv(d){
   if(!ok&&!_quotaWarned){_quotaWarned=true;ts('⚠️ 本机已无法保存，请到「设置」导出备份')}
   if(!ok)_saveWarn('⚠️ 本机已无法保存！请联网，并到「设置」导出备份。')
   maybeSnapshot()
-  if(!cloudReady)return
-  if(_offline){markDirty();return}
-  saveCloud(d)
+  cloudSoon()
 }
 
 const up=new URLSearchParams(window.location.search)
@@ -3856,45 +3895,18 @@ function rejectExam(id){
   sv(D);render()
   ts('↩️ 成绩已退回')
 }
-/* ================= 照片上云：压小后传到云存储，数据里只存 cloud:// 文件ID ================= */
-let _photoOK=null,_photoWarned=false
-
-
+/* ================= 照片上云：压小后直传云存储，数据里只存 https 链接 ================= */
 function uploadPhoto(file,cb){
   compressImage(file,function(b64){
     if(!b64)return cb(null)
-    try{
-      if(!cloudApp||!cloudApp.uploadFile)return cb(b64)
-      fetch(AI_URL,{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({token:aiToken(),type:'upload',data:b64})})
-        .then(function(r){return r.json()})
-        .then(function(j){
-          if(j&&j.ok&&j.url){_photoOK=true;cb(j.url)}
-          else{
-            _photoOK=false
-            if(!_photoWarned){_photoWarned=true;ts('⚠️ 照片上云失败（'+(j&&j.err||'未知')+'），先存本机')}
-            cb(b64)
-          }
-        })
-        .catch(function(e){console.warn('照片上传失败，退回本机',e);_photoOK=false;cb(b64)})
-      return
-      // eslint-disable-next-line no-unreachable
-    }catch(e){cb(b64)}
+    /* 和聊天发图走同一条路（cosPut）：成功拿 https 链接，失败自动退回本机 base64 */
+    cosPut(b64,cb)
   })
 }
-const _urlCache={}
 function photoURL(v,cb){
   if(!v)return cb('')
-  if(String(v).indexOf('cloud://')!==0)return cb(v)
-  if(_urlCache[v])return cb(_urlCache[v])
-  try{
-    if(!cloudApp||!cloudApp.getTempFileURL)return cb('')
-    cloudApp.getTempFileURL({fileList:[v]}).then(function(r){
-      const it=(r&&r.fileList&&r.fileList[0])||{}
-      const u=it.tempFileURL||it.tempFileUrl||it.download_url||''
-      if(u){_urlCache[v]=u;cb(u)}else cb('')
-    }).catch(function(){cb('')})
-  }catch(e){cb('')}
+  if(String(v).indexOf('cloud://')!==0)return cb(v)   /* https 链接 / dataURL 直接用 */
+  return cb('')                                       /* 旧的 cloud:// 文件ID 需 SDK 换临时地址，已废弃 */
 }
 function photoImg(v,list,style){
   const im=h('img',{loading:'lazy',alt:'照片'})
@@ -5488,7 +5500,7 @@ function rckList(){
   for(const task of todayTasks){
     const item=h('div',{className:'task-item'})
     const chk=h('button',{className:'q-btn '+(task.done?'done':''),onClick:function(){task.done=!task.done;sv(D);render();ts(task.done?'✅ 任务完成 · '+praise('task'):'已取消')}})
-    chk.innerHTML=(task.done?'✅ ':'⬜ ')+task.text
+    chk.textContent=(task.done?'✅ ':'⬜ ')+task.text
     item.appendChild(chk)
     if(ROLE.edit){const del=h('button',{className:'btn btn-danger btn-sm ml6',onClick:function(){D.tasks=D.tasks.filter(function(x){return x.id!==task.id});sv(D);render()}});del.innerHTML='✕';item.appendChild(del)}
     tt.appendChild(item)
@@ -6633,8 +6645,10 @@ if(_cb){_cb.style.cursor='pointer';_cb.addEventListener('click',function(){if(_d
 async function checkCloudNewer(){
   if(!cloudReady||_offline)return
   try{
-    const r=await cloudRdb.from(CLOUD_TABLE).select('updated_at').eq('id',CLOUD_ID).limit(1)
-    const t=(r&&r.data&&r.data[0]&&r.data[0].updated_at)?Date.parse(r.data[0].updated_at):0
+    const r=await fetch(CLOUD_REST+'?id=eq.'+CLOUD_ID+'&select=id,updated_at',{headers:_clHead(),cache:'no-store'})
+    if(!r.ok)return
+    const arr=await r.json()
+    const t=(arr&&arr[0]&&arr[0].updated_at)?Date.parse(arr[0].updated_at):0
     if(t&&_syncT&&t>_syncT+5000&&!_dirty&&ROLE.parent){
       const cd=await loadCloud()
       if(cd){D=normalize(cd);render();markSynced(_cloudTs||Date.now());ts('🔄 已同步其他设备的最新数据')}
@@ -6642,9 +6656,12 @@ async function checkCloudNewer(){
   }catch(e){}
 }
 window.addEventListener('offline',function(){_offline=true;setCloudStatus('📴 离线（已存本机）',false)})
-window.addEventListener('online',function(){_offline=false;setCloudStatus('🔄 网络恢复，同步中...',true);if(_dirty){saveCloud(D)}else{checkCloudNewer()}})
+window.addEventListener('online',function(){_offline=false;setCloudStatus('🔄 网络恢复，同步中...',true);if(_dirty){flushCloud()}else{checkCloudNewer()}})
 window.addEventListener('beforeunload',function(e){if(_dirty){e.preventDefault();e.returnValue=''}})
+/* 关页面 / 切到后台：把还在防抖里那一次立刻发出去（不会因为「还在等 1.2 秒」而丢） */
+window.addEventListener('pagehide',function(){if(_dirty||_saveTimer||_savePendAt)try{flushCloud()}catch(e){}})
 document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='hidden'){if(_dirty||_saveTimer||_savePendAt)try{flushCloud()}catch(e){};return}
   if(document.visibilityState==='visible'&&Date.now()-_lastVisCheck>120000){_lastVisCheck=Date.now();checkCloudNewer();try{checkNewVersion()}catch(e){}}
 })
 /* ================= PWA：注册 Service Worker + 安卓“一键安装” ================= */
