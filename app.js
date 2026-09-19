@@ -907,6 +907,7 @@ function _closeLayer(){
   const a=document.getElementById('askOv')
   if(a&&a.classList.contains('show')){closeAsk();try{if(_askCancel)_askCancel()}catch(e){};return true}
   if(_moreOpen){closeMore();return true}
+  if(tb==='checkin'&&_openSubj&&Object.keys(_openSubj).some(function(k){return _openSubj[k]})){_openSubj={};render();return true}
   if(document.getElementById('lightbox')){closeLightbox();return true}
   return false
 }
@@ -2006,7 +2007,7 @@ function mkRow(it,showSub){
   if(it.done)tags.appendChild(h('span',{style:'font-size:var(--fs-12);padding:1px 7px;border-radius:8px;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.45);color:#22c55e'},'✅ 已弄懂'))
   left.appendChild(tags)
   if(it.stem)left.appendChild(h('div',{style:'font-size:var(--fs-14);color:var(--muted);line-height:1.6'},it.stem))
-  else if(!it.aiAt)left.appendChild(skelLines(2,'🤖 正在认这张…'))
+  else if(!it.aiAt)left.appendChild(skelLines(2,'🤖 正在认这张…（可以离开，认完自动补上）'))
   left.appendChild(h('div',{style:'font-size:var(--fs-12);color:var(--faint);margin-top:3px'},'📅 '+fd(it.date)+' 记录'))
   top.appendChild(left)
   if((it.imgs||[]).length){
@@ -2038,11 +2039,14 @@ function mkRow(it,showSub){
   return row
 }
 function rckMk(){
-  const all=mkList()
+  const _all0=mkList()
+  const all=_mkQ?_all0.filter(function(x){return mkHit(x,_mkQ)}):_all0
   const c=h('div',{className:'card'})
   c.appendChild(h('div',{className:'card-header'},icoEl('notebook-pen',18),'错题记录（'+all.length+' 道）'))
   c.appendChild(h('div',{style:'font-size:var(--fs-14);color:var(--muted);margin-bottom:10px;line-height:1.7'},'拍一张错题 → 小搭自动认科目、认题型，存起来。记下来就行，不用重做。'))
   c.appendChild(h('button',{className:'btn btn-primary',onClick:mkAdd},'📷 拍错题（可多张）'))
+  c.appendChild(searchBox('mkQ',_mkQ,'🔍 搜题目 / 知识点 / 题型（如：一次函数）',function(v){_mkQ=v}))
+  if(_mkQ)c.appendChild(h('div',{style:'font-size:var(--fs-12);color:var(--warning);margin-bottom:6px'},'🔍 只显示含「'+_mkQ+'」的 '+(all.length)+' 道（点框里 ✕ 可清空）'))
   $c.appendChild(c)
   /* 🎉 本周弄懂（他重拍后小搭确认做对的） */
   try{
@@ -2659,6 +2663,28 @@ function ensureChatOpener(){
 /* ---- 给他看「小搭记得的事」，不对的他自己删 ---- */
 let _mkView='总览'
 let _mkShow=30
+let _mkQ=''          /* 错题本搜索词（2026-09-19）*/
+let _ptQ=''          /* 积分记录搜索词 */
+let _mkQT=null,_ptQT=null
+function mkHit(x,q){
+  try{const s=[x&&x.stem,x&&x.kp,x&&x.qtype,x&&x.subject,x&&x.why,x&&x.no].join(' ');return s.indexOf(q)>=0}catch(e){return false}
+}
+/* 搜索框：输入停 350ms 才重绘，并把焦点还回去（不然打一个字就失焦）*/
+function searchBox(id,val,ph,onChange){
+  const el=h('input',{id:id,type:'search',placeholder:ph,value:val||'',style:'width:100%;margin:8px 0'})
+  el.addEventListener('input',function(){
+    const v=this.value
+    const T=(id==='mkQ')?_mkQT:_ptQT
+    clearTimeout(T)
+    const tm=setTimeout(function(){
+      onChange(v.trim());render()
+      const e2=document.getElementById(id)
+      if(e2){try{e2.focus();e2.setSelectionRange(e2.value.length,e2.value.length)}catch(e3){}}
+    },350)
+    if(id==='mkQ')_mkQT=tm;else _ptQT=tm
+  })
+  return el
+}
 let _mkGroup='kp'
 let _todayMore=false
 let _memOpen=false
@@ -3804,7 +3830,13 @@ function exportBackup(){
     ts('📥 备份已导出到「下载」文件夹')
   }catch(e){ts('⚠️ 导出失败')}
 }
+let _lastBatchAt=0
+function _tapGuard(){
+  if(Date.now()-(_lastBatchAt||0)<1500)return false
+  _lastBatchAt=Date.now();return true
+}
 function approveChecks(list){
+  if(!_tapGuard())return ts('⏳ 刚才那下已经收到啦'),
   ask('把这 '+list.length+' 条全部通过？','会立刻加积分。要是弄错了，可以单条点「↩️ 回退（撤回通过）」。','全部通过',function(){
     let n=0,pts=0
     for(const c of list){
@@ -3820,6 +3852,7 @@ function approveChecks(list){
   })
 }
 function approveExams(list){
+  if(!_tapGuard())return ts('⏳ 刚才那下已经收到啦')
   ask('把这 '+list.length+' 条成绩全部通过？','','全部通过',function(){
     let n=0
     for(const ex of list){if(!ex||ex.status!=='pending')continue;ex.status='approved';ex.at=Date.now();cu(ex);n++}
@@ -4319,6 +4352,16 @@ function renderLb(){
   ov.appendChild(bar)
   ov.appendChild(close)
   ov.addEventListener('click',function(e){if(e.target===ov)closeLightbox()})
+  /* ① 手机左右滑 = 上一张 / 下一张（2026-09-19）*/
+  try{
+    let _sx=0,_sy=0,_st=0
+    ov.addEventListener('touchstart',function(e){const t=e.touches&&e.touches[0];if(!t)return;_sx=t.clientX;_sy=t.clientY;_st=Date.now()},{passive:true})
+    ov.addEventListener('touchend',function(e){
+      const t=e.changedTouches&&e.changedTouches[0];if(!t)return
+      const dx=t.clientX-_sx, dy=t.clientY-_sy
+      if(Date.now()-_st<700&&Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy)*1.4){_lbList=keep;_lbIdx=keepIdx;lbStep(dx<0?1:-1)}
+    },{passive:true})
+  }catch(e){}
   document.body.appendChild(ov)
 }
 document.addEventListener('keydown',function(e){
@@ -5727,7 +5770,7 @@ function hwParseLines(txt){
   String(txt||'').split(/[\r\n;；]+/).forEach(function(ln){
     let s=String(ln||'').replace(/^\s*[-–—•·*●○□☐✔✓※>]+\s*/,'').replace(/^\s*\(?\d+\s*[\)）.、:：]\s*/,'').replace(/\s+/g,' ').trim()
     if(!s)return
-    if(s.length>60)s=s.slice(0,60)
+    if(s.length>60){s=s.slice(0,60);out.trunc=1}    /* 标记被截过，别静默改用户输入 */
     let subj=''
     let m=s.match(/^[【\[\(（]\s*([\u4e00-\u9fa5A-Za-z]{2,4})\s*[】\]\)）]\s*(.+)$/)
     if(!m)m=s.match(/^([\u4e00-\u9fa5]{2,4})\s*[：:]\s*(.+)$/)
@@ -5933,7 +5976,7 @@ function hwAddRow(){
     })
     try{if(D.hwMeta)D.hwMeta.n=hwToday().length}catch(e){}
     sv(D);_hwAdd=false;render()
-    ts(n?('✅ 加了 '+n+' 项'):'这几项今天的清单里已经有了')
+    ts(n?((items.trunc?('⚠️ 加了 '+n+' 项（太长的只留了前 60 个字）'):('✅ 加了 '+n+' 项'))):'这几项今天的清单里已经有了')
   }
   txt.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();_hwGo()}})
   const add=h('button',{className:'btn btn-primary btn-sm',id:'hwAddBtn',onClick:_hwGo},'➕ 加进清单')
@@ -5944,6 +5987,7 @@ function hwAddRow(){
 }
 function rckList(){
   const _pb=pendBanner();if(_pb)$c.appendChild(_pb);
+  if(_offline)$c.appendChild(h('div',{className:'alert warning',style:'margin-bottom:10px'},'📴 现在没连上网：拍照打卡照旧能用，先存在本机，联网后自动传上去。'));
   const _pc=ckPendingCard();if(_pc)$c.appendChild(_pc);
   const _hc=hwCard();if(_hc)$c.appendChild(_hc);
   const ckd=ckDate()
@@ -7006,7 +7050,7 @@ function rp(){
     if(part.exchange&&!part.unlocked&&ROLE.parent){
       const need=pcost
       const can=availPts>=need
-      card.appendChild(h('button',{className:'btn btn-sm '+(can?'btn-success':'btn-outline'),style:'margin-top:6px;font-size:var(--fs-14)',onClick:(e)=>{e.stopPropagation();if(availPts<need){ts('⚠️ 积分不足，还差 '+(need-availPts).toLocaleString()+' 分');return}
+      card.appendChild(h('button',{className:'btn btn-sm '+(can?'btn-success':'btn-outline'),style:'margin-top:6px;font-size:var(--fs-14)',onClick:(e)=>{e.stopPropagation();if(part._buying)return;part._buying=1;setTimeout(function(){try{part._buying=0}catch(e2){}},1500);if(availPts<need){ts('⚠️ 积分不足，还差 '+(need-availPts).toLocaleString()+' 分');return}
         const _rec={id:_newId('p'),date:td,source:'兑换 '+part.name,points:need,type:'spend'}
         D.points.push(_rec);part.unlocked=true;sv(D);render();ts('✅ 已兑换 '+part.name+' · '+praise('part'))
         undoBar('已兑换：'+part.name+'（-⭐'+need.toLocaleString()+'）',function(){const _i=D.points.indexOf(_rec);if(_i>=0)D.points.splice(_i,1);part.unlocked=false;sv(D);render();ts('↩️ 已撤销兑换')})
@@ -7052,9 +7096,10 @@ function rpt(){
     _fch.appendChild(h('button',{className:'btn btn-sm '+(_ptFilter===f[0]?'btn-primary':'btn-outline'),onClick:function(){_ptFilter=f[0];render()}},f[1]))
   })
   dc.appendChild(_fch)
+  dc.appendChild(searchBox('ptQ',_ptQ,'🔍 搜来源或日期（如：兑换 / 09-1）',function(v){_ptQ=v}))
   if(!D.points.length){dc.appendChild(h('div',{style:'text-align:center;padding:40px;color:var(--muted)'},'📭 暂无记录'))}
   else{
-    const sorted=[...D.points].filter(function(x){return _ptFilter==='all'||x.type===_ptFilter}).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,50)
+    const sorted=[...D.points].filter(function(x){return (_ptFilter==='all'||x.type===_ptFilter)&&(!_ptQ||(String(x.source||'')+String(x.date||'')).indexOf(_ptQ)>=0)}).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,50)
     var rows2=''
     for(var pi=0;pi<sorted.length;pi++){
       var p=sorted[pi]
