@@ -140,6 +140,9 @@ const MERGE_LIST=['checks','exams','points','mistakes','handwritings','smallGoal
 const MERGE_DICT=['dailyChecks','mistakeLog','checkImgs','wrd','imgHash']
 function _mId(x){return (x&&x.id!=null)?('i'+x.id):('h'+JSON.stringify(x))}
 function _mTs(x){return (x&&(x.ts||x.at||x.t||x.time))||0}
+/* 合并时判「哪边更新」用的时间：内容时间 与 状态变更时间(ts/at) 取更晚的那个。
+   不加这条的话，家长「退回 / 撤回通过」后，别的设备那份旧状态（ts 相同）会因为 _mRank 把新状态盖回去。 */
+function _mStTs(x){return Math.max(_mTs(x)||0,(x&&x.at)||0)}
 function _mRank(x){const st=x&&x.status;return st==='approved'?3:(st==='pending'?2:(st==='rejected'?1:0))}
 /* 记录里内嵌 base64 照片的总长度：0 = 已全部换成云链接（更省流量，合并时优先） */
 function _mB64(x){
@@ -159,7 +162,7 @@ function _mList(A,B){
     const k=_mId(it)
     if(!(k in idx)){idx[k]=out.length;out.push(it);return}
     const i=idx[k],cur=out[i]
-    const ta=_mTs(it),tb=_mTs(cur)
+    const ta=_mStTs(it),tb=_mStTs(cur)
     const ra=_mRank(it),rb=_mRank(cur)
     /* 同一份记录、时间和状态都一样时：优先要「照片已上云」的那份
        （否则迁移过的照片会被旧设备的 base64 盖回去） */
@@ -1166,9 +1169,40 @@ function rejectCheck(id){
   const c=(D.checks||[]).find(function(x){return x.id===id})
   if(!c||c.status!=='pending')return
   c.status='rejected'
+  c.at=Date.now()   /* 状态变更时间：合并时用它判断哪边更新 */
   actLog('退回记录',(c.date||'')+' '+((c.subject?c.subject+'·':'')+c.typeName))
   sv(D);render()
   ts('↩️ 已退回')
+}
+/* 撤回通过（2026-09-19：佳佳「今天有回退的数学科目，但网页上还显示通过」）
+   已通过的记录回到「待审核」，并把当时加的分扣回。 */
+function unapproveCheck(id){
+  const c=(D.checks||[]).find(function(x){return x.id===id})
+  if(!c||c.status!=='approved')return
+  const lbl=(c.subject?c.subject+'·':'')+(c.typeName||c.type||'记录')
+  if(!confirm('把「'+lbl+'」从「已通过」撤回？\n\n· 它会回到「待审核」，你可以重新选 通过 / 退回\n· 这条加过的 '+(c.pts||0)+' 分会一起扣回'))return
+  c.status='pending'
+  c.at=Date.now()
+  delete c.note
+  /* 扣回积分：找最近一条同日期/同来源/同分值的加分删掉（下次 sv 会自动补墓碑） */
+  const src=lbl
+  for(let i=(D.points||[]).length-1;i>=0;i--){
+    const q=D.points[i]
+    if(q&&q.type==='earn'&&q.points===(c.pts||0)&&q.source===src&&q.date===(c.date||td)){D.points.splice(i,1);break}
+  }
+  actLog('撤回通过',(c.date||'')+' '+lbl)
+  sv(D);render()
+  ts('↩️ 已撤回（回到待审核，分已扣回）')
+}
+function unapproveExam(id){
+  const ex=(D.exams||[]).find(function(x){return x.id===id})
+  if(!ex||ex.status!=='approved')return
+  if(!confirm('把这条成绩从「已通过」撤回？\n\n· 它会回到「待审核」\n· 之前解锁的零件不会收回'))return
+  ex.status='pending'
+  ex.at=Date.now()
+  actLog('撤回成绩通过',fd(ex.date)+' '+(ex.sem||'')+' '+(ex.examType||''))
+  sv(D);render()
+  ts('↩️ 成绩已撤回（回到待审核）')
 }
 function msgUnread(mine){
   const seen=mine==='p'?(D.msgSeenP||0):(D.msgSeenC||0)
@@ -3525,7 +3559,7 @@ function approveChecks(list){
 function approveExams(list){
   if(!confirm('确定把这 '+list.length+' 条成绩全部通过吗？'))return
   let n=0
-  for(const ex of list){if(!ex||ex.status!=='pending')continue;ex.status='approved';cu(ex);n++}
+  for(const ex of list){if(!ex||ex.status!=='pending')continue;ex.status='approved';ex.at=Date.now();cu(ex);n++}
   if(n){actLog('批量通过成绩',n+' 条');sv(D);render();ts('✅ 已通过 '+n+' 条成绩')}
 }
 function updateTabBadges(){
@@ -3829,6 +3863,11 @@ function rckDone(){
       const _sl3=scanLine(c)
       if(_sl3)_cell.appendChild(h('div',{style:'font-size:var(--fs-12);color:var(--warning);margin-top:3px;line-height:1.6'},'📌 小搭看到：'+_sl3))
       row.appendChild(_cell)
+      if(ROLE.review){
+        const _ub=h('div',{style:'flex:0 0 auto'})
+        _ub.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){unapproveCheck(c.id)}},'↩️ 回退'))
+        row.appendChild(_ub)
+      }
       if(imgs.length){
         const ir=h('div',{style:'display:flex;gap:4px;flex-wrap:wrap;max-width:150px'})
         imgs.slice(0,3).forEach(function(b){ir.appendChild(photoImg(b,imgs,'width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer'))})
@@ -3884,6 +3923,7 @@ function approveExam(id){
   const ex=(D.exams||[]).find(function(x){return x.id===id})
   if(!ex||ex.status==='approved')return
   ex.status='approved'
+  ex.at=Date.now()
   cu(ex)
   sv(D);render()
   ts('✅ 成绩已通过')
@@ -3892,6 +3932,7 @@ function rejectExam(id){
   const ex=(D.exams||[]).find(function(x){return x.id===id})
   if(!ex||ex.status==='approved')return
   ex.status='rejected'
+  ex.at=Date.now()
   sv(D);render()
   ts('↩️ 成绩已退回')
 }
@@ -5444,6 +5485,11 @@ function rckList(){
         br.appendChild(h('button',{className:'btn btn-danger btn-sm',onClick:function(){rejectCheck(rec.id)}},'↩️ 退回'))
         card.appendChild(br)
       }
+      if(ROLE.review&&rec.status==='approved'){
+        const br4=h('div',{style:'margin-top:6px;display:flex;justify-content:center'})
+        br4.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){unapproveCheck(rec.id)}},'↩️ 回退（撤回通过）'))
+        card.appendChild(br4)
+      }
       if(rec.status==='rejected')card.appendChild(h('button',{className:'btn btn-outline btn-sm mt6',onClick:function(){startCheck(type,subj)}},'📷 重新上传'))
       if(rec.status==='pending'&&rec.noteSubmit)card.appendChild(h('div',{className:'longtext',style:'font-size:var(--fs-14);line-height:1.7;color:var(--success);margin-top:6px'},'💬 '+rec.noteSubmit))
       if(rec.status==='approved'&&rec.at)card.appendChild(h('div',{style:'font-size:var(--fs-12);color:var(--muted);margin-top:4px'},'通过时间 '+fmtHM(rec.at)))
@@ -6358,6 +6404,7 @@ function rs(){
       }
       if(ROLE.review){
         const br2=h('div',{className:'mt8'})
+        if(ex.status==='approved')br2.appendChild(h('button',{className:'btn btn-outline btn-sm',style:'margin-right:6px',onClick:function(){unapproveExam(ex.id)}},'↩️ 回退'))
         br2.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_editExamId=ex.id;_editOrig=ex;render()}},'✏️ 编辑'))
         const delBtn=h('button',{className:'btn btn-danger btn-sm ml6',onClick:function(){if(confirm('删除这条成绩？')){D.exams=D.exams.filter(function(e){return e.id!==ex.id});sv(D);render()}}});delBtn.innerHTML='🗑';delBtn.onclick=function(){if(confirm('删除这条成绩？\n'+fd(ex.date)+' '+ex.sem+' '+ex.examType+'\n\n会放进「设置 → 最近删除」，30 天内可恢复')){trashPush('exam',fd(ex.date)+' '+ex.sem+' '+ex.examType,ex);D.exams=D.exams.filter(function(e){return e.id!==ex.id});sv(D);render();ts('已删除（可在设置页恢复）')}};br2.appendChild(delBtn)
         row.appendChild(br2)
