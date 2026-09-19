@@ -5590,8 +5590,11 @@ function hwCard(){
     return c
   }
   const miss=list.filter(function(x){return hwStatus(x)==='todo'||hwStatus(x)==='rejected'})
+  const wait=list.filter(function(x){return hwStatus(x)==='pending'}).length
+  const tail=miss.length?(' ｜ 还差 '+miss.length+' 项：'+miss.slice(0,4).map(hwShort).join('、')+(miss.length>4?' …':''))
+    :(wait?(' ｜ 都交了，等家长审核 '+wait+' 项'):' ｜ 全部通过 ✓')
   c.appendChild(h('div',{style:'font-size:var(--fs-14);line-height:1.8;margin-bottom:4px'},
-    '今天该交 '+list.length+' 项 ｜ 已通过 '+ok+' 项'+(miss.length?(' ｜ 还差 '+miss.length+' 项：'+miss.slice(0,4).map(hwShort).join('、')+(miss.length>4?' …':'')):' ｜ 全交齐了 ✓')))
+    '今天该交 '+list.length+' 项 ｜ 已通过 '+ok+' 项'+tail))
   if(list.some(function(x){return x.kind==='recite'}))
     c.appendChild(h('div',{style:'font-size:var(--fs-12);color:var(--warning);line-height:1.6;margin-bottom:4px'},'📝 背诵 / 默写项：要交「草稿本照片」才算（不能只打钩）。'))
   list.forEach(function(it){c.appendChild(hwRow(it))})
