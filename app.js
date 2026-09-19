@@ -16,6 +16,8 @@ const CHECK_TYPES=[
   {id:'assignment',name:'作业内容',icon:'📋',subject:false,pts:1}
 ]
 const SUBJECTS=['语文','数学','英语','物理','化学','地理','生物','历史','道法']
+/* 提交分：每天前 SUB_PTS_MAX 次提交各 +1，之后不再给（2026-09-19 收紧；原来每次都给） */
+const SUB_PTS_MAX=2
 function defData(){
   return {
     exams:[],parts:JSON.parse(JSON.stringify(PT)),dailyChecks:{},checkImgs:{},checks:[],points:[],sem:'初二上',
@@ -1102,8 +1104,10 @@ function submitCheck(typeId,subject,imgsArr,append,localB64,quick){
   try{confetti(120)}catch(e){}
   _rec.noteSubmit=encTake()
   D.checks.unshift(_rec)
-  D.points.push({date:_ds,source:'提交·'+_lbl,points:1,type:'earn'});try{ptBurst(1,'提交')}catch(e){}
-  /* 🌟 今日首胜 + 🍀 幸运双倍（可变的惊喜，克制：约 1/10） */
+  const _subCnt=(D.points||[]).filter(function(p){return p.date===_ds&&p.type==='earn'&&String(p.source||'').indexOf('提交·')===0}).length
+  const _gaveSub=(_subCnt<SUB_PTS_MAX)
+  if(_gaveSub){D.points.push({date:_ds,source:'提交·'+_lbl,points:1,type:'earn'});try{ptBurst(1,'提交')}catch(e){}}
+  /* 🌟 今日首胜（每天第一张 +1）+ 🍀 幸运加分（5% +1） */
   try{
     if(!D.win)D.win={d:'',n:0}
     if(D.win.d!==_ds){
@@ -1111,13 +1115,14 @@ function submitCheck(typeId,subject,imgsArr,append,localB64,quick){
       D.points.push({id:'win-'+_ds,date:_ds,source:'🌟 今日首胜',points:1,type:'earn'})
       setTimeout(function(){try{ts('🌟 今日首胜 +1')}catch(e){};try{confetti(200)}catch(e){}},700)
     }else D.win.n=(D.win.n||0)+1
-    if(Math.random()<0.1){
-      D.points.push({id:'lucky-'+_ds+'-'+Date.now(),date:_ds,source:'🍀 幸运双倍',points:2,type:'earn'})
-      setTimeout(function(){try{ts('🍀 幸运双倍 +2！')}catch(e){};try{confetti(220)}catch(e){}},1200)
+    /* 🍀 幸运加分：5% 概率 +1 分（2026-09-19 收紧：原来 10% +2） */
+    if(Math.random()<0.05){
+      D.points.push({id:'lucky-'+_ds+'-'+Date.now(),date:_ds,source:'🍀 幸运加分',points:1,type:'earn'})
+      setTimeout(function(){try{ts('🍀 幸运加分 +1！')}catch(e){};try{confetti(220)}catch(e){}},1200)
     }
   }catch(e){}
   sv(D);render()
-  ts('✅ 已收到 +1分 · '+_rec.noteSubmit)
+  ts('✅ 已收到'+(_gaveSub?' +1分':'')+' · '+_rec.noteSubmit)
   /* 📷 随手拍：让 AI 认出科目 + 类型，回填到这条记录 */
   if(quick&&imgsArr&&imgsArr[0]){
     try{
