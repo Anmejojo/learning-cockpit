@@ -2,7 +2,7 @@
 :root{
   --bg:#0b0d12;--bg-elev:#12151c;--card:#15181f;--card-2:#1b1f29;
   --text:#ccd2de;--muted:#98a1b3;--faint:#7d8799;
-  --primary:#6366f1;--primary-hover:#818cf8;--primary-weak:rgba(99,102,241,0.14);--primary-border:rgba(99,102,241,0.45);
+  --primary:#6366f1;--primary-text:#a5b4fc;--primary-hover:#818cf8;--primary-weak:rgba(99,102,241,0.14);--primary-border:rgba(99,102,241,0.45);
   --success:#34d399;--success-weak:rgba(52,211,153,0.12);--success-border:rgba(52,211,153,0.4);
   --warning:#fbbf24;--warning-weak:rgba(251,191,36,0.12);--warning-border:rgba(251,191,36,0.4);
   --danger:#f87171;--danger-weak:rgba(248,113,113,0.12);--danger-border:rgba(248,113,113,0.4);
@@ -516,7 +516,7 @@ html[data-polish="1"] .btn-primary{color:var(--primary-ink)}
 html[data-polish="1"] .btn-primary:hover{color:var(--primary-ink)}
 html[data-polish="1"] .fab-chat{color:var(--primary-ink)}
 html[data-polish="1"] .seg-btn.on,html[data-polish="1"] .seg-b.on{color:var(--primary-ink)}
-html[data-polish="1"] .theme-pick.on .tp-on{color:var(--primary)}
+html[data-polish="1"] .theme-pick.on .tp-on{color:var(--primary-text)}
 html[data-polish="1"] *{transition-timing-function:var(--ease)}
 
 /* 页面切换：一次性淡入（只在切页瞬间生效，不是每次重绘都动） */
