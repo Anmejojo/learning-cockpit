@@ -896,9 +896,27 @@ function ask(title,desc,okText,onOk,danger,onCancel){
   btns.appendChild(h('button',{className:'btn '+(danger?'btn-danger':'btn-primary'),onClick:function(){closeAsk();try{onOk&&onOk()}catch(e){}}},okText||'确定'))
   box.appendChild(btns)
   ov.appendChild(box)
+  ov.onclick=function(e){if(e.target===ov){closeAsk();try{if(onCancel)onCancel()}catch(err){}}}
+  _askCancel=onCancel||null
   ov.classList.add('show')
 }
 function closeAsk(){const ov=document.getElementById('askOv');if(ov)ov.classList.remove('show')}
+/* ① 返回键 / ESC：先关最上面那一层，没层了才退出页面（2026-09-19） */
+let _askCancel=null
+function _closeLayer(){
+  const a=document.getElementById('askOv')
+  if(a&&a.classList.contains('show')){closeAsk();try{if(_askCancel)_askCancel()}catch(e){};return true}
+  if(_moreOpen){closeMore();return true}
+  if(document.getElementById('lightbox')){closeLightbox();return true}
+  return false
+}
+window.addEventListener('popstate',function(){
+  try{ if(_closeLayer()){if(window.top===window)history.pushState({lcApp:1},'')} }catch(e){}
+})
+document.addEventListener('keydown',function(e){
+  if(e.key!=='Escape')return
+  try{ if(_closeLayer()&&e.preventDefault)e.preventDefault() }catch(err){}
+})
 /* 两个选项都算「正常选择」时用这个（例：传照片 / 直接打卡） */
 function askChoice(title,desc,pairs){
   let ov=document.getElementById('askOv')
@@ -914,6 +932,8 @@ function askChoice(title,desc,pairs){
   btns.appendChild(h('button',{className:'btn btn-outline',onClick:closeAsk},'取消'))
   box.appendChild(btns)
   ov.appendChild(box)
+  ov.onclick=function(e){if(e.target===ov)closeAsk()}
+  _askCancel=null
   ov.classList.add('show')
 }
 /* ③ 即时保存（2026-09-19）：改完就存，不再让家长去找「保存」按钮。
@@ -943,7 +963,8 @@ function autosave(el,apply,msg){
     setTimeout(function(){try{if(document.activeElement!==el)render()}catch(e){}},0)
   })
 }
-const PRAISE={check:['今天又进步了一点！','坚持就是胜利！','好习惯正在养成！','认真完成，真棒！'],score:['这次有进步，继续保持！','努力有回报了！','成绩稳步上升，加油！'],part:['攒下奖励，离目标更近一步！','一分耕耘一分收获！'],task:['任务完成，说到做到！','又完成一件，真棒！'],goal:['小目标达成，一步步变强！'],unlock:['太棒了，解锁新奖励！','努力开花结果了！'],week:['这周的努力看得见！','下周继续加油！'],default:['继续加油！','每天都有进步！']}
+/* 反馈要说「你做了什么」，不是「你真棒」（Kluger & DeNisi 1996：指向人的泛泛表扬，约三分之一的情况反而降表现）。 */
+const PRAISE={check:['坐下就开工，没磨蹭。','先动手写，再想难不难——顺序对了。','今天是你自己开始的，没人催。','本子笔先摆好再写，这一步省时间。'],score:['错的几道你回去弄懂了，这才叫会。','比上次多弄懂了几道，是方法起作用了。'],part:['攒到了——是一次次做完换来的，不是运气。'],task:['说到做到，按时交。','这件事没拖到明天。'],goal:['小目标达成，是一小步一小步挪过去的。'],unlock:['解锁了：这是前面每一次「没偷懒」攒的。'],week:['这周是你自己撑下来的，我看在眼里。'],default:['按这个节奏走就行。','每天动一点，比周末突击管用。']}
 function encPool(){if(!D._enc)D._enc={today:null,queue:[],i:0};if(!D._enc.queue)D._enc.queue=[];return D._enc}
 function praise(cat){
   const p=encPool()
@@ -2174,7 +2195,9 @@ function rckMk(){
   Object.keys(byG).forEach(function(k){
     const box=h('div',{className:'card'})
     box.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔖'}),k+'（'+byG[k].length+' 道）'))
-    byG[k].slice().sort(function(a,b){return (b.ts||0)-(a.ts||0)}).forEach(function(it){box.appendChild(mkRow(it))})
+    const _ls=byG[k].slice().sort(function(a,b){return (b.ts||0)-(a.ts||0)})
+    _ls.slice(0,_mkShow).forEach(function(it){box.appendChild(mkRow(it))})
+    if(_ls.length>_mkShow)box.appendChild(h('button',{className:'btn btn-outline btn-sm mt8',onClick:function(){_mkShow+=50;render()}},'看更多（还有 '+(_ls.length-_mkShow)+' 条）'))
     $c.appendChild(box)
   })
 }
@@ -2635,6 +2658,7 @@ function ensureChatOpener(){
 
 /* ---- 给他看「小搭记得的事」，不对的他自己删 ---- */
 let _mkView='总览'
+let _mkShow=30
 let _mkGroup='kp'
 let _todayMore=false
 let _memOpen=false
@@ -5893,7 +5917,7 @@ function hwAddRow(){
   const txt=h('textarea',{id:'hwTxtIn',rows:'3',placeholder:'一行一项，可以直接粘老师群里的消息，例如：\n英语：Unit3 单词默写\n数学 练习册 P32 1-8 题\n历史 背诵第 5 课',style:'width:100%;font-size:var(--fs-14);line-height:1.7'})
   box.appendChild(txt)
   const r2=h('div',{style:'display:flex;gap:6px;flex-wrap:wrap;align-items:center'})
-  const add=h('button',{className:'btn btn-primary btn-sm',id:'hwAddBtn',onClick:function(){
+  const _hwGo=function(){
     const items=hwParseLines(txt.value)
     if(!items.length){ts('先写一下这项作业是什么');return}
     const s0=sel.value,k0=kind.value,src0=src.value
@@ -5910,7 +5934,9 @@ function hwAddRow(){
     try{if(D.hwMeta)D.hwMeta.n=hwToday().length}catch(e){}
     sv(D);_hwAdd=false;render()
     ts(n?('✅ 加了 '+n+' 项'):'这几项今天的清单里已经有了')
-  }},'➕ 加进清单')
+  }
+  txt.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();_hwGo()}})
+  const add=h('button',{className:'btn btn-primary btn-sm',id:'hwAddBtn',onClick:_hwGo},'➕ 加进清单')
   r2.appendChild(add)
   if(ROLE.parent)r2.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_hwAdd=false;render()}},'取消'))
   box.appendChild(r2)
@@ -5985,7 +6011,7 @@ function rckList(){
       if(rec.status==='rejected')card.appendChild(h('button',{className:'btn btn-outline btn-sm mt6',onClick:function(){startCheck(type,subj)}},'📷 重新上传'))
       if(rec.status==='pending'&&rec.noteSubmit)card.appendChild(h('div',{className:'longtext',style:'font-size:var(--fs-14);line-height:1.7;color:var(--success);margin-top:6px'},'💬 '+rec.noteSubmit))
       if(rec.status==='approved'&&rec.at)card.appendChild(h('div',{style:'font-size:var(--fs-12);color:var(--muted);margin-top:4px'},'通过时间 '+fmtHM(rec.at)))
-      if(rec.status==='approved'&&rec.note)card.appendChild(h('div',{className:'longtext',style:'font-size:var(--fs-14);line-height:1.7;color:var(--primary);margin-top:6px'},'💬 '+rec.note))
+      if(rec.status==='approved'&&rec.note)card.appendChild(h('div',{className:'longtext',style:'font-size:var(--fs-14);line-height:1.7;color:var(--primary-text);margin-top:6px'},'💬 '+rec.note))
     }else{
       card.appendChild(h('button',{className:'btn btn-primary btn-sm mt6',onClick:function(){startCheck(type,subj)}},'📷 记一笔'))
     }
@@ -6250,7 +6276,7 @@ function _rsetBody(){
   tabCard.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'💻'}),'平板使用'))
   tabCard.appendChild(h('div',{style:'font-size:var(--fs-15)',innerHTML:'状态：'+(D.tabUnlock?'✅ 已发放':'⬜ 未发放')+' | 每天限时 <strong>'+(D.tabDailyMinutes||60)+' 分钟</strong>'}))
   const limitRow=h('div',{style:'display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap'})
-  limitRow.innerHTML='<span style="font-size:var(--fs-15)">限时：</span><input type="number" id="tabLimit" value="'+(D.tabDailyMinutes||60)+'" min="10" max="240" step="10" style="width:80px"><span style="font-size:var(--fs-15)">分钟</span>'
+  limitRow.innerHTML='<span style="font-size:var(--fs-15)">限时：</span><input type="number" inputmode="numeric" id="tabLimit" value="'+(D.tabDailyMinutes||60)+'" min="10" max="240" step="10" style="width:80px"><span style="font-size:var(--fs-15)">分钟</span>'
   autosave(limitRow.querySelector('#tabLimit'),function(){var v=parseInt(document.getElementById('tabLimit').value);if(v>0)D.tabDailyMinutes=v},function(){return '✅ 平板限时已设为 '+(D.tabDailyMinutes||60)+' 分钟'})
   tabCard.appendChild(limitRow)
   const tgl=h('button',{className:'btn '+(D.tabUnlock?'btn-outline':'btn-success')+' btn-sm',style:'margin-top:8px',onClick:function(){D.tabUnlock=!D.tabUnlock;sv(D);render();ts(D.tabUnlock?'✅ 已标记发放':'已标记未发放')}})
@@ -6278,7 +6304,7 @@ function _rsetBody(){
   const rt2=h('div',{className:'card edit-only'})
   rt2.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'💱'}),'积分兑换率'))
   const rrow2=h('div',{style:'display:flex;align-items:center;gap:10px;flex-wrap:wrap'})
-  rrow2.innerHTML='<span>当前：<strong>1元 = '+rate+' 积分</strong></span><input type="number" id="ri" value="'+rate+'" min="0.1" max="100" step="0.1" style="width:90px">'
+  rrow2.innerHTML='<span>当前：<strong>1元 = '+rate+' 积分</strong></span><input type="number" inputmode="numeric" id="ri" value="'+rate+'" min="0.1" max="100" step="0.1" style="width:90px">'
   rt2.appendChild(rrow2)
   rt2.appendChild(h('div',{style:'font-size:var(--fs-14);color:var(--muted);margin-top:6px'},'修改后所有零件所需积分自动重算'))
   autosave(rt2.querySelector('#ri'),function(){const nr=parseFloat(rt2.querySelector('#ri').value);if(nr>0)D.rate=nr},function(){return '💱 1元='+(D.rate||1)+'积分'})
@@ -6296,7 +6322,7 @@ function _rsetBody(){
     const tr=h('tr')
     const t1=h('td');t1.appendChild(h('input',{value:item.icon,'data-idx':i,'data-field':'icon',style:'width:56px;text-align:center'}));tr.appendChild(t1)
     const t2=h('td');t2.appendChild(h('input',{value:item.label,'data-idx':i,'data-field':'label',style:'width:130px'}));tr.appendChild(t2)
-    const t3=h('td');t3.appendChild(h('input',{type:'number',value:item.pts,'data-idx':i,'data-field':'pts',style:'width:64px'}));tr.appendChild(t3)
+    const t3=h('td');t3.appendChild(h('input',{type:'number',inputmode:'numeric',value:item.pts,'data-idx':i,'data-field':'pts',style:'width:64px'}));tr.appendChild(t3)
     const t4=h('td');t4.appendChild(h('button',{className:'btn btn-danger btn-sm','data-del':i},'✕'));tr.appendChild(t4)
     htb.appendChild(tr)
   }
@@ -6336,7 +6362,7 @@ function _rsetBody(){
       const tr=h('tr')
       tr.innerHTML='<td><input value="'+ep.icon+'" data-pi="'+i+'" data-pf="icon" style="width:52px;text-align:center"></td>'+
         '<td><input value="'+ep.name.replace(/"/g,'&quot;')+'" data-pi="'+i+'" data-pf="name" style="width:100px"></td>'+
-        '<td><input type="number" value="'+ep.value+'" data-pi="'+i+'" data-pf="value" style="width:76px"></td>'+
+        '<td><input type="number" inputmode="numeric" value="'+ep.value+'" data-pi="'+i+'" data-pf="value" style="width:76px"></td>'+
         '<td><input value="'+ep.cond.replace(/"/g,'&quot;')+'" data-pi="'+i+'" data-pf="cond" style="width:100px"></td>'+
         '<td><input value="'+(ep.det||'').replace(/"/g,'&quot;')+'" data-pi="'+i+'" data-pf="det" style="width:100px"></td>'+
         '<td><button class="btn btn-danger btn-sm" data-pdel="'+i+'">✕</button></td>'
@@ -6457,7 +6483,7 @@ function _rsetBody(){
     _title='你在电脑上'
     _steps=['看网址栏右侧有没有一个「安装」小图标（显示器加箭头），点它','或点浏览器右上角「⋮ / ⋯」→ 找「应用 → 安装此站点」','安装后会像独立软件一样打开，没有地址栏']
   }
-  gc.appendChild(h('div',{style:'font-size:var(--fs-14);color:var(--primary);font-weight:600;margin-bottom:6px'},'👉 '+_title))
+  gc.appendChild(h('div',{style:'font-size:var(--fs-14);color:var(--primary-text);font-weight:600;margin-bottom:6px'},'👉 '+_title))
   const _ol=h('div',{style:'font-size:var(--fs-14);line-height:1.9;color:var(--muted)'})
   _steps.forEach(function(t,i){_ol.appendChild(h('div',null,(i+1)+'. '+t))})
   gc.appendChild(_ol)
@@ -6522,7 +6548,7 @@ function _rsetBody(){
   const _tk=aiToken()||'（先设置口令）'
   const tkRow=h('div',{style:'margin-top:10px;padding:10px 12px;background:var(--bg-elev);border-radius:8px;border:1px solid var(--border)'})
   tkRow.appendChild(h('div',{style:'font-size:var(--fs-14);color:var(--muted);font-weight:600;margin-bottom:4px'},'云函数需要的 AI_TOKEN（复制到腾讯云云函数的环境变量里）'))
-  tkRow.appendChild(h('div',{style:'font-size:var(--fs-14);word-break:break-all;color:var(--primary)'},_tk))
+  tkRow.appendChild(h('div',{style:'font-size:var(--fs-14);word-break:break-all;color:var(--primary-text)'},_tk))
   tkRow.appendChild(h('button',{className:'btn btn-outline btn-sm mt6',onClick:function(){
     if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(_tk).then(function(){ts('✅ 令牌已复制')}).catch(function(){ts('⚠️ 复制失败，请手动选中复制')})}
     else ts('请手动选中上面那串复制')
@@ -6831,7 +6857,7 @@ function rs(){
       const v=D.bl&&D.bl[sb.id]!=null?D.bl[sb.id]:''
       const cell=h('div')
       cell.appendChild(h('label',null,sb.name+'（满分'+sb.full+'）'))
-      cell.appendChild(h('input',{type:'number',id:'bl_'+sb.id,value:String(v),placeholder:'不填=待考'}))
+      cell.appendChild(h('input',{type:'number',inputmode:'numeric',id:'bl_'+sb.id,value:String(v),placeholder:'不填=待考'}))
       beg.appendChild(cell)
     }
     bc.appendChild(beg)
@@ -7006,7 +7032,7 @@ function rpt(){
   const te=D.points.filter(p=>p.type==='earn').reduce((s,p)=>s+p.points,0)
   const ts_=D.points.filter(p=>p.type==='spend').reduce((s,p)=>s+p.points,0)
   const sm=h('div',{className:'ps'})
-  sm.appendChild(h('div',{className:'psi'},h('div',{className:'pv',style:'color:var(--primary)'},'⭐ '+te),h('div',{className:'pl'},'累计赚取')))
+  sm.appendChild(h('div',{className:'psi'},h('div',{className:'pv',style:'color:var(--primary-text)'},'⭐ '+te),h('div',{className:'pl'},'累计赚取')))
   sm.appendChild(h('div',{className:'psi'},h('div',{className:'pv',style:'color:var(--danger)'},'💸 '+ts_),h('div',{className:'pl'},'已使用')))
   sm.appendChild(h('div',{className:'psi'},h('div',{className:'pv',style:'color:var(--success)'},'💰 '+(te-ts_)),h('div',{className:'pl'},'可用积分')))
   $c.appendChild(sm)
@@ -7014,7 +7040,7 @@ function rpt(){
   if(ROLE.edit){
     const ac=h('div',{className:'card edit-only'})
     ac.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'➕'}),'手动添加'))
-    ac.innerHTML+='<div class="form-row"><div><label>日期</label><input type="date" id="pd" value="'+td+'"></div><div><label>来源</label><input type="text" id="psrc" placeholder="如：单元测试达标"></div><div><label>分值</label><input type="number" id="pv" placeholder="正=赚，负=花"></div></div><button class="btn btn-primary btn-sm" id="bap">💾 添加</button>'
+    ac.innerHTML+='<div class="form-row"><div><label>日期</label><input type="date" id="pd" value="'+td+'"></div><div><label>来源</label><input type="text" id="psrc" placeholder="如：单元测试达标"></div><div><label>分值</label><input type="number" inputmode="numeric" id="pv" placeholder="正=赚，负=花"></div></div><button class="btn btn-primary btn-sm" id="bap">💾 添加</button>'
     ac.querySelector('#bap').addEventListener('click',()=>{const src=ac.querySelector('#psrc').value.trim();const val=parseInt(ac.querySelector('#pv').value);if(!src||isNaN(val)||val===0){ts('⚠️ 请填写完整');return}D.points.push({date:ac.querySelector('#pd').value,source:src,points:Math.abs(val),type:val>0?'earn':'spend'});sv(D);render();ts('✅ 已添加')})
     $c.appendChild(ac)
   }
@@ -7246,7 +7272,18 @@ function applyTabs(){
 }
 function toggleMore(){_moreOpen=!_moreOpen;const s=document.getElementById('moreSheet');if(s)s.classList.toggle('show',_moreOpen)}
 function closeMore(){_moreOpen=false;const s=document.getElementById('moreSheet');if(s)s.classList.remove('show')}
-function sw(tab){const _prev=tb;tb=tab;document.querySelectorAll('.tab-btn').forEach(b=>{const on=b.dataset.tab===tab;b.classList.toggle('active',on);if(on){try{b.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'})}catch(e){}}});render();window.scrollTo({top:0,behavior:'smooth'});try{const ac=document.getElementById('appContent');if(ac){ac.classList.remove('switching');void ac.offsetWidth;ac.classList.add('switching');setTimeout(function(){try{ac.classList.remove('switching')}catch(e){}},420)}}catch(e){}if(_prev&&_prev!=='chat'&&tab==='chat')_ctxTab=_prev;if(tab==='chat'){try{ensureChatOpener()}catch(e){}}}
+const _scrollPos={}      /* 切页签时记着刚才滚到哪（2026-09-19） */
+function sw(tab){
+  const _prev=tb
+  try{_scrollPos[_prev]=window.scrollY||window.pageYOffset||0}catch(e){}
+  tb=tab
+  document.querySelectorAll('.tab-btn').forEach(b=>{const on=b.dataset.tab===tab;b.classList.toggle('active',on);if(on){try{b.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'})}catch(e){}}})
+  render()
+  /* 记录型页面（错题本/积分/成绩）切回来还停在原处；操作型页面回顶部 */
+  const _keep=['mistake','points','scores'].indexOf(tab)>=0
+  const _y=_keep?(_scrollPos[tab]||0):0
+  if(_y>0)setTimeout(function(){try{window.scrollTo({top:_y})}catch(e){}},0)
+  else window.scrollTo({top:0,behavior:'smooth'});try{const ac=document.getElementById('appContent');if(ac){ac.classList.remove('switching');void ac.offsetWidth;ac.classList.add('switching');setTimeout(function(){try{ac.classList.remove('switching')}catch(e){}},420)}}catch(e){}if(_prev&&_prev!=='chat'&&tab==='chat')_ctxTab=_prev;if(tab==='chat'){try{ensureChatOpener()}catch(e){}}}
 document.getElementById('tabNav').addEventListener('click',(e)=>{const btn=e.target.closest('.tab-btn');if(!btn)return;if(btn.dataset.tab==='more'){toggleMore();return}closeMore();sw(btn.dataset.tab)})
 var _cb=document.getElementById('cloudBadge')
 if(_cb){_cb.style.cursor='pointer';_cb.addEventListener('click',function(){if(_dirty||!cloudReady){syncNow()}else{ts('☁️ 数据已同步（'+fmtHM(_syncT)+'）')}})}
@@ -7402,6 +7439,17 @@ async function checkNewVersion(){
 
 initAuth()
 ;(async function boot(){
+  /* ④ 深链接：?tab=checkin 直接落到那一页（发链接给家里人用） */
+  try{
+    const _t=up.get('tab')
+    if(_t&&document.querySelector('.tab-btn[data-tab="'+_t+'"]')){
+      tb=_t
+      document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.toggle('active',b.dataset.tab===_t)})
+      try{_tabsSig=''}catch(e){}
+    }
+  }catch(e){}
+  /* ① 返回键接管：给页面垫一个 history 状态，这样「返回」能先关弹窗 */
+  try{if(window.top===window)history.pushState({lcApp:1},'')}catch(e){}
   const _tip=document.createElement('div');_tip.id='bootTip';_tip.textContent='☁️ 正在同步云端数据…';document.body.appendChild(_tip)
   const ok=await initCloud()
   if(ok){
