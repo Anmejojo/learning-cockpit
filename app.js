@@ -34,7 +34,7 @@ const CLOUD_KEY='eyJhbGciOiJSUzI1NiIsImtpZCI6IjNhNjk3Y2I2LWRjMDMtNGFkMi04ZGQ2LTF
 const CLOUD_TABLE='study_data'
 const CLOUD_ID=1
 let cloudReady=false
-let _syncT=0,_cloudTs=0,_dirty=false,_retryTimer=null,_offline=false,_failNotified=false,_lastVisCheck=Date.now(),_cloudReadOk=false,_quotaWarned=false
+let _syncT=0,_cloudTs=0,_cloudVer=null,_dirty=false,_retryTimer=null,_offline=false,_failNotified=false,_lastVisCheck=Date.now(),_cloudReadOk=false,_quotaWarned=false
 function fmtHM(t){const d=new Date(t||Date.now());return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)}
 function setCloudStatus(txt,ok){
   const el=document.getElementById('cloudBadge')
@@ -124,7 +124,7 @@ async function loadCloud(){
     _cloudReadOk=true
     _cloudRowExists=!!(row&&row.data)
     if(_cloudRowExists){
-      if(row.updated_at){const t=Date.parse(row.updated_at);if(!isNaN(t))_cloudTs=t}
+      if(row.updated_at){const t=Date.parse(row.updated_at);if(!isNaN(t))_cloudTs=t;_cloudVer=String(row.updated_at)}
       return row.data
     }
     return null
@@ -141,6 +141,9 @@ async function loadCloud(){
 const MERGE_LIST=['checks','exams','points','mistakes','handwritings','smallGoals','tasks','hw','msgs','_snaps','_chat','_notes','act','mistakeMilestones']
 const MERGE_DICT=['dailyChecks','mistakeLog','checkImgs','wrd','imgHash']
 function _mId(x){return (x&&x.id!=null)?('i'+x.id):('h'+JSON.stringify(x))}
+/* 新记录的编号：时间戳(36进制)+随机串 —— 多台设备同时生成也不会撞（2026-09-19 加）
+   积分这类记录必须带 id，否则合并时只能靠"整条内容"去重，同一天同来源同分值会被当成重复而少算。 */
+function _newId(pre){return String(pre||'p')+Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
 function _mTs(x){return (x&&(x.ts||x.at||x.t||x.time))||0}
 /* 合并时判「哪边更新」用的时间：内容时间 与 状态变更时间(ts/at) 取更晚的那个。
    不加这条的话，家长「退回 / 撤回通过」后，别的设备那份旧状态（ts 相同）会因为 _mRank 把新状态盖回去。 */
@@ -256,35 +259,54 @@ async function saveCloud(d){
   if(_offline){markDirty();return false}
   if(!_cloudReadOk){_dirty=true;setCloudStatus('⏳ 等待云端确认（本机已存）',false);scheduleRetry();return false}
   try{
-    /* 先读云端 → 合并 → 再写：别的设备刚记的东西不会被这份覆盖 */
-    let _data=d
-    try{
-      const cd0=await loadCloud()
-      if(cd0){
-        const localT=parseInt(localStorage.getItem(SK+'_t')||'0',10)
-        const localNewer=(localT>_cloudTs+5000)
-        const mg=mergeD(d,cd0,localNewer)
-        const same=(JSON.stringify(mg)===JSON.stringify(cd0))
-        _data=same?cd0:mg
-        if(!same&&d===D){D=mg;try{localStorage.setItem(SK,JSON.stringify(mg))}catch(e){}}
+    /* 读云端 → 合并 → **带版本条件写**（2026-09-19 修并发覆盖）：
+       · 读的时候记下这行的 updated_at 当"版本"
+       · 写的时候要求 updated_at 还是那个值；如果这中间别的设备写过，条件不成立（0 行受影响）
+         → 不硬写，而是重新读+合并再试（最多 3 轮）—— 两台设备同时操作也不会互相覆盖 */
+    let ok=false,_conflict=0
+    for(let attempt=0;attempt<3&&!ok;attempt++){
+      let _data=d
+      try{
+        const cd0=await loadCloud()
+        if(cd0){
+          const localT=parseInt(localStorage.getItem(SK+'_t')||'0',10)
+          /* 「本机这份是不是更新」：
+             平时（页面开着有同步记录）：拿本机保存时间跟"本机上次成功同步的时间"比 —— 同一条时钟，没有误差；
+             首次加载（_syncT=0）：跟云端时间比，留 5 秒容差兜住两台设备的时钟差。 */
+          const localNewer=(_syncT>0)?(localT>_syncT+300):(localT>_cloudTs+5000)
+          const mg=mergeD(d,cd0,localNewer)
+          const same=(JSON.stringify(mg)===JSON.stringify(cd0))
+          _data=same?cd0:mg
+          if(!same&&d===D){D=mg;try{localStorage.setItem(SK,JSON.stringify(mg))}catch(e){}}
+        }
+      }catch(e){console.warn('保存前合并失败，按原样上传',e)}
+      const ts=Date.now()
+      const iso=new Date(ts).toISOString()
+      let r
+      const _cond=(_cloudRowExists&&_cloudVer)
+      if(_cond){
+        r=await fetch(CLOUD_REST+'?id=eq.'+CLOUD_ID+'&updated_at=eq.'+encodeURIComponent(_cloudVer)+'&select=id',{method:'PATCH',
+          headers:_clHead({'Content-Type':'application/json','Prefer':'return=representation'}),
+          body:JSON.stringify({data:_data,updated_at:iso})})
+      }else if(_cloudRowExists){
+        r=await fetch(CLOUD_REST+'?id=eq.'+CLOUD_ID,{method:'PATCH',
+          headers:_clHead({'Content-Type':'application/json','Prefer':'return=minimal'}),
+          body:JSON.stringify({data:_data,updated_at:iso})})
+      }else{
+        r=await fetch(CLOUD_REST,{method:'POST',
+          headers:_clHead({'Content-Type':'application/json','Prefer':'return=minimal'}),
+          body:JSON.stringify({id:CLOUD_ID,data:_data,updated_at:iso})})
       }
-    }catch(e){console.warn('保存前合并失败，按原样上传',e)}
-    const ts=Date.now()
-    const iso=new Date(ts).toISOString()
-    let r
-    if(_cloudRowExists){
-      r=await fetch(CLOUD_REST+'?id=eq.'+CLOUD_ID,{method:'PATCH',
-        headers:_clHead({'Content-Type':'application/json','Prefer':'return=minimal'}),
-        body:JSON.stringify({data:_data,updated_at:iso})})
-    }else{
-      r=await fetch(CLOUD_REST,{method:'POST',
-        headers:_clHead({'Content-Type':'application/json','Prefer':'return=minimal'}),
-        body:JSON.stringify({id:CLOUD_ID,data:_data,updated_at:iso})})
+      if(!r.ok){const _t=await r.text().catch(function(){return ''});throw new Error('HTTP '+r.status+' '+String(_t).slice(0,120))}
+      if(_cond){
+        const _arr=await r.json().catch(function(){return null})
+        if(_arr&&_arr.length){ok=true;_cloudRowExists=true;_cloudTs=ts;_cloudVer=iso;markSynced(ts)}
+        else{_conflict++;console.warn('云端刚被别的设备改过，重新合并后重试（第 '+_conflict+' 次）')}
+      }else{
+        ok=true;_cloudRowExists=true;_cloudTs=ts;_cloudVer=iso;markSynced(ts)
+      }
     }
-    if(!r.ok){const _t=await r.text().catch(function(){return ''});throw new Error('HTTP '+r.status+' '+String(_t).slice(0,120))}
-    _cloudRowExists=true
-    _cloudTs=ts
-    markSynced(ts)
+    if(!ok)throw new Error('并发冲突重试 3 次仍未写成功')
     return true
   }catch(e){
     console.error('云端写入失败',JSON.stringify(e))
@@ -441,7 +463,11 @@ function demoBar(){
   b.innerHTML='<span style="color:#fbbf24">测试台</span>'
   const mk=function(txt,fn){const x=document.createElement('button');x.textContent=txt;x.style.cssText='background:transparent;border:1px solid rgba(255,255,255,0.18);color:#ccd2de;border-radius:8px;padding:3px 8px;font-size:var(--fs-12);cursor:pointer';x.onclick=fn;return x}
   b.appendChild(mk('重置测试数据',function(){try{const u=new URLSearchParams(location.search);u.set('reset','1');u.set('t',String(Date.now()));location.search=u.toString()}catch(e){location.reload()}}))
-  b.appendChild(mk('清空测试数据',function(){try{localStorage.clear()}catch(e){}location.reload()}))
+  b.appendChild(mk('清空测试数据',function(){
+    /* 只清测试专用的几项（原来的 localStorage.clear() 会连同一来源下别的东西一起清） */
+    try{['lc_demo','lc_demo_v','lc_pending'].forEach(function(k){localStorage.removeItem(k)})}catch(e){}
+    location.reload()
+  }))
   b.appendChild(mk('填口令(试小搭)',function(){const v=prompt('输入家长口令（只在本地测试用）');if(v){try{localStorage.setItem('lc_tok',hsh(v));localStorage.setItem('lc_lv','p')}catch(e){}ts('已填，刷新后小搭可用')}}))
   document.body.appendChild(b)
 }
@@ -1106,7 +1132,7 @@ function submitCheck(typeId,subject,imgsArr,append,localB64,quick,forceNew){
   D.checks.unshift(_rec)
   const _subCnt=(D.points||[]).filter(function(p){return p.date===_ds&&p.type==='earn'&&String(p.source||'').indexOf('提交·')===0}).length
   const _gaveSub=(_subCnt<SUB_PTS_MAX)
-  if(_gaveSub){D.points.push({date:_ds,source:'提交·'+_lbl,points:1,type:'earn'});try{ptBurst(1,'提交')}catch(e){}}
+  if(_gaveSub){D.points.push({id:_newId('p'),date:_ds,source:'提交·'+_lbl,points:1,type:'earn'});try{ptBurst(1,'提交')}catch(e){}}
   /* 🌟 今日首胜（每天第一张 +1）+ 🍀 幸运加分（5% +1） */
   try{
     if(!D.win)D.win={d:'',n:0}
@@ -1167,7 +1193,7 @@ function approveCheck(id){
   c.note=encTake()
   actLog('通过记录',(c.date||'')+' '+((c.subject?c.subject+'·':'')+c.typeName))
   try{confetti(140)}catch(e){}
-  D.points.push({date:(c.date||td),source:(c.subject?c.subject+'·':'')+c.typeName,points:c.pts,type:'earn'});try{ptBurst(c.pts,c.typeName)}catch(e){}
+  D.points.push({id:_newId('p'),date:(c.date||td),source:(c.subject?c.subject+'·':'')+c.typeName,points:c.pts,type:'earn'});try{ptBurst(c.pts,c.typeName)}catch(e){}
   sv(D);render()
   ts('✅ 已通过 +'+c.pts+'分')
 }
@@ -1702,17 +1728,18 @@ function mkFill(it,j){
 }
 function mkCommit(urls){
   if(!urls||!urls.length)return
-  ts('🤖 正在认错题…')
+  ts('🤖 正在认错题（先存下来，认完再补信息）…')
+  /* 先把记录建出来：照片这时已经在云上了，就算 AI 期间关页，错题本也不会少这一条（2026-09-19 修） */
+  const it={id:Date.now(),date:td,ts:Date.now(),by:(_lv==='c'?'c':'p'),
+    subject:'',qtype:'',kp:'',stem:'',why:'',imgs:urls,pass:[]}
+  mkList().unshift(it)
+  D.points.push({id:_newId('p'),date:td,source:'错题本拍照',points:2,type:'earn'});try{ptBurst(2,'错题本')}catch(e){};try{confetti(110)}catch(e){}
+  sv(D);render()
   mkRecognize(urls[0],function(j){
-    const sub=(j&&j.subject)?String(j.subject).slice(0,6):''
-    const it={id:Date.now(),date:td,ts:Date.now(),by:(_lv==='c'?'c':'p'),
-      subject:(MK_SUBJECTS.indexOf(sub)>=0?sub:(sub?sub:'')),
-      qtype:'',kp:'',stem:'',why:'',imgs:urls,pass:[]}
-    mkFill(it,j)
-    mkList().unshift(it)
+    mkFill(it,j)                       /* AI 只负责补：科目 / 题型 / 知识点 / 题干 / 错因 */
+    it.aiAt=Date.now()
     ts(j?('✅ 已归到「'+(it.subject||'待归类')+'」'+((it.kp||it.qtype)?('·'+(it.kp||'')+(it.qtype?(' '+it.qtype):'')):'')):'⚠️ 没认出来，先存着（家长可手动改科目）')
     actLog('上传错题',(it.subject||'待归类')+(it.kp?('·'+it.kp):''))
-    D.points.push({date:td,source:'错题本拍照',points:2,type:'earn'});try{ptBurst(2,'错题本')}catch(e){};try{confetti(110)}catch(e){}
     sv(D);render()
   })
 }
@@ -3502,7 +3529,7 @@ function trashRestore(id){
   const i=(D._trash||[]).findIndex(function(t){return t.id===id})
   if(i<0)return
   const t=D._trash[i]
-  if(t.kind==='point')D.points.push(t.data)
+  if(t.kind==='point'){if(t.data&&t.data.id==null)t.data.id=_newId('p');D.points.push(t.data)}
   else if(t.kind==='exam')D.exams.push(t.data)
   else if(t.kind==='part')D.parts.push(t.data)
   else if(t.kind==='check')D.checks.push(t.data)
@@ -3558,7 +3585,7 @@ function approveChecks(list){
     c.status='approved'
     c.at=Date.now()
     c.note=encTake()
-    D.points.push({date:(c.date||td),source:(c.subject?c.subject+'·':'')+c.typeName,points:c.pts,type:'earn'});try{ptBurst(c.pts,c.typeName)}catch(e){}
+    D.points.push({id:_newId('p'),date:(c.date||td),source:(c.subject?c.subject+'·':'')+c.typeName,points:c.pts,type:'earn'});try{ptBurst(c.pts,c.typeName)}catch(e){}
     n++;pts+=c.pts
   }
   if(n){actLog('批量通过记录',n+' 条');sv(D);render();ts('✅ 已通过 '+n+' 条打卡，+'+pts+'分')}
@@ -3620,7 +3647,7 @@ function hwApply(urls){
     if(add.length)_tw.imgs=cur.concat(add).slice(0,9)
   }else{
     _l.unshift({id:Date.now(),date:td,imgs:urls.slice(0,9),ts:Date.now()})
-    D.points.push({date:td,source:'硬笔字打卡',points:1,type:'earn'});try{ptBurst(1,'硬笔字')}catch(e){};try{confetti(120)}catch(e){}
+    D.points.push({id:_newId('p'),date:td,source:'硬笔字打卡',points:1,type:'earn'});try{ptBurst(1,'硬笔字')}catch(e){};try{confetti(120)}catch(e){}
     actLog('上传硬笔字',urls.length+' 张')
   }
   sv(D)
@@ -3694,11 +3721,11 @@ async function pendRun(){
       /* 🔁 先查重：交过的照片不重复上传、不重复保存 */
       if(!im.h)im.h=await imgFingerprint(im.d)
       const _dup=findDupImage(im.h)
-      if(_dup){im.dup=1;_dupN++;_dupInfo=_dup;pendSave(pendList());continue}
+      if(_dup){im.dup=1;_dupN++;_dupInfo=_dup;pendSave(list);continue}
       let okOne=false
       /* ① 先试直传（不受 100KB 限制，照片更清楚） */
       const _du=await cosDirectPut(im.d,'jpg')
-      if(_du){im.u=_du;pendSave(pendList());okOne=true}
+      if(_du){im.u=_du;pendSave(list);okOne=true}
       /* ② 直传不可用 → 压缩后走云函数 */
       for(let k=0;k<3&&!okOne;k++){
         try{
@@ -3706,7 +3733,7 @@ async function pendRun(){
           if(b64TooBig(im.d,AI_B64_MAX))im.d=await shrinkDataURL(im.d,Math.max(20000,Math.floor(AI_B64_MAX*Math.pow(0.6,k))))
           const res=await aiFetch({type:'upload',data:im.d})
           const j=res.json
-          if(j&&j.ok&&j.url){im.u=j.url;pendSave(pendList());okOne=true}
+          if(j&&j.ok&&j.url){im.u=j.url;pendSave(list);okOne=true}
           else if(res.tooBig){continue}
           else{_why=(j&&j.err)||('HTTP '+res.status);break}
         }catch(err){_why=String((err&&err.message)||err).slice(0,60);break}
@@ -3727,7 +3754,7 @@ async function pendRun(){
     if(!_keep.length){pendDel(e.id);continue}
     try{
       const urls=_keep.map(function(im){return im.u})
-      if(e.kind==='check')submitCheck(e.typeId,e.subject,urls,e.append,_keep.map(function(im){return im.d}))
+      if(e.kind==='check')submitCheck(e.typeId,e.subject,urls,e.append,_keep.map(function(im){return im.d}),e.quick)
       else if(e.kind==='mk')mkCommit(urls)
       else if(e.kind==='hwitem')hwItemCommit(e.hwId,urls)
       else hwApply(urls)
@@ -3994,7 +4021,7 @@ function toggleCheck(item,img){
       if(!D.checkImgs[td])D.checkImgs[td]={}
       D.checkImgs[td][item.key]=img
     }
-    D.points.push({date:td,source:item.label,points:item.pts,type:'earn'});try{ptBurst(item.pts,item.label)}catch(e){}
+    D.points.push({id:_newId('p'),date:td,source:item.label,points:item.pts,type:'earn'});try{ptBurst(item.pts,item.label)}catch(e){}
     sv(D);render()
     ts('✅ '+item.label+' +'+item.pts+'分'+(img?' · 已上传照片':''))
   }else{
@@ -4185,7 +4212,7 @@ noteSync()
 applyTheme()
 let tb='today'
 let $c=document.getElementById('appContent')
-const td=ymd()
+let td=ymd()
 const itms=D.dci||defData().dci
 if(!D.dailyChecks[td]){const ds={};for(const it of itms)ds[it.key]=false;D.dailyChecks[td]=ds;sv(D)}
 
@@ -4196,8 +4223,20 @@ function h(tag,attrs,...children){
   return el
 }
 
+/* 跨天：平板隔夜不关页面时，日期要跟着换（否则新一天的打卡会记到昨天）*/
+function dateRoll(){
+  try{
+    const now=ymd()
+    if(now===td)return false
+    td=now
+    if(!D.dailyChecks[td]){const ds={};for(const it of (D.dci||defData().dci))ds[it.key]=false;D.dailyChecks[td]=ds}
+    try{_checkDate=null}catch(e){}
+    return true
+  }catch(e){return false}
+}
 function render(){
   if(document.getElementById('gate'))return
+  try{if(dateRoll())try{sv(D)}catch(e){}}catch(e){}
   $c.innerHTML=''
   if(tb!=='chat'){document.body.classList.remove('chat-page');_memOpen=false}
   if(tb==='today')rtoday()
@@ -5122,7 +5161,7 @@ function wFinish(){
   if(wd.d!==td){wd.d=td;wd.n=0}
   if(wd.n<W_DAILY_ROUNDS){pts=stars===3?5:(stars===2?3:1);wd.n++}
   D.wday=wd
-  if(pts)D.points.push({date:td,source:'单词闯关 第'+(g.ch.i+1)+'关',points:pts,type:'earn'})
+  if(pts)D.points.push({id:_newId('p'),date:td,source:'单词闯关 第'+(g.ch.i+1)+'关',points:pts,type:'earn'})
   sv(D)
   sfx('win')
   if(pts)ptBurst(pts,'单词闯关')
@@ -6907,7 +6946,10 @@ window.addEventListener('beforeunload',function(e){if(_dirty){e.preventDefault()
 window.addEventListener('pagehide',function(){if(_dirty||_saveTimer||_savePendAt)try{flushCloud()}catch(e){}})
 document.addEventListener('visibilitychange',function(){
   if(document.visibilityState==='hidden'){if(_dirty||_saveTimer||_savePendAt)try{flushCloud()}catch(e){};return}
-  if(document.visibilityState==='visible'&&Date.now()-_lastVisCheck>120000){_lastVisCheck=Date.now();checkCloudNewer();try{checkNewVersion()}catch(e){}}
+  if(document.visibilityState==='visible'){
+    try{if(dateRoll()){sv(D);render()}}catch(e){}
+    if(Date.now()-_lastVisCheck>120000){_lastVisCheck=Date.now();checkCloudNewer();try{checkNewVersion()}catch(e){}}
+  }
 })
 /* ================= PWA：注册 Service Worker + 安卓“一键安装” ================= */
 let _installEv=null
