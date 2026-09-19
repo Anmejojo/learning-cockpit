@@ -80,7 +80,7 @@ async function syncNow(){
   ts(ok?'☁️ 已同步到云端':'⚠️ 同步失败，稍后自动重试')
 }
 function normalize(d){
-  if(d&&d.hw)delete d.hw
+  /* 2026-09-19：这行是「撤掉作业监督」时留下的，会把新的「今日作业清单」也删掉 —— 已弃用 */
   const df=defData()
   for(const k of Object.keys(df)){
     if(!(k in d))d[k]=df[k]
@@ -94,6 +94,7 @@ function normalize(d){
   if(!d.nick)d.nick='乐乐'
   if(!d._vcloudPick)d._vcloud=DEFAULT_VCLOUD
   else if(d._vcloud===undefined||d._vcloud===null)d._vcloud=DEFAULT_VCLOUD
+  try{_fixDel(d)}catch(e){}          /* 老的长墓碑键迁移成短指纹 */
   return d
 }
 /* ===== 云端读写：直接调 REST（不再依赖 200KB 的 CloudBase SDK）=====
@@ -140,7 +141,30 @@ async function loadCloud(){
    ========================================================================= */
 const MERGE_LIST=['checks','exams','points','mistakes','handwritings','smallGoals','tasks','hw','msgs','_snaps','_chat','_notes','act','mistakeMilestones']
 const MERGE_DICT=['dailyChecks','mistakeLog','checkImgs','wrd','imgHash']
-function _mId(x){return (x&&x.id!=null)?('i'+x.id):('h'+JSON.stringify(x))}
+/* 32 位指纹（FNV-1a）：给「没有 id 的记录」当身份。
+   老版本直接拿 JSON.stringify(整条记录) 当键 —— 一条 25 KB，
+   _del 墓碑表因此涨到 92 KB，还被复制进每一份快照（2026-09-19 改） */
+function _h32(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return (h>>>0).toString(36)}
+function _mId(x){
+  if(x&&x.id!=null)return 'i'+x.id
+  try{const s=JSON.stringify(x);return 'h'+_h32(s)+'_'+s.length}catch(e){return 'h'+_h32(String(x))}
+}
+/* 老数据里的「长墓碑键」一次性换成短指纹：不换的话既失效又占体积 */
+function _fixDel(d){
+  try{
+    if(!d||!d._del)return false
+    const del=d._del
+    let ch=false
+    Object.keys(del).forEach(function(k){
+      if(k.length<=40)return
+      let nk=null
+      try{nk=_mId(JSON.parse(k.charAt(0)==='h'?k.slice(1):k))}catch(e){nk='h'+_h32(k)}
+      if(!nk||nk===k)return
+      del[nk]=Math.max(del[nk]||0,del[k]||0);delete del[k];ch=true
+    })
+    return ch
+  }catch(e){return false}
+}
 /* 新记录的编号：时间戳(36进制)+随机串 —— 多台设备同时生成也不会撞（2026-09-19 加）
    积分这类记录必须带 id，否则合并时只能靠"整条内容"去重，同一天同来源同分值会被当成重复而少算。 */
 function _newId(pre){return String(pre||'p')+Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
@@ -205,6 +229,7 @@ function mergeD(A,B,preferA){
   try{
     if(!B)return A
     if(!A)return B
+    _fixDel(A);_fixDel(B)   /* 合并前先把老墓碑键换掉，否则两边对不上 */
     const out=JSON.parse(JSON.stringify(B))
     /* 墓碑（删除过的东西）：两边合并，只留 90 天内的 */
     const DEL={}
@@ -224,7 +249,7 @@ function mergeD(A,B,preferA){
       if(MERGE_LIST.indexOf(k)>=0&&Array.isArray(a)&&Array.isArray(b)){
         let u=_mList(a,b).filter(function(it){const t=DEL[_mId(it)];return !(t&&t>=(_mTs(it)||0))})
         if(k==='checks'||k==='exams')u.sort(function(x,y){return _mTs(y)-_mTs(x)})
-        if(k==='_snaps'){u.sort(function(x,y){return (x&&x.at||0)-(y&&y.at||0)});if(u.length>5)u=u.slice(-5)}
+        if(k==='_snaps'){u.sort(function(x,y){return (x&&x.at||0)-(y&&y.at||0)});if(u.length>3)u=u.slice(-3)}
         out[k]=u;return
       }
       if(MERGE_DICT.indexOf(k)>=0){
@@ -375,6 +400,7 @@ function noteDeletes(prev,next){
     if(!next._del)next._del={}
     const now=Date.now()
     MERGE_LIST.forEach(function(k){
+      if(k==='_snaps')return     /* 快照是按份数滚动的，不算「被删」 */
       const a=prev[k],b=next[k]
       if(!Array.isArray(a)||!Array.isArray(b))return
       const has={}
@@ -3536,35 +3562,83 @@ function trashRestore(id){
   D._trash.splice(i,1)
   sv(D);render();ts('✅ 已恢复：'+t.label)
 }
-function maybeSnapshot(){
+/* 快照压缩：能压就压（大约省 8 成），环境不支持就存明文 —— 老设备照样能用 */
+async function _snapZip(o){
+  const s=JSON.stringify(o)
+  try{
+    if(typeof CompressionStream!=='function'||typeof Blob!=='function'||typeof Response!=='function'||typeof TextEncoder!=='function')return s
+    const st=new Blob([s]).stream().pipeThrough(new CompressionStream('gzip'))
+    const u8=new Uint8Array(await new Response(st).arrayBuffer())
+    let bin=''
+    for(let i=0;i<u8.length;i+=8192)bin+=String.fromCharCode.apply(null,u8.subarray(i,i+8192))
+    return 'gz:'+btoa(bin)
+  }catch(e){return s}
+}
+async function _snapUnzip(v){
+  if(typeof v!=='string')return v
+  if(v.indexOf('gz:')!==0)return JSON.parse(v)
+  try{
+    const bin=atob(v.slice(3))
+    const u8=new Uint8Array(bin.length)
+    for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i)
+    const st=new Blob([u8]).stream().pipeThrough(new DecompressionStream('gzip'))
+    return JSON.parse(await new Response(st).text())
+  }catch(e){return null}
+}
+function _snapSig(o){return _h32(JSON.stringify(o))}
+async function maybeSnapshot(force){
   try{
     const now=Date.now()
     if(!D._snaps)D._snaps=[]
     const last=D._snaps.length?D._snaps[D._snaps.length-1].at:0
-    if(now-last<6*3600*1000)return
+    if(!force&&now-last<6*3600*1000)return
     const slim=JSON.parse(JSON.stringify(D))
-    delete slim._snaps;delete slim._trash
+    /* 墓碑 / 聊天 / 记忆 / 日志 不进快照：回滚时保留「现在这份」——
+       既省体积，也不会让回滚变成「顺带清空聊天」 */
+    delete slim._snaps;delete slim._trash;delete slim._del
+    delete slim._chat;delete slim._mem;delete slim._cope;delete slim._log
     if(slim.checks)slim.checks.forEach(function(c){delete c.imgs;delete c.img})
     if(slim.exams)slim.exams.forEach(function(x){delete x.imgs;delete x.subjImgs})
     slim.checkImgs={}
-    D._snaps.push({at:now,label:fd(ymd(new Date(now)))+' '+fmtHM(now),data:slim})
-    while(D._snaps.length>5)D._snaps.shift()
+    const sig=_snapSig(slim)
+    if(!force&&D._snaps.length&&D._snaps[D._snaps.length-1].sig===sig)return   /* 内容和上一版一样就不占地方 */
+    const z=await _snapZip(slim)
+    D._snaps.push({at:now,label:fd(ymd(new Date(now)))+' '+fmtHM(now),sig:sig,z:z})
+    while(D._snaps.length>3)D._snaps.shift()
+    sv(D)
   }catch(e){console.warn('快照失败',e)}
 }
-function rollbackTo(idx){
+async function rollbackTo(idx){
   const snap=(D._snaps||[])[idx]
   if(!snap)return
   if(!confirm('回滚到「'+snap.label+'」的数据？\n\n记录会回到那个时候；照片会尽量保留，不会因为回滚被删。'))return
+  let raw=snap.data
+  if(raw===undefined)raw=await _snapUnzip(snap.z)
+  if(!raw){ts('⚠️ 这一版读不出来（可能不完整），换一版试试');return}
   const cur=D
-  const nd=normalize(JSON.parse(JSON.stringify(snap.data)))
+  const nd=normalize(JSON.parse(JSON.stringify(raw)))
   const chkImg={},exImg={}
   ;(cur.checks||[]).forEach(function(c){chkImg[c.id]=c.imgs||c.img})
   ;(cur.exams||[]).forEach(function(x){exImg[x.id]={imgs:x.imgs,subjImgs:x.subjImgs}})
   ;(nd.checks||[]).forEach(function(c){if(chkImg[c.id])c.imgs=chkImg[c.id]})
   ;(nd.exams||[]).forEach(function(x){if(exImg[x.id]){x.imgs=exImg[x.id].imgs;x.subjImgs=exImg[x.id].subjImgs}})
   nd.checkImgs=cur.checkImgs||{}
+  /* 不进快照的那几类：保留「现在这份」 */
   nd._snaps=cur._snaps||[]
   nd._trash=cur._trash||[]
+  nd._chat=cur._chat||[]
+  nd._mem=cur._mem||[]
+  nd._cope=cur._cope||[]
+  nd._log=cur._log||[]
+  /* 回滚把记录复活了，对应的墓碑要一起撤掉 —— 否则下次合并又按墓碑删回去 */
+  const ndDel={}
+  Object.keys(cur._del||{}).forEach(function(k){ndDel[k]=cur._del[k]})
+  MERGE_LIST.forEach(function(k){(nd[k]||[]).forEach(function(it){delete ndDel[_mId(it)]})})
+  Object.keys(ndDel).forEach(function(k){
+    const m=/^ck:(\d{4}-\d{2}-\d{2}):(.+)$/.exec(k)
+    if(m&&(((nd.dailyChecks||{})[m[1]])||{})[m[2]]===true)delete ndDel[k]
+  })
+  nd._del=ndDel
   D=nd
   sv(D);render();ts('✅ 已回滚到 '+snap.label)
 }
@@ -6331,7 +6405,7 @@ function _rsetBody(){
 
   // 历史版本
   const hv=h('div',{className:'card edit-only'})
-  hv.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🕘'}),'历史版本（每 6 小时自动存一版，保留 5 版）'))
+  hv.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🕘'}),'历史版本（每 6 小时自动存一版，保留 3 版 · 压缩存放）'))
   const snaps=(D._snaps||[])
   if(!snaps.length)hv.appendChild(h('div',{style:'color:var(--muted);font-size:var(--fs-14)'},'还没有历史版本，用一会儿就会自动生成'))
   snaps.slice().reverse().forEach(function(sn,ri){
@@ -6341,7 +6415,7 @@ function _rsetBody(){
     row.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){rollbackTo(realIdx)}},'↩️ 回滚到这一版'))
     hv.appendChild(row)
   })
-  hv.appendChild(h('button',{className:'btn btn-primary btn-sm mt8',onClick:function(){if(D._snaps&&D._snaps.length){D._snaps[D._snaps.length-1].at=0}maybeSnapshot();sv(D);render();ts('✅ 已保存一版快照')}},'📸 立即保存一版'))
+  hv.appendChild(h('button',{className:'btn btn-primary btn-sm mt8',onClick:function(){maybeSnapshot(true).then(function(){try{render()}catch(e){}});ts('📸 正在保存一版快照…')}},'📸 立即保存一版'))
   $c.appendChild(hv)
 
   // 最近删除
