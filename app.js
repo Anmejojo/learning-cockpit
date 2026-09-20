@@ -418,23 +418,53 @@ function noteDeletes(prev,next){
     })
   }catch(e){}
 }
+/* 存储瘦身（2026-09-21）：不动功能，只压两样东西 ——
+   ① 太老的流水（聊天/笔记/操作记录留最近若干条；截断会走墓碑机制，云端那份也会跟着删）
+   ② 老打卡记录里的 AI 长文本（60 天前的 scan）—— 状态/分数/照片都留着 */
+function trimLists(d){
+  if(!d)return 0
+  let saved=0
+  const cap=function(k,n){
+    if(Array.isArray(d[k])&&d[k].length>n){saved+=d[k].length-n;d[k]=d[k].slice(-n)}
+  }
+  cap('_chat',200);cap('_notes',200);cap('act',500)
+  const cut=ymd(new Date(Date.now()-60*86400000))
+  ;(d.checks||[]).forEach(function(c){
+    if(c&&c.date&&c.date<cut&&c.scan){delete c.scan;saved++}
+  })
+  return saved
+}
 function sv(d){
   if(DEMO){try{localStorage.setItem('lc_demo',JSON.stringify(d))}catch(e){};maybeSnapshot();return}
+  try{trimLists(d)}catch(e){}          /* 例行瘦身：老流水 + 老长文本 */
   try{const _pr=localStorage.getItem(SK);if(_pr)noteDeletes(JSON.parse(_pr),d)}catch(e){}
   let ok=true
   try{localStorage.setItem(SK,JSON.stringify(d));localStorage.setItem(SK+'_t',String(Date.now()))}
   catch(e){
     ok=false
+    /* 第一招：只瘦身，不丢照片（照片是「他交过的证据」，最后才动） */
     try{
       const slim=JSON.parse(JSON.stringify(d))
-      if(slim.checks)slim.checks.forEach(function(c){delete c.imgs;delete c.img})
-      if(slim.exams)slim.exams.forEach(function(x){delete x.imgs;delete x.subjImgs})
-      slim.checkImgs={};slim._slim=true
+      trimLists(slim)
+      if(slim._snaps)slim._snaps=slim._snaps.slice(-1)
       localStorage.setItem(SK,JSON.stringify(slim));localStorage.setItem(SK+'_t',String(Date.now()))
       ok=true
-      if(!_quotaWarned){_quotaWarned=true;ts('⚠️ 本机缓存已满，照片改为只存云端（数据没丢）')}
-      _saveWarn('⚠️ 本机存放已满：照片只存云端了。请联网让它上传，上传完成前别关页面。')
-    }catch(e2){}
+      if(!_quotaWarned){_quotaWarned=true;ts('⚠️ 本机快满了：已自动精简老记录（照片没动）')}
+    }catch(e2){
+      /* 第二招（最后一招）：连照片一起瘦，保住记录本身 */
+      try{
+        const slim2=JSON.parse(JSON.stringify(d))
+        trimLists(slim2)
+        if(slim2.checks)slim2.checks.forEach(function(c){delete c.imgs;delete c.img})
+        if(slim2.exams)slim2.exams.forEach(function(x){delete x.imgs;delete x.subjImgs})
+        slim2.checkImgs={};slim2._slim=true
+        slim2._snaps=[]
+        localStorage.setItem(SK,JSON.stringify(slim2));localStorage.setItem(SK+'_t',String(Date.now()))
+        ok=true
+        if(!_quotaWarned){_quotaWarned=true;ts('⚠️ 本机满了：照片改为只存云端（数据没丢）')}
+        _saveWarn('⚠️ 本机存放已满：照片只存云端了。请联网让它上传，上传完成前别关页面。')
+      }catch(e3){}
+    }
   }
   if(!ok&&!_quotaWarned){_quotaWarned=true;ts('⚠️ 本机已无法保存，请到「设置」导出备份')}
   if(!ok)_saveWarn('⚠️ 本机已无法保存！请联网，并到「设置」导出备份。')
@@ -1080,7 +1110,7 @@ function cropCell(src,cell,cb){
         const cv=document.createElement('canvas')
         cv.width=Math.round(w*sc);cv.height=Math.round(h*sc)
         cv.getContext('2d').drawImage(im,x,y,w,h,0,0,cv.width,cv.height)
-        _cb(cv.toDataURL('image/jpeg',0.8))   /* 裁图不要再压一次（原图已 0.8） */
+        _cb(cv.toDataURL('image/jpeg',0.6))   /* 裁图不要再压一次（原图已 0.6） */
       }catch(e){_cb(null)}
     }
     im.onerror=function(){_cb(null)}
@@ -3911,6 +3941,20 @@ async function dataCheck(){
       L.push(one?('🕘 最新快照「'+sn[sn.length-1].label+'」能正常读出：含 '+c.length+' 条打卡，其中 '+wi+' 条带照片 → 回滚能把照片一起带回来'):'❌ 最新快照读不出来（可能损坏）')
     }
   }catch(e){L.push('❌ 最新快照读不出来（可能损坏）')}
+  try{
+    const rows=[]
+    Object.keys(D).forEach(function(k){
+      let n=0
+      try{n=JSON.stringify(D[k]===undefined?'':D[k]).length}catch(e){n=0}
+      rows.push([k,n])
+    })
+    rows.sort(function(x,y){return y[1]-x[1]})
+    L.push('📦 占地方前 5：'+rows.slice(0,5).map(function(x){return x[0]+' '+(x[1]/1024).toFixed(1)+'KB'}).join(' · '))
+    let total=0
+    try{total=JSON.stringify(D).length}catch(e){total=0}
+    const pct=total/(5*1024*1024)*100
+    L.push((pct>70?'⚠️ ':'✅ ')+'本机占用约 '+(total/1048576).toFixed(2)+' MB（浏览器上限约 5 MB，用了 '+pct.toFixed(0)+'%）')
+  }catch(e){}
   L.push(D._lastBackup?('📥 上次导出备份：'+fd(ymd(new Date(D._lastBackup)))+' '+fmtHM(D._lastBackup)):'⚠️ 从来没导出过备份 —— 建议现在导一份存微信收藏')
   _dcRunning=false
   try{render()}catch(e){}
@@ -4348,13 +4392,13 @@ function compressImage(file,cb){
     reader.onload=function(e){
       const img=new Image()
       img.onload=function(){
-        const maxW=1440      /* 560 → 1100 → 1440（看得清题目；裁一块出来还能认字） */
+        const maxW=1080      /* 560 → 1100 → 1440 → 1080（2026-09-21 降档：省 50%+，作业字仍清楚） */
         const scale=Math.min(1,maxW/img.width)
         const cv=document.createElement('canvas')
         cv.width=Math.round(img.width*scale)
         cv.height=Math.round(img.height*scale)
         cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height)
-        cb(cv.toDataURL('image/jpeg',0.8))
+        cb(cv.toDataURL('image/jpeg',0.6))
       }
       img.onerror=function(){cb(null)}
       img.src=e.target.result
@@ -6786,7 +6830,15 @@ function _rsetBody(){
   const dck=h('div',{className:'card edit-only'})
   dck.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🩺'}),'数据体检'))
   dck.appendChild(h('div',{style:'font-size:var(--fs-13);color:var(--muted);margin-bottom:8px;line-height:1.8'},'只检查、不改数据：重复编号 / 孤儿删除标记 / 照片引用 / 历史快照能不能恢复 / 上次备份。'))
-  dck.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){dataCheck()}},_dcRunning?'检查中…':'🩺 检查一下'))
+  const _dcBar=h('div',{style:'display:flex;gap:8px;flex-wrap:wrap'})
+  _dcBar.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){dataCheck()}},_dcRunning?'检查中…':'🩺 检查一下'))
+  _dcBar.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){
+    const n=trimLists(D)
+    sv(D)
+    ts(n?('🧹 精简了 '+n+' 处（照片和记录都没动）'):'已经很干净，没什么要精简的')
+    dataCheck()
+  }},'🧹 瘦身一下'))
+  dck.appendChild(_dcBar)
   if(_dcReport){
     const box=h('div',{style:'margin-top:8px;font-size:var(--fs-13);line-height:1.9'})
     _dcReport.lines.forEach(function(t){box.appendChild(h('div',{style:'padding:3px 0;border-bottom:1px dashed var(--border)'},t))})
