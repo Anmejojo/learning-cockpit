@@ -103,7 +103,7 @@ box-shadow:0 8px 28px rgba(0,0,0,.5);max-width:92%}
 <script>
 var MAX=300;                       /* 秒：5 分钟 */
 var MODE='video', Q='480', facing='user';
-var VEC={'480':{w:640,h:480,vbps:700000},'720':{w:1280,h:720,vbps:1500000}};
+var VEC={'480':{w:640,h:480,vbps:650000},'720':{w:1280,h:720,vbps:1200000}};
 var MIMES_V=['video/mp4;codecs=h264,aac','video/mp4','video/webm;codecs=h264,opus','video/webm;codecs=vp9,opus','video/webm'];
 var MIMES_A=['audio/mp4;codecs=aac','audio/mp4','audio/webm;codecs=opus','audio/webm'];
 var $=function(i){return document.getElementById(i)};
@@ -169,7 +169,7 @@ async function start(){
   if(!(await openCam()))return;
   chunks=[];blob=null;got=0;dur=0;warned=false;
   var opts={};
-  if(MODE==='audio'){opts.audioBitsPerSecond=96000}else{opts.videoBitsPerSecond=VEC[Q].vbps;opts.audioBitsPerSecond=64000}
+  if(MODE==='audio'){opts.audioBitsPerSecond=32000}else{opts.videoBitsPerSecond=VEC[Q].vbps;opts.audioBitsPerSecond=64000}
   var want=MODE==='audio'?pick(MIMES_A):pick(MIMES_V);
   if(want)opts.mimeType=want;
   try{rec=new MediaRecorder(stream,opts)}catch(e){try{rec=new MediaRecorder(stream)}catch(e2){toast('这台设备不支持录制');return}}
