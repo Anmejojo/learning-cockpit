@@ -3762,6 +3762,29 @@ async function _snapUnzip(v){
   }catch(e){return null}
 }
 function _snapSig(o){return _h32(JSON.stringify(o))}
+/* 快照里的照片处理：云链接（几十字节）留着；只有老 base64 大图才剥掉。
+   以前一律剥掉，结果「回滚能回到记录、照片却回不来」——照片在快照里根本不是负担。 */
+function _slimPhotos(o){
+  if(!o||typeof o!=='object')return
+  ;['imgs','img','subjImgs'].forEach(function(k){
+    const v=o[k]
+    if(v==null)return
+    const big=function(x){return typeof x==='string'&&x.indexOf('data:')===0&&x.length>1500}
+    if(typeof v==='string'){if(big(v))delete o[k];return}
+    if(Array.isArray(v)){
+      const keep=[]
+      v.forEach(function(x){
+        if(x==null)return
+        if(typeof x==='string'){if(!big(x))keep.push(x);return}
+        if(typeof x==='object'){
+          if(typeof x.u==='string'&&x.u)keep.push(x.u)     /* 有云链接就只要链接 */
+          else if(!big(x.d))keep.push(x)
+        }
+      })
+      if(keep.length)o[k]=keep;else delete o[k]
+    }
+  })
+}
 async function maybeSnapshot(force){
   try{
     const now=Date.now()
@@ -3773,8 +3796,10 @@ async function maybeSnapshot(force){
        既省体积，也不会让回滚变成「顺带清空聊天」 */
     delete slim._snaps;delete slim._trash;delete slim._del
     delete slim._chat;delete slim._mem;delete slim._cope;delete slim._log
-    if(slim.checks)slim.checks.forEach(function(c){delete c.imgs;delete c.img})
-    if(slim.exams)slim.exams.forEach(function(x){delete x.imgs;delete x.subjImgs})
+    /* ① 照片保留（云链接很小）；只有老 base64 大图才剥 */
+    ;(slim.checks||[]).forEach(_slimPhotos)
+    ;(slim.exams||[]).forEach(_slimPhotos)
+    ;(slim.mistakes||[]).forEach(_slimPhotos)
     slim.checkImgs={}
     const sig=_snapSig(slim)
     if(!force&&D._snaps.length&&D._snaps[D._snaps.length-1].sig===sig)return   /* 内容和上一版一样就不占地方 */
@@ -3821,14 +3846,74 @@ async function rollbackTo(idx){
   D=nd
   sv(D);render();ts('✅ 已回滚到 '+snap.label)
 }
+/* ② 备份文件带校验码：导入时能发现文件被改坏/改过 */
+function bkWrap(d){
+  const raw=JSON.stringify(d||{})
+  return {__lcBackup:1,at:Date.now(),sig:_h32(raw),
+    cnt:{checks:((d&&d.checks)||[]).length,exams:((d&&d.exams)||[]).length,points:((d&&d.points)||[]).length,
+         mistakes:((d&&d.mistakes)||[]).length,hw:((d&&d.hw)||[]).length},
+    data:d}
+}
+function bkRead(j){
+  if(!j)return {ok:false,err:'文件是空的'}
+  if(j.__lcBackup){
+    const sig=_h32(JSON.stringify(j.data||{}))
+    return {ok:true,data:j.data,warn:(sig!==j.sig)?'校验码不一致（文件可能被改过），我还是导入了':''}
+  }
+  return {ok:true,data:j,warn:'这是老版本备份（没有校验码），已按原样导入'}
+}
 function exportBackup(){
   try{
     D._lastBackup=Date.now();actLog('导出备份');sv(D)
-    const b=new Blob([JSON.stringify(D,null,2)],{type:'application/json'})
+    const wrap=bkWrap(D)
+    const b=new Blob([JSON.stringify(wrap,null,2)],{type:'application/json'})
     const u=URL.createObjectURL(b);const a=document.createElement('a')
-    a.href=u;a.download='阿勒驾驶舱备份_'+td+'.json';a.click();URL.revokeObjectURL(u)
-    ts('📥 备份已导出到「下载」文件夹')
+    a.href=u;a.download='乐乐驾驶舱备份_'+td+'.json';a.click();URL.revokeObjectURL(u)
+    ts('📥 备份已导出（'+wrap.cnt.checks+' 条打卡 · 校验码 '+wrap.sig+'）')
   }catch(e){ts('⚠️ 导出失败')}
+}
+/* ③ 数据体检（只读，不自动改数据）：发现问题只报告，改动由我来做 */
+let _dcReport=null,_dcRunning=false
+async function dataCheck(){
+  if(_dcRunning)return
+  _dcRunning=true;_dcReport={at:Date.now(),lines:[]}
+  const L=_dcReport.lines
+  const n=function(x){return (x||[]).length}
+  L.push('📊 记录：打卡 '+n(D.checks)+' · 成绩 '+n(D.exams)+' · 积分 '+n(D.points)+' · 错题 '+n(D.mistakes)+' · 作业清单 '+n(D.hw)+' · 聊天 '+n(D._chat))
+  try{
+    const seen={},dup=[]
+    ;(D.checks||[]).concat(D.points||[],D.mistakes||[],D.exams||[]).forEach(function(x){
+      if(!x||x.id==null)return; const k=String(x.id)
+      if(seen[k])dup.push(k); else seen[k]=1
+    })
+    L.push(dup.length?('❌ 有 '+dup.length+' 条重复编号（'+dup.slice(0,5).join('、')+'）—— 告诉我，我来修'):'✅ 没有重复编号')
+  }catch(e){L.push('⚠️ 编号检查失败')}
+  try{
+    const has=function(id){return (D.checks||[]).concat(D.exams||[],D.points||[],D.mistakes||[],D.hw||[]).some(function(x){return x&&String(x.id)===String(id)})}
+    let orphan=0
+    Object.keys(D._del||{}).forEach(function(k){if(k.charAt(0)==='i'&&!has(k.slice(1)))orphan++})
+    L.push(orphan?('🗑 '+orphan+' 个孤儿删除标记（对应记录早就不在了）—— 只占体积，无害'):'✅ 删除标记干净')
+  }catch(e){}
+  try{
+    let total=0,b64=0
+    ;(D.checks||[]).concat(D.exams||[],D.mistakes||[]).forEach(function(x){
+      ;((x&&x.imgs)||[]).forEach(function(u){total++;if(typeof u==='string'&&u.indexOf('data:')===0)b64++})
+    })
+    L.push(b64?('⚠️ 照片 '+total+' 张，其中 '+b64+' 张还是本机 base64（老数据，占体积）'):('✅ 照片 '+total+' 张，全是云链接'))
+  }catch(e){}
+  try{
+    const sn=(D._snaps||[])
+    if(!sn.length)L.push('⚠️ 还没有历史快照（用一会儿会自动生成）')
+    else{
+      const one=await _snapUnzip(sn[sn.length-1].z)
+      const c=(one&&one.checks)||[]
+      const wi=c.filter(function(x){return (x.imgs||[]).length}).length
+      L.push(one?('🕘 最新快照「'+sn[sn.length-1].label+'」能正常读出：含 '+c.length+' 条打卡，其中 '+wi+' 条带照片 → 回滚能把照片一起带回来'):'❌ 最新快照读不出来（可能损坏）')
+    }
+  }catch(e){L.push('❌ 最新快照读不出来（可能损坏）')}
+  L.push(D._lastBackup?('📥 上次导出备份：'+fd(ymd(new Date(D._lastBackup)))+' '+fmtHM(D._lastBackup)):'⚠️ 从来没导出过备份 —— 建议现在导一份存微信收藏')
+  _dcRunning=false
+  try{render()}catch(e){}
 }
 let _lastBatchAt=0
 function _tapGuard(){
@@ -4347,6 +4432,13 @@ function renderLb(){
   bar.appendChild(mk('＋ 放大',function(){lbZoom(0.25)},'#4b5563'))
   bar.appendChild(mk('－ 缩小',function(){lbZoom(-0.25)},'#4b5563'))
   bar.appendChild(mk('还原',function(){_lbScale=1;img.style.transform='scale(1)'},'#2563eb'))
+  bar.appendChild(mk('⬇ 保存这张',function(){
+    try{
+      const a=document.createElement('a');a.href=img.src;a.download='作业照片_'+Date.now()+'.jpg'
+      document.body.appendChild(a);a.click();a.remove()
+      ts('已保存（手机上若没反应，长按图片选「存储图像」）')
+    }catch(e){ts('保存失败，请长按图片保存')}
+  },'#059669'))
   bar.appendChild(mk('关闭',closeLightbox,'#dc2626'))
   ov.appendChild(img)
   ov.appendChild(bar)
@@ -6679,7 +6771,7 @@ function _rsetBody(){
   dm.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔧'}),'数据备份'))
   const dbr=h('div',{className:'row'})
   dbr.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:exportBackup},'📥 导出备份'))
-  dbr.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.onchange=function(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=function(ev){try{const d=JSON.parse(ev.target.result);ask('导入备份？','会覆盖当前所有数据（本机 + 云端）。建议先「导出备份」留一份。','导入并覆盖',function(){D=normalize(d);actLog('导入备份');sv(D);render();ts('✅ 已导入')},true)}catch(err){ts('⚠️ 格式错误')}};r.readAsText(f)};inp.click()}},'📤 导入备份'))
+  dbr.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.onchange=function(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=function(ev){try{const _bk=bkRead(JSON.parse(ev.target.result));if(!_bk.ok){ts('⚠️ '+_bk.err);return}ask('导入备份？',((_bk.warn?('⚠️ '+_bk.warn+'\n\n'):'')+'会覆盖当前所有数据（本机 + 云端）。建议先「导出备份」留一份。'),'导入并覆盖',function(){D=normalize(_bk.data);actLog('导入备份');sv(D);render();ts('✅ 已导入')},true)}catch(err){ts('⚠️ 格式错误')}};r.readAsText(f)};inp.click()}},'📤 导入备份'))
   dbr.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){
     if(_offline){ts('⚠️ 当前离线，请联网后再清理');return}
     ask('清理本机缓存？','只清这台设备上的缓存（照片和记录仍完整保留在云端），然后从云端重新加载。','清理并重载',function(){
@@ -6689,6 +6781,18 @@ function _rsetBody(){
     },true)
   }},'🧹 清理本机缓存'))
   dm.appendChild(dbr)
+
+  /* ③ 数据体检 */
+  const dck=h('div',{className:'card edit-only'})
+  dck.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🩺'}),'数据体检'))
+  dck.appendChild(h('div',{style:'font-size:var(--fs-13);color:var(--muted);margin-bottom:8px;line-height:1.8'},'只检查、不改数据：重复编号 / 孤儿删除标记 / 照片引用 / 历史快照能不能恢复 / 上次备份。'))
+  dck.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){dataCheck()}},_dcRunning?'检查中…':'🩺 检查一下'))
+  if(_dcReport){
+    const box=h('div',{style:'margin-top:8px;font-size:var(--fs-13);line-height:1.9'})
+    _dcReport.lines.forEach(function(t){box.appendChild(h('div',{style:'padding:3px 0;border-bottom:1px dashed var(--border)'},t))})
+    dck.appendChild(box)
+  }
+  $c.appendChild(dck)
   dm.appendChild(h('div',{style:'font-size:var(--fs-14);color:var(--muted);margin-top:8px'},'上次备份：'+((D._lastBackup)?fd(ymd(new Date(D._lastBackup))):'从未导出')+'（建议每周导出一次，存微信收藏或网盘）'))
   $c.appendChild(dm)
 }
