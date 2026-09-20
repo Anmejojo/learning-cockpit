@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>录制自检台 · 背诵/朗读（45 秒）</title>
+<title>录制自检台 · 背诵/朗读（最长 5 分钟）</title>
 <style>
 :root{--bg:#0b0d12;--card:#15181f;--card2:#1b1f29;--text:#ccd2de;--muted:#98a1b3;--faint:#7d8799;
 --primary:#6366f1;--primarytext:#a5b4fc;--primaryweak:rgba(99,102,241,.14);--primaryborder:rgba(99,102,241,.45);
@@ -19,42 +19,57 @@ border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 2px rgba(0,0
 .card h2{font-size:14px;margin:0 0 8px;display:flex;gap:8px;align-items:center}
 video{width:100%;border-radius:10px;background:#000;display:block}
 #stage{position:relative}
-#timer{position:absolute;left:10px;top:10px;background:rgba(0,0,0,.6);padding:3px 9px;border-radius:999px;
+#timer{position:absolute;left:10px;top:10px;background:rgba(0,0,0,.62);padding:3px 9px;border-radius:999px;
 font-size:13px;font-variant-numeric:tabular-nums}
+#est{position:absolute;left:10px;top:38px;background:rgba(0,0,0,.62);padding:2px 9px;border-radius:999px;
+font-size:12px;color:#ffd479}
 #recDot{position:absolute;right:10px;top:12px;width:10px;height:10px;border-radius:50%;background:var(--err);
 display:none;animation:bl .9s infinite}
 @keyframes bl{50%{opacity:.25}}
 .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-button{flex:1;min-width:120px;min-height:44px;border-radius:10px;border:1px solid var(--strong);
+button{flex:1;min-width:112px;min-height:44px;border-radius:10px;border:1px solid var(--strong);
 background:rgba(255,255,255,.04);color:var(--text);font:inherit;font-size:14px;font-weight:600;cursor:pointer}
 button.primary{background:var(--primary);border-color:var(--primary);color:#fff}
-button.danger{background:rgba(248,113,113,.14);border-color:rgba(248,113,113,.45);color:var(--err)}
 button[disabled]{opacity:.45;cursor:not-allowed}
+.seg{display:flex;gap:6px;margin-top:10px}
+.seg button{min-height:38px;font-size:13px;font-weight:500}
+.seg button.on{border-color:var(--primaryborder);background:var(--primaryweak);color:var(--primarytext);font-weight:700}
+.lbl{font-size:13px;color:var(--muted);align-self:center;flex:0 0 46px}
 .env div{font-size:13px;display:flex;gap:8px;padding:3px 0;border-bottom:1px dashed var(--border)}
-.env span:first-child{color:var(--muted);flex:0 0 118px}
+.env span:first-child{color:var(--muted);flex:0 0 122px}
 .env span:last-child{flex:1;word-break:break-all}
 .ok{color:var(--ok)}.bad{color:var(--err)}.warn{color:var(--warn)}
-.note{font-size:13px;color:var(--muted);line-height:1.85}
+.note{font-size:13px;color:var(--muted);line-height:1.9}
 .note b{color:var(--text)}
-.pill{font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--strong);color:var(--muted)}
 #toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,20px);opacity:0;transition:.25s;
 background:#1b1f29;border:1px solid var(--strong);padding:9px 14px;border-radius:10px;font-size:13.5px;z-index:9;
-box-shadow:0 8px 28px rgba(0,0,0,.5)}
+box-shadow:0 8px 28px rgba(0,0,0,.5);max-width:92%}
 #toast.on{opacity:1;transform:translate(-50%,0)}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>🎥 录制自检台</h1>
-  <div class="sub">背诵 / 朗读用：摄像头 + 收音，最长 45 秒。<b>这个页面只在本机处理，不会上传任何东西。</b></div>
+  <div class="sub">背诵 / 朗读用：摄像头 + 收音，<b>最长 5 分钟</b>。这个页面只在本机处理，<b>不上传任何东西</b>。</div>
 
   <div class="card env" id="env"><h2>① 环境自检</h2><div style="color:var(--faint);font-size:13px">检测中…</div></div>
 
   <div class="card">
     <h2>② 拍摄</h2>
-    <div id="stage">
+    <div class="seg">
+      <span class="lbl">模式</span>
+      <button id="mV" class="on">🎥 录像（带声音）</button>
+      <button id="mA">🎙 只录音</button>
+    </div>
+    <div class="seg" id="qRow">
+      <span class="lbl">画质</span>
+      <button id="q480" class="on">省流量 480p</button>
+      <button id="q720">清楚 720p</button>
+    </div>
+    <div id="stage" style="margin-top:10px">
       <video id="preview" playsinline muted autoplay></video>
-      <div id="timer">00:00 / 00:45</div>
+      <div id="timer">00:00 / 05:00</div>
+      <div id="est"></div>
       <div id="recDot"></div>
     </div>
     <div class="row">
@@ -71,133 +86,151 @@ box-shadow:0 8px 28px rgba(0,0,0,.5)}
     <div class="row">
       <button id="btnRedo">↺ 重录</button>
       <button class="primary" id="btnUse">✅ 用这段</button>
-      <button id="btnSave">⬇ 存到本机（自己检查）</button>
+      <button id="btnSave">⬇ 存到本机检查</button>
     </div>
   </div>
 
   <div class="card note">
-    <h2>④ 用之前先看这几条</h2>
-    <b>必须在 HTTPS 下打开</b>（这个页面上线后在 https 地址里，没问题）；<br>
-    <b>第一次会问"允许使用摄像头/麦克风"</b> → 点允许；<br>
-    <b>微信里打开可能录不了</b> → 请用手机自带浏览器（Safari / Chrome / 夸克等），或把网页"添加到主屏幕"当应用打开；<br>
-    <b>发现两件事，请告诉我</b>：① 录完能不能正常回放 ② 录 30 秒大概多大（页面会显示）。
+    <h2>④ 请重点看这几条</h2>
+    <b>① 体积</b>：录一段 30 秒，看页面上的数字，再想"5 分钟够不够用"（5 分钟大约是 30 秒的 10 倍）；<br>
+    <b>② 收音</b>：回放时声音清楚吗（离手机 1 米左右朗读）；<br>
+    <b>③ 权限</b>：第一次会问"允许使用摄像头/麦克风" → 点允许；<br>
+    <b>④ 微信</b>：微信里打开大概率录不了 → 请用系统浏览器，或"添加到主屏幕"当应用打开；<br>
+    <b>⑤ 存到本机</b>：点一下，用相册/文件管理播放，确认没问题。
   </div>
 </div>
 <div id="toast"></div>
 <script>
-var MAX=45;                     /* 秒，可调 */
-var MIMES=['video/mp4;codecs=h264,aac','video/mp4','video/webm;codecs=h264,opus','video/webm;codecs=vp9,opus','video/webm'];
+var MAX=300;                       /* 秒：5 分钟 */
+var MODE='video', Q='480', facing='user';
+var VEC={'480':{w:640,h:480,vbps:700000},'720':{w:1280,h:720,vbps:1500000}};
+var MIMES_V=['video/mp4;codecs=h264,aac','video/mp4','video/webm;codecs=h264,opus','video/webm;codecs=vp9,opus','video/webm'];
+var MIMES_A=['audio/mp4;codecs=aac','audio/mp4','audio/webm;codecs=opus','audio/webm'];
 var $=function(i){return document.getElementById(i)};
-function toast(m){var t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(function(){t.classList.remove('on')},2200)}
+function toast(m){var t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(function(){t.classList.remove('on')},2400)}
+function pick(list){for(var i=0;i<list.length;i++){try{if(window.MediaRecorder&&MediaRecorder.isTypeSupported(list[i]))return list[i]}catch(e){}}return ''}
+function fmt(s){s=Math.max(0,Math.floor(s));var m=Math.floor(s/60),x=s%60;return ('0'+m).slice(-2)+':'+('0'+x).slice(-2)}
+function size(n){return n>=1048576?((n/1048576).toFixed(1)+' MB'):Math.round(n/1024)+' KB'}
 
-var stream=null,rec=null,chunks=[],blob=null,timer=null,t0=0,facing='user',mime='';
+var stream=null,rec=null,chunks=[],blob=null,timer=null,t0=0,dur=0,got=0,warned=false;
 
 function env(){
   var secure=(location.protocol==='https:')||(location.hostname==='localhost')||(location.hostname==='127.0.0.1');
-  var hasGUM=!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia);
+  var gum=!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia);
   var hasRec=(typeof window.MediaRecorder==='function');
   var ua=navigator.userAgent||'';
-  var isWeChat=/MicroMessenger/i.test(ua);
-  mime='';
-  if(hasRec){for(var i=0;i<MIMES.length;i++){try{if(MediaRecorder.isTypeSupported(MIMES[i])){mime=MIMES[i];break}}catch(e){}}}
+  var wx=/MicroMessenger/i.test(ua);
+  var mv=pick(MIMES_V), ma=pick(MIMES_A);
   var rows=[
     ['安全环境(HTTPS)',secure?'✅ 是':'❌ 不是 —— 摄像头会被浏览器禁用',secure],
-    ['摄像头/麦克风接口',hasGUM?'✅ 有':'❌ 没有（浏览器太老或非安全环境）',hasGUM],
+    ['摄像头/麦克风接口',gum?'✅ 有':'❌ 没有（浏览器太老或非安全环境）',gum],
     ['录制接口',hasRec?'✅ 有':'❌ 没有（iOS 需 14.3+）',hasRec],
-    ['将使用的格式',mime?('✅ '+mime):'（用浏览器默认）',!!mime],
-    ['微信内置浏览器',isWeChat?'⚠️ 是 —— 大概率录不了，请换系统浏览器':'(不是)',!isWeChat],
-    ['浏览器',ua.replace(/\s+/g,' ').slice(0,90),true]
+    ['录像格式',mv?('✅ '+mv):'（用浏览器默认）',!!mv],
+    ['录音格式',ma?('✅ '+ma):'（用浏览器默认）',!!ma],
+    ['微信内置浏览器',wx?'⚠️ 是 —— 大概率录不了，请换系统浏览器':'(不是)',!wx],
+    ['浏览器',ua.replace(/\s+/g,' ').slice(0,92),true]
   ];
   var h='<h2>① 环境自检</h2>';
   rows.forEach(function(r){h+='<div><span>'+r[0]+'</span><span class="'+(r[2]?'ok':'bad')+'">'+r[1]+'</span></div>'});
   $('env').innerHTML=h;
-  if(!secure||!hasGUM||!hasRec)toast('环境不满足，请看①里的红字');
+  if(!secure||!gum||!hasRec)toast('环境不满足，请看①里的红字');
 }
 
+function constraints(){
+  if(MODE==='audio')return {audio:{echoCancellation:true,noiseSuppression:true}};
+  var v=VEC[Q];
+  return {video:{facingMode:facing,width:{ideal:v.w},height:{ideal:v.h},frameRate:{ideal:24,max:24}},
+          audio:{echoCancellation:true,noiseSuppression:true}};
+}
 async function openCam(){
   if(stream)return true;
   try{
-    stream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:facing,width:{ideal:640},height:{ideal:480},frameRate:{ideal:24,max:24}},
-      audio:{echoCancellation:true,noiseSuppression:true}
-    });
-    $('preview').srcObject=stream;
-    $('preview').style.transform=(facing==='user')?'scaleX(-1)':'none';
+    stream=await navigator.mediaDevices.getUserMedia(constraints());
+    if(MODE==='video'){
+      $('preview').srcObject=stream;
+      $('preview').style.display='block';
+      $('preview').style.transform=(facing==='user')?'scaleX(-1)':'none';
+    }else{
+      $('preview').style.display='none';   /* 只录音：不占画面 */
+    }
     return true;
   }catch(e){
-    var m=String(e&&e.name||e);
-    toast('打不开摄像头：'+m);
-    if(m==='NotAllowedError')toast('你点了"拒绝"，请刷新页面重新允许');
-    else if(m==='NotFoundError')toast('这台设备没有可用摄像头');
+    var m=String((e&&e.name)||e);
+    if(m==='NotAllowedError')toast('你点了"拒绝"：请刷新页面，再点"允许"');
+    else if(m==='NotFoundError')toast('这台设备没有找到摄像头/麦克风');
+    else toast('打不开：'+m);
     return false;
   }
 }
-
-function fmt(s){var m=Math.floor(s/60),x=Math.floor(s%60);return ('0'+m).slice(-2)+':'+('0'+x).slice(-2)}
-function size(n){return n>1048576?(n/1048576).toFixed(1)+' MB':Math.round(n/1024)+' KB'}
-
+function shutdown(){
+  if(stream){stream.getTracks().forEach(function(t){try{t.stop()}catch(e){}});stream=null}
+}
 async function start(){
   if(!(await openCam()))return;
-  chunks=[];blob=null;
-  try{
-    rec=mime?new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:700000,audioBitsPerSecond:64000}):new MediaRecorder(stream);
-  }catch(e){ try{rec=new MediaRecorder(stream)}catch(e2){ toast('这台设备不支持录制'); return } }
-  rec.ondataavailable=function(e){if(e.data&&e.data.size)chunks.push(e.data)};
+  chunks=[];blob=null;got=0;dur=0;warned=false;
+  var opts={};
+  if(MODE==='audio'){opts.audioBitsPerSecond=96000}else{opts.videoBitsPerSecond=VEC[Q].vbps;opts.audioBitsPerSecond=64000}
+  var want=MODE==='audio'?pick(MIMES_A):pick(MIMES_V);
+  if(want)opts.mimeType=want;
+  try{rec=new MediaRecorder(stream,opts)}catch(e){try{rec=new MediaRecorder(stream)}catch(e2){toast('这台设备不支持录制');return}}
+  rec.ondataavailable=function(e){if(e.data&&e.data.size){chunks.push(e.data);got+=e.data.size}};
   rec.onstop=function(){
-    blob=new Blob(chunks,{type:(rec.mimeType||'video/webm').split(';')[0]});
+    blob=new Blob(chunks,{type:(rec.mimeType||(MODE==='audio'?'audio/webm':'video/webm')).split(';')[0]});
     clearInterval(timer);timer=null;
-    $('recDot').style.display='none';
-    $('btnStart').disabled=false;$('btnStop').disabled=true;
+    $('recDot').style.display='none';$('est').textContent='';
+    $('btnStart').disabled=false;$('btnStop').disabled=false;
     $('play').src=URL.createObjectURL(blob);
+    $('play').style.display=(MODE==='audio')?'none':'block';
+    $('play').style.height=(MODE==='audio')?'0':'auto';
     $('resultCard').style.display='block';
-    $('info').innerHTML='时长 <b>'+fmt(lastDur)+'</b>　大小 <b>'+size(blob.size)+'</b>　格式 <b>'+blob.type+'</b><br>'+
-      '按这个大小，45 秒大约 <b>'+size(blob.size/Math.max(lastDur,1)*45)+'</b>。';
+    $('info').innerHTML='时长 <b>'+fmt(dur)+'</b>　大小 <b>'+size(blob.size)+'</b>　格式 <b>'+blob.type+'</b><br>'+
+      (MODE==='audio'
+        ? '按这个速度，<b>5 分钟录音约 '+size(blob.size/Math.max(dur,1)*300)+'</b>（很省）'
+        : '按这个速度，<b>5 分钟录像约 '+size(blob.size/Math.max(dur,1)*300)+'</b>　·　换 720p 大约再翻一倍');
     try{$('play').play()}catch(e){}
   };
   rec.start(1000);
-  t0=Date.now();lastDur=0;
-  $('recDot').style.display='block';
+  t0=Date.now();
+  $('recDot').style.display=(MODE==='video')?'block':'none';
   $('btnStart').disabled=true;$('btnStop').disabled=false;
   $('timer').textContent='00:00 / '+fmt(MAX);
   timer=setInterval(function(){
-    lastDur=(Date.now()-t0)/1000;
-    $('timer').textContent=fmt(lastDur)+' / '+fmt(MAX);
-    if(lastDur>=MAX)stop();
-  },200);
+    dur=(Date.now()-t0)/1000;
+    $('timer').textContent=fmt(dur)+' / '+fmt(MAX);
+    if(got>0&&dur>2)$('est').textContent='已录 '+size(got)+'　预计满 5 分钟 '+size(got/dur*300);
+    if(!warned&&dur>=255){warned=true;toast('还有 45 秒就到 5 分钟上限')}
+    if(dur>=MAX)stop();
+  },250);
 }
-var lastDur=0;
-function stop(){
-  if(rec&&rec.state!=='inactive'){try{rec.stop()}catch(e){}}
-  if(stream){stream.getTracks().forEach(function(t){try{t.stop()}catch(e){}});stream=null}
-}
+function stop(){ if(rec&&rec.state!=='inactive'){try{rec.stop()}catch(e){}} shutdown() }
 function reset(){
-  if(stream){stream.getTracks().forEach(function(t){try{t.stop()}catch(e){}});stream=null}
-  $('preview').srcObject=null;
-  $('resultCard').style.display='none';
-  $('timer').textContent='00:00 / '+fmt(MAX);
-  blob=null;chunks=[];lastDur=0;
+  shutdown();
+  $('preview').srcObject=null;$('resultCard').style.display='none';
+  $('timer').textContent='00:00 / '+fmt(MAX);$('est').textContent='';
+  blob=null;chunks=[];got=0;dur=0;
   openCam();
 }
-
+function seg(ids,cur,set){
+  ids.forEach(function(id){$(id).classList.toggle('on',id===cur)});
+  set&&set();
+}
+$('mV').onclick=function(){MODE='video';seg(['mV','mA'],'mV');$('qRow').style.display='flex';reset()};
+$('mA').onclick=function(){MODE='audio';seg(['mV','mA'],'mA');$('qRow').style.display='none';reset()};
+$('q480').onclick=function(){Q='480';seg(['q480','q720'],'q480');reset()};
+$('q720').onclick=function(){Q='720';seg(['q480','q720'],'q720');reset()};
 $('btnStart').onclick=start;
 $('btnStop').onclick=stop;
-$('btnFlip').onclick=function(){
-  facing=(facing==='user')?'environment':'user';
-  if(stream){stream.getTracks().forEach(function(t){try{t.stop()}catch(e){}});stream=null}
-  openCam();
-};
+$('btnFlip').onclick=function(){facing=(facing==='user')?'environment':'user';shutdown();openCam()};
 $('btnRedo').onclick=reset;
-$('btnUse').onclick=function(){toast('✅ 正式版会：上传到云端 → 进妈妈的待审核 → 通过加分')};
+$('btnUse').onclick=function(){toast('✅ 正式版：上传到云端 → 进你的待审核 → 通过加分')};
 $('btnSave').onclick=function(){
   if(!blob)return;
-  var a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='背诵录制_'+Date.now()+(blob.type.indexOf('mp4')>=0?'.mp4':'.webm');
-  a.click();
-  toast('已存到「下载」文件夹，可以自己播一下');
+  var ext=blob.type.indexOf('mp4')>=0?'.mp4':(blob.type.indexOf('audio')>=0?'.webm':'.webm');
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='录制_'+(MODE==='audio'?'音频':'视频')+'_'+Date.now()+ext;a.click();
+  toast('已存到「下载」文件夹，去播放确认一下');
 };
-env();
-openCam();
+env();openCam();
 </script>
 </body>
 </html>
