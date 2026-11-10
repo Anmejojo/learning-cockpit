@@ -4650,6 +4650,7 @@ function render(){
   if(document.getElementById('gate'))return
   try{applyTabs()}catch(e){}    /* ④ 角色化页签（只初始化一次） */
   try{if(dateRoll())try{sv(D)}catch(e){}}catch(e){}
+  try{document.body.classList.toggle('space-mode', tb==='today')}catch(e){}
   $c.innerHTML=''
   if(tb!=='chat'){document.body.classList.remove('chat-page');_memOpen=false}
   if(tb==='today')rtoday()
@@ -4669,11 +4670,155 @@ function render(){
 let _showAlerts=false,_openImg={},_examEdit=false,_openExamForm=false,_ckView='list',_scView='list',_pkView='points',_partEdit=false,_blEdit=false,_ptFilter='all',_exFilter='all'
 
 /* ============ ① 今日（概览 + 快捷操作） ============ */
+/* 空间里的"面板"：点物件后，在场景里展开一块，而不是跳页面 */
+let _spacePanel=null
+function spacePanelBody(kind,host){
+  const old=$c; $c=host
+  try{
+    if(kind==='checkin') rck()
+    else if(kind==='mistake') rckMk()
+    else if(kind==='word') rckWord()
+    else if(kind==='set') rset()
+    else if(kind==='parts'){ try{_pkView='parts'}catch(e){}; rpk() }
+    else if(kind==='wall'&&window.WALL){ WALL.mount(host,wallData()) }
+    else if(kind==='detail'&&_kidsBuf){ _kidsBuf.forEach(function(c){host.appendChild(c)}) }
+    else if(kind==='chat'){
+      const wrapC=h('div',{className:'sp-chat'})
+      const list=h('div',{className:'sp-chat-list'})
+      const log=chatLog().slice(-16)
+      if(!log.length){
+        list.appendChild(h('div',{className:'sp-chat-hint'},'小搭在这儿。哪道题不会、今天累不累，都能跟我说。'))
+      }
+      log.forEach(function(m){
+        if(m.pending&&!m.text) return
+        if(!m.text) return
+        const bub=h('div',{className:'sp-b '+(m.role==='u'?'u':'a')},m.text)
+        if(m.role!=='u'){
+          const rowB=h('div',{className:'sp-row'})
+          rowB.appendChild(bub)
+          rowB.appendChild(h('button',{className:'sp-speak',title:'让小搭念出来',
+            onClick:function(){ try{ speakCloud(m.text,m.id) }catch(e){} }},'🔊'))
+          list.appendChild(rowB)
+        }else{
+          list.appendChild(bub)
+        }
+      })
+      wrapC.appendChild(list)
+      const rowC=h('div',{className:'sp-chat-row'})
+      function doSend(){ try{ chatSend() }catch(e){} }
+      const inp=h('input',{id:'chatInput',className:'sp-chat-input',placeholder:'跟小搭说点什么…',
+        onKeydown:function(e){ if(e.key==='Enter'){ e.preventDefault(); doSend() } }})
+      rowC.appendChild(inp)
+      rowC.appendChild(h('button',{className:'sp-chat-send',onClick:doSend},'发送'))
+      wrapC.appendChild(rowC)
+      host.appendChild(wrapC)
+      setTimeout(function(){ try{ list.scrollTop=list.scrollHeight; inp.focus() }catch(e){} },40)
+    }
+    else if(kind==='stat'){
+      const L=(function(){try{return myLv()}catch(e){return {lv:1,exp:0,need:20,total:0}}})()
+      const streak=(function(){try{return ckStreak()}catch(e){return 0}})()
+      const pend=(D.checks||[]).filter(function(c){return c.status==='pending'}).length
+      const earn=(D.points||[]).filter(function(p){return p.type==='earn'}).reduce(function(a,p){return a+(p.points||0)},0)
+      const spend=(D.points||[]).filter(function(p){return p.type==='spend'}).reduce(function(a,p){return a+(p.points||0)},0)
+      const c=h('div',{className:'card'})
+      c.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:14px">'+
+        '<div>等级 <b>Lv.'+L.lv+'</b></div><div>经验 <b>'+L.exp+'/'+L.need+'</b></div>'+
+        '<div>连续 <b>🔥 '+streak+' 天</b></div><div>可用 <b>⭐ '+(earn-spend)+'</b></div>'+
+        '<div>累计赚 <b>'+earn+'</b></div><div>待审核 <b>'+pend+'</b></div></div>'
+      host.appendChild(c)
+    }
+  }catch(e){
+    host.appendChild(h('div',{className:'card'},'这块还没加载出来：'+(e&&e.message)))
+  }finally{ $c=old }
+}
+const SPACE_TITLE={chat:'🤖 小搭',detail:'📋 今天的细节',checkin:'📓 交作业',mistake:'📕 错题本',word:'📖 单词',set:'⚙️ 设置',parts:'🎁 奖品',wall:'📊 成绩墙',stat:'🎖 我的状态'}
+/* 孩子端首页 = 空间：满屏场景 + 少量 HUD（像游戏，不像网页） */
+let _kidView='room'
+let _kidMenu=false
+function spaceHome(_kids){
+  _kidsBuf=_kids
+  try{const kv=(location.search.match(/[?&]kv=(room|wall)/)||[])[1];if(kv)_kidView=kv}catch(e){}
+  try{const sp=(location.search.match(/[?&]sp=(checkin|mistake|word|set|parts|wall|stat|chat|detail)/)||[])[1];if(sp)_spacePanel=sp}catch(e){}
+  const wrap=h('div',{className:'kid-stage'})
+  const view=h('div',{className:'kid-scene'+( _kidView==='wall'?' scroll':'' )})
+  wrap.appendChild(view)
+
+  // ── 场景内容
+  try{
+    if(_kidView==='wall'&&window.WALL){ WALL.mount(view,wallData()) }
+    else if(window.ROOM){
+      const earn=(D.points||[]).filter(function(p){return p.type==='earn'}).reduce(function(a,p){return a+(p.points||0)},0)
+      const spend=(D.points||[]).filter(function(p){return p.type==='spend'}).reduce(function(a,p){return a+(p.points||0)},0)
+      ROOM.mount(view,{parts:D.parts,rate:D.rate||10,avail:earn-spend,today:roomToday(),
+        canReceive:false,canEdit:false,
+        onReceive:function(){},onExchange:function(){},onEdit:function(){},
+        onAct:kidAct,
+        bare:true,
+        stat:{lv:(function(){try{return myLv().lv}catch(e){return 1}})(),
+              streak:(function(){try{return ckStreak()}catch(e){return 0}})(),
+              pts:earn-spend},
+        toast:function(m){ts(m)}})
+    }
+  }catch(e){ view.appendChild(h('div',{className:'kid-fail'},'这里没加载出来')) }
+
+  if(_spacePanel){
+    wrap.appendChild(h('div',{className:'kid-scrim',onClick:function(){_spacePanel=null;render()}}))
+    const panel=h('div',{className:'space-panel'})
+    const head=h('div',{className:'sp-head'})
+    head.appendChild(h('span',null,SPACE_TITLE[_spacePanel]||'面板'))
+    head.appendChild(h('button',{className:'sp-close',onClick:function(){_spacePanel=null;render()}},'✕'))
+    panel.appendChild(head)
+    const body=h('div',{className:'sp-body'})
+    panel.appendChild(body)
+    wrap.appendChild(panel)
+    setTimeout(function(){ spacePanelBody(_spacePanel,body) },0)
+  }
+
+  // ── 菜单 / 今日细节（同一张底部抽屉）
+  if(_kidMenu){
+    const scrim=h('div',{className:'kid-scrim',onClick:function(){_kidMenu=false;render()}})
+    wrap.appendChild(scrim)
+    const sh=h('div',{className:'kid-sheet'})
+    sh.appendChild(h('div',{className:'grab'}))
+    const rows=ROLE.parent?
+      [['📋 今天的细节',function(){_kidMenu=false;_spacePanel='detail';render()}],
+       ['✅ 审核与打卡',function(){_kidMenu=false;sw('checkin')}],
+       ['📊 成绩',function(){_kidMenu=false;_spacePanel='wall';render()}],
+       ['📕 错题本',function(){_kidMenu=false;sw('mistake')}],
+       ['⚙️ 设置',function(){_kidMenu=false;sw('settings')}]]:
+      [['📋 今天的细节',function(){_kidMenu=false;_spacePanel='detail';render()}],
+       ['📕 错题本',function(){_kidMenu=false;_spacePanel='mistake';render()}],
+       ['📖 单词',function(){_kidMenu=false;_spacePanel='word';render()}],
+       ['⚙️ 设置',function(){_kidMenu=false;_spacePanel='set';render()}]]
+    rows.forEach(function(r){
+      sh.appendChild(h('button',{className:'kid-row',onClick:r[1]},r[0]))
+    })
+    if(_kidMore){
+      const box=h('div',{className:'kid-detail'})
+      _kids.forEach(function(c){box.appendChild(c)})
+      sh.appendChild(box)
+    }
+    wrap.appendChild(sh)
+  }
+  return wrap
+}let _kidMore=false
+let _kidsBuf=null
+function kidAct(k){
+  try{
+    if(k==='chat'){ _spacePanel='chat'; render() }
+    else if(k==='menu'){ _kidMenu=true; render() }
+    else if(k==='stat'||k==='wall'||k==='checkin'||k==='mistake'||k==='word'||k==='set'||k==='parts'){
+      _spacePanel=k; render()
+    }
+  }catch(e){}
+}
+
 function rtoday(){
   const _host=$c, _tmp=h('div',null)
   $c=_tmp
   try{ _rtodayBody() } finally { $c=_host }
   const _kids=Array.prototype.slice.call(_tmp.children||[]);
+  if(window.ROOM){ $c.appendChild(spaceHome(_kids)); return }
   const _pb=dailyBanner(); if(_pb)_pb.forEach(function(x){$c.appendChild(x)});
   _kids.slice(0,1).forEach(function(c){$c.appendChild(c)});
   try{$c.appendChild(chainCard())}catch(e){}
@@ -7175,6 +7320,72 @@ function cu(ex){
   if(ch){sv(D);ts('🎉 解锁！ · '+praise('unlock'))}
 }
 
+/* 空间视图偏好：房间 / 成绩墙 / 清单（只存本机，不进 D、不上云） */
+const LS_ROOMVIEW='lc_space_view'
+function spaceView(){
+  try{
+    const v=localStorage.getItem(LS_ROOMVIEW)
+    if(v==='room'||v==='wall'||v==='list')return v
+    if(v==='0')return 'list'          /* 兼容老值 */
+    return 'room'
+  }catch(e){return 'room'}
+}
+function setSpaceView(v){try{localStorage.setItem(LS_ROOMVIEW,v)}catch(e){}}
+function roomViewOn(){return spaceView()!=='list'}
+function setRoomView(on){setSpaceView(on?'room':'list')}
+
+/* 房间要反映的今天：待审核几张、今天过了几条 */
+function roomToday(){
+  const pend=(D.checks||[]).filter(function(c){return c.status==='pending'}).length
+  const done=(D.checks||[]).filter(function(c){return c.date===td&&c.status==='approved'}).length
+  return {pending:pend,done:done}
+}
+/* 成绩墙的数据（全部从 D 现算，不新增字段） */
+function wallData(){
+  const rate=D.rate||10
+  const ex=(D.exams||[]).slice().sort(function(a,b){return (a.date||'').localeCompare(b.date||'')})
+  const last6=ex.slice(-6)
+  const list=last6.map(function(e){const i=ct(e.scores,e.sem);return {d:(e.date||'').slice(5),n:(e.examType||''),v:i.total,f:i.fullTotal}})
+  const last=ex.length?ex[ex.length-1]:null
+  const full=last?ct(last.scores,last.sem).fullTotal:700
+  const subs=last?gs(last.sem).map(function(s){return {n:s.name,s:(last.scores&&last.scores[s.id]!=null)?last.scores[s.id]:0,f:s.full}}):[]
+  const streak=(function(){try{return ckStreak()}catch(e){return 0}})()
+  const bugs=(D.mistakes||[])
+  const kp={}
+  bugs.forEach(function(x){const k=((x.subject?x.subject+'·':'')+(x.kp||'未分类'));kp[k]=(kp[k]||0)+1})
+  const mkTop=Object.keys(kp).map(function(k){return {k:k,n:kp[k]}}).sort(function(a,b){return b.n-a.n}).slice(0,3)
+  const earn=(D.points||[]).filter(function(p){return p.type==='earn'}).reduce(function(a,p){return a+(p.points||0)},0)
+  const spend=(D.points||[]).filter(function(p){return p.type==='spend'}).reduce(function(a,p){return a+(p.points||0)},0)
+  let week=0
+  try{week=(D.points||[]).filter(function(p){return (p.date||'')>=wsStr}).reduce(function(a,p){return a+(p.type==='earn'?p.points:-p.points)},0)}catch(e){}
+  const words=Object.keys(D.wrd||{}).length
+  const unlocked=(D.parts||[]).filter(function(p){return p.unlocked}).length
+  const bestPct=ex.length?Math.max.apply(null,ex.map(function(e){return ct(e.scores,e.sem).pct})):0
+  const certs=[
+    {t:'连续 7 天',on:streak>=7},
+    {t:'连续 30 天',on:streak>=30},
+    {t:'单词 100',on:words>=100},
+    {t:'错题 30',on:bugs.length>=30},
+    {t:'首考达标',on:bestPct>=78},
+    {t:'电脑装一半',on:unlocked>=10}
+  ]
+  const stages=['初二上期中','初二上期末','初二下期中','初二下期末','初三上期中','初三上期末','一模','二模','三模','中考']
+  let nowIdx=0
+  for(let i=0;i<stages.length;i++){ if(stages[i].indexOf(D.sem||'')===0) nowIdx=i }
+  const timeline=stages.map(function(n,i){return {n:n,done:i<nowIdx,now:i===nowIdx}})
+  let next=null
+  ;(D.parts||[]).forEach(function(p){
+    if(p.unlocked)return
+    const need=Math.round((p.value||0)*rate)-(earn-spend)
+    if(!next||need<next.need)next={name:p.name,need:need}
+  })
+  return {exams:list,full:full,ref:0.78,subs:subs,streak:streak,days:30,
+    mistakes:bugs.length,mkTop:mkTop,
+    pts:{avail:earn-spend,all:earn,week:week,rate:rate},
+    certs:certs,timeline:timeline,nowStage:stages[nowIdx],
+    role:ROLE.parent?'p':'c',next:next}
+}
+
 function rp(){
   $c.appendChild(h('div',{className:'daily-praise'},'💬 '+encLine()))
   const rate=D.rate||1
@@ -7188,38 +7399,87 @@ function rp(){
   sg.appendChild(h('div',{className:'stat-card primary'},h('div',{className:'sv'},pr+'/11'),h('div',{className:'sl'},'已签收')))
   sg.appendChild(h('div',{className:'stat-card '+(pu>=3?'success':'warning')},h('div',{className:'sv'},'¥'+tv.toLocaleString()),h('div',{className:'sl'},'已解锁价值')))
   sg.appendChild(h('div',{className:'stat-card primary'},h('div',{className:'sv'},'⭐'+tpc.toLocaleString()),h('div',{className:'sl'},'已解锁需积分')))
-  $c.appendChild(sg)
 
   /* 积分兑换率已移到「设置」页 */
 
-
-  const pc=h('div',{className:'card'})
-  pc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'💻'}),'零件清单（¥价格 / ⭐积分）'))
-  const grid=h('div',{className:'parts-grid'})
   const teP=D.points.filter(p=>p.type==='earn').reduce((s,p)=>s+p.points,0)
   const tsP=D.points.filter(p=>p.type==='spend').reduce((s,p)=>s+p.points,0)
   const availPts=teP-tsP
-  for(const part of D.parts){
-    const pcost=Math.round(part.value*rate)
-    const card=h('div',{className:'part-card '+(part.unlocked?'unlocked':'locked'),onClick:()=>{if(ROLE.parent&&part.unlocked&&!part.received){part.received=true;sv(D);render();ts('✅ 已标记签收 · '+praise('part'));undoBar('已标记「'+part.name+'」签收',function(){part.received=false;sv(D);render();ts('↩️ 已撤销签收')})}}})
-    card.innerHTML='<div class="pb">'+(part.received?'✅':part.unlocked?'🔓':'🔒')+'</div><div class="pi">'+part.icon+'</div><div class="pn">'+part.name+'</div><div class="pv">¥'+part.value.toLocaleString()+' / ⭐'+pcost.toLocaleString()+'</div><div class="pc">'+part.cond+'</div><div style="font-size:var(--fs-12);color:var(--muted);margin-top:2px">'+(part.exchange?('需 '+pcost.toLocaleString()+' 积分兑换'):part.det)+'</div>'
-    if(part.exchange&&!part.unlocked&&ROLE.parent){
-      const need=pcost
-      const can=availPts>=need
-      card.appendChild(h('button',{className:'btn btn-sm '+(can?'btn-success':'btn-outline'),style:'margin-top:6px;font-size:var(--fs-14)',onClick:(e)=>{e.stopPropagation();if(part._buying)return;part._buying=1;setTimeout(function(){try{part._buying=0}catch(e2){}},1500);if(availPts<need){ts('⚠️ 积分不足，还差 '+(need-availPts).toLocaleString()+' 分');return}
-        const _rec={id:_newId('p'),date:td,source:'兑换 '+part.name,points:need,type:'spend'}
-        D.points.push(_rec);part.unlocked=true;sv(D);render();ts('✅ 已兑换 '+part.name+' · '+praise('part'))
-        undoBar('已兑换：'+part.name+'（-⭐'+need.toLocaleString()+'）',function(){const _i=D.points.indexOf(_rec);if(_i>=0)D.points.splice(_i,1);part.unlocked=false;sv(D);render();ts('↩️ 已撤销兑换')})
-      }},(can?'💰 兑换 ⭐':'🔒 积分不足')))
-    }
-    if(ROLE.edit)card.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-top:6px;font-size:var(--fs-12)',onClick:(e)=>{e.stopPropagation();const np=prompt('修改 '+part.name+' 价格（当前：¥'+part.value.toLocaleString()+'）：',part.value);if(np!==null){const v=parseFloat(np);if(!isNaN(v)&&v>0){part.value=v;sv(D);render();ts('✅ 已更新')}}}},'✏️ 改价'))
-    grid.appendChild(card)
+
+  /* 签收 / 兑换 / 改价 —— 房间和清单共用，逻辑只有这一份 */
+  function doReceive(part){
+    if(!ROLE.parent||!part||!part.unlocked||part.received)return
+    part.received=true;sv(D);render();ts('✅ 已标记签收 · '+praise('part'))
+    undoBar('已标记「'+part.name+'」签收',function(){part.received=false;sv(D);render();ts('↩️ 已撤销签收')})
   }
-  pc.appendChild(grid)
-  const av=D.parts.reduce((s,p)=>s+p.value,0)
-  const ap=D.parts.reduce((s,p)=>s+Math.round(p.value*rate),0)
-  pc.appendChild(h('div',{style:'margin-top:14px;padding:10px;background:var(--bg-elev);border-radius:6px;font-size:var(--fs-15);text-align:center',innerHTML:'💰 全部总价：<strong>¥'+av.toLocaleString()+'</strong> | 共需积分：<strong>⭐'+ap.toLocaleString()+'</strong>（1元='+rate+'分）'}))
-  $c.appendChild(pc)
+  function doExchange(part,need){
+    if(!ROLE.parent||!part||part.unlocked)return
+    if(part._buying)return
+    part._buying=1;setTimeout(function(){try{part._buying=0}catch(e2){}},1500)
+    if(availPts<need){ts('⚠️ 积分不足，还差 '+(need-availPts).toLocaleString()+' 分');return}
+    const _rec={id:_newId('p'),date:td,source:'兑换 '+part.name,points:need,type:'spend'}
+    D.points.push(_rec);part.unlocked=true;sv(D);render();ts('✅ 已兑换 '+part.name+' · '+praise('part'))
+    undoBar('已兑换：'+part.name+'（-⭐'+need.toLocaleString()+'）',function(){const _i=D.points.indexOf(_rec);if(_i>=0)D.points.splice(_i,1);part.unlocked=false;sv(D);render();ts('↩️ 已撤销兑换')})
+  }
+  function doEditPrice(part){
+    if(!ROLE.edit||!part)return
+    const np=prompt('修改 '+part.name+' 价格（当前：¥'+part.value.toLocaleString()+'）：',part.value)
+    if(np!==null){const v=parseFloat(np);if(!isNaN(v)&&v>0){part.value=v;sv(D);render();ts('✅ 已更新')}}
+  }
+  function partById(id){for(const x of D.parts){if(x.id===id)return x}return null}
+
+  /* 空间 / 清单 切换（只记本机偏好，不进 D、不同步） */
+  const sv=spaceView()
+  const seg=h('div',{className:'room-seg'})
+  seg.appendChild(h('button',{className:'btn btn-sm '+(sv==='room'?'btn-primary':'btn-outline'),onClick:function(){setSpaceView('room');render()}},'🖥 房间'))
+  seg.appendChild(h('button',{className:'btn btn-sm '+(sv==='wall'?'btn-primary':'btn-outline'),onClick:function(){setSpaceView('wall');render()}},'🖼 成绩墙'))
+  seg.appendChild(h('button',{className:'btn btn-sm '+(sv==='list'?'btn-primary':'btn-outline'),onClick:function(){setSpaceView('list');render()}},'📋 清单'))
+  $c.appendChild(seg)
+
+  if(sv==='wall'&&window.WALL){
+    const whost=h('div',{className:'wall-host'})
+    $c.appendChild(whost)
+    try{ WALL.mount(whost,wallData()) }catch(e){ setSpaceView('list'); $c.appendChild(h('div',{className:'card'},'成绩墙没加载出来（'+e.message+'），已切回清单')) }
+  }else if(sv==='room'&&window.ROOM){
+    const host=h('div',{className:'room-host'})
+    $c.appendChild(host)
+    try{
+      ROOM.mount(host,{
+        parts:D.parts,rate:rate,avail:availPts,today:roomToday(),
+        canReceive:ROLE.parent,canEdit:ROLE.edit,
+        onReceive:function(id){doReceive(partById(id))},
+        onExchange:function(id){const p=partById(id);if(p)doExchange(p,Math.round(p.value*rate))},
+        onEdit:function(id){doEditPrice(partById(id))},
+        toast:function(m){ts(m)}
+      })
+    }catch(e){
+      setRoomView(false)
+      $c.appendChild(h('div',{className:'card'},'房间没加载出来（'+e.message+'），已经给你切回清单'))
+    }
+  }else{
+    const pc=h('div',{className:'card'})
+    pc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'💻'}),'零件清单（¥价格 / ⭐积分）'))
+    const grid=h('div',{className:'parts-grid'})
+    for(const part of D.parts){
+      const pcost=Math.round(part.value*rate)
+      const card=h('div',{className:'part-card '+(part.unlocked?'unlocked':'locked'),onClick:()=>{doReceive(part)}})
+      card.innerHTML='<div class="pb">'+(part.received?'✅':part.unlocked?'🔓':'🔒')+'</div><div class="pi">'+part.icon+'</div><div class="pn">'+part.name+'</div><div class="pv">¥'+part.value.toLocaleString()+' / ⭐'+pcost.toLocaleString()+'</div><div class="pc">'+part.cond+'</div><div style="font-size:var(--fs-12);color:var(--muted);margin-top:2px">'+(part.exchange?('需 '+pcost.toLocaleString()+' 积分兑换'):part.det)+'</div>'
+      if(part.exchange&&!part.unlocked&&ROLE.parent){
+        const need=pcost
+        const can=availPts>=need
+        card.appendChild(h('button',{className:'btn btn-sm '+(can?'btn-success':'btn-outline'),style:'margin-top:6px;font-size:var(--fs-14)',onClick:(e)=>{e.stopPropagation();doExchange(part,need)}},(can?'💰 兑换 ⭐':'🔒 积分不足')))
+      }
+      if(ROLE.edit)card.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-top:6px;font-size:var(--fs-12)',onClick:(e)=>{e.stopPropagation();doEditPrice(part)}},'✏️ 改价'))
+      grid.appendChild(card)
+    }
+    pc.appendChild(grid)
+    const av=D.parts.reduce((s,p)=>s+p.value,0)
+    const ap=D.parts.reduce((s,p)=>s+Math.round(p.value*rate),0)
+    pc.appendChild(h('div',{style:'margin-top:14px;padding:10px;background:var(--bg-elev);border-radius:6px;font-size:var(--fs-15);text-align:center',innerHTML:'💰 全部总价：<strong>¥'+av.toLocaleString()+'</strong> | 共需积分：<strong>⭐'+ap.toLocaleString()+'</strong>（1元='+rate+'分）'}))
+    $c.appendChild(pc)
+  }
+
+  $c.appendChild(sg)
 
   /* 管理零件清单已移到「设置」页 */
 
