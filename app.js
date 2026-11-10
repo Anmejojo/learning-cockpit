@@ -4762,16 +4762,34 @@ function spaceHome(_kids){
   }catch(e){ view.appendChild(h('div',{className:'kid-fail'},'这里没加载出来')) }
 
   if(_spacePanel){
-    wrap.appendChild(h('div',{className:'kid-scrim',onClick:function(){_spacePanel=null;render()}}))
+    const close=function(){ _spacePanel=null; render() }
+    wrap.appendChild(h('div',{className:'kid-scrim',onClick:close}))
     const panel=h('div',{className:'space-panel'})
     const head=h('div',{className:'sp-head'})
     head.appendChild(h('span',null,SPACE_TITLE[_spacePanel]||'面板'))
-    head.appendChild(h('button',{className:'sp-close',onClick:function(){_spacePanel=null;render()}},'✕'))
+    const xb=h('button',{className:'sp-close',onClick:close},'✕')
+    head.appendChild(xb)
     panel.appendChild(head)
+    // 抓手条 + 下拉关闭（Material 抽屉那套手感：超过 90px 或快速下甩就关）
+    const grab=h('div',{className:'sp-grab'})
+    panel.insertBefore(grab,head)
+    let _sy=0,_dy=0,_drag=false,_t0=0
+    function dStart(e){ _drag=true; _sy=e.clientY; _dy=0; _t0=Date.now(); panel.style.transition='none'; try{grab.setPointerCapture(e.pointerId)}catch(err){} }
+    function dMove(e){ if(!_drag)return; _dy=Math.max(0,e.clientY-_sy); panel.style.transform='translate(-50%,'+_dy+'px)'; }
+    function dEnd(){ if(!_drag)return; _drag=false; panel.style.transition=''; panel.style.transform='';
+      const fast=(Date.now()-_t0)<260; if(_dy>90||(_dy>40&&fast)) close() }
+    [grab,head].forEach(function(el){
+      el.style.touchAction='none'
+      el.addEventListener('pointerdown',dStart)
+      el.addEventListener('pointermove',dMove)
+      el.addEventListener('pointerup',dEnd)
+      el.addEventListener('pointercancel',dEnd)
+    })
     const body=h('div',{className:'sp-body'})
     panel.appendChild(body)
     wrap.appendChild(panel)
-    setTimeout(function(){ spacePanelBody(_spacePanel,body) },0)
+    panel.tabIndex=-1;
+    setTimeout(function(){ spacePanelBody(_spacePanel,body); try{panel.focus({preventScroll:true})}catch(e){} },0)
   }
 
   // ── 菜单 / 今日细节（同一张底部抽屉）
@@ -4803,6 +4821,9 @@ function spaceHome(_kids){
   return wrap
 }let _kidMore=false
 let _kidsBuf=null
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'&&_spacePanel){ _spacePanel=null; try{render()}catch(err){} }
+})
 function kidAct(k){
   try{
     if(k==='chat'){ _spacePanel='chat'; render() }
