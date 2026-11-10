@@ -571,7 +571,7 @@
     svgEl.addEventListener('click', function (e) {
       if (moved > 12) return;
       var a = e.target.closest ? e.target.closest('[data-act]') : null;
-      if (a && cur && cur.onAct) { cur.onAct(a.getAttribute('data-act')); return; }
+      if (a && cur && cur.onAct) { try{ if(navigator.vibrate) navigator.vibrate(8) }catch(err){} cur.onAct(a.getAttribute('data-act')); return; }
       var g = e.target.closest ? e.target.closest('[data-id]') : null;
       if (g) openSheet(+g.getAttribute('data-id')); else closeSheet();
     });
