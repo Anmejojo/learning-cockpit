@@ -4265,18 +4265,18 @@ function ckStatCard(){
 }
 function rckDone(){
   const _pb=pendBanner();if(_pb)$c.appendChild(_pb);
-  const all=(D.checks||[]).filter(function(c){return c.status==='approved'})
+  const all=(D.checks||[]).filter(c=>ROLE.kid||c.status==='approved')
   const list=all.slice().sort(function(a,b){
     return String(b.date||'').localeCompare(String(a.date||''))||((b.ts||0)-(a.ts||0))
   })
-  const pts=list.reduce(function(a,c){return a+(c.pts||0)},0)
   const head=h('div',{className:'card'})
-  head.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'✅'}),'已通过记录（'+list.length+' 条 · 累计 +'+pts+' 分）'))
-  head.appendChild(h('div',{style:'font-size:var(--fs-13);color:var(--muted);line-height:1.7'},'最近通过的在最上面，点照片看大图。'))
+  head.appendChild(h('div',{className:'card-header'},homeIcon('list-checks',18),
+    ROLE.kid?'我的提交':'已通过记录（'+list.length+' 条）'))
   $c.appendChild(head)
   if(!list.length){
     const e=h('div',{className:'card'})
-    e.appendChild(h('div',{style:'text-align:center;color:var(--muted);font-size:var(--fs-14);padding:18px 8px'},'还没有已通过的记录'))
+    e.appendChild(h('div',{style:'text-align:center;color:var(--muted);font-size:var(--fs-14);padding:18px 8px'},ROLE.kid?'拍照后，提交状态和反馈会显示在这里。':'还没有已通过的记录'))
+    if(ROLE.kid)e.appendChild(homeButton('拍照打卡',()=>quickShot(td),'primary','camera'))
     $c.appendChild(e);return
   }
   const box=h('div',{className:'card'})
@@ -4284,16 +4284,20 @@ function rckDone(){
   list.forEach(function(c){const d=c.date||'';(byDate[d]=byDate[d]||[]).push(c)})
   Object.keys(byDate).sort().reverse().forEach(function(d){
     const day=byDate[d]
-    const sum=day.reduce(function(a,c){return a+(c.pts||0)},0)
-    box.appendChild(h('div',{style:'font-size:var(--fs-14);font-weight:600;margin:10px 0 6px;color:var(--text)'},fd(d)+'　+'+sum+' 分'))
+    box.appendChild(h('h3',{className:'check-history-date'},fd(d)))
     day.forEach(function(c){
-      const row=h('div',{style:'display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--border)'})
+      const st=c.status||'pending'
+      const row=h('div',{className:'check-history-row',id:'check-history-'+c.id,tabindex:'-1'})
       const imgs=checkImgs(c)
-      const _cell=h('div',{className:'grow'},h('div',{style:'font-size:var(--fs-14)'},(c.subject?c.subject+'·':'')+(c.typeName||c.type)),h('div',{style:'font-size:var(--fs-12);color:var(--muted);margin-top:2px'},'+'+c.pts+' 分'+(c.ts?(' · '+(c.at?('通过 '+fd(ymd(new Date(c.at)))+' '+fmtHM(c.at)):('提交 '+fmtHM(c.ts)))):'')))
+      const _cell=h('div',{className:'grow'},
+        h('strong',null,recordTitle(c)),h('div',{className:'check-history-meta'},
+          homeStatus(st),st==='approved'&&Number(c.pts)>0?h('span',null,'+'+c.pts+' 积分'):null,
+          c.ts?h('time',null,fmtHM(c.ts)+' 提交'):null))
+      if(st==='approved'&&c.note)_cell.appendChild(h('p',{className:'check-history-note'},c.note))
       const _sl3=scanLine(c)
       if(_sl3)_cell.appendChild(h('div',{style:'font-size:var(--fs-12);color:var(--warning);margin-top:3px;line-height:1.6'},'📌 小搭看到：'+_sl3))
       row.appendChild(_cell)
-      if(ROLE.review){
+      if(ROLE.review&&st==='approved'){
         const _ub=h('div',{style:'flex:0 0 auto'})
         _ub.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){unapproveCheck(c.id)}},'↩️ 回退'))
         row.appendChild(_ub)
@@ -4309,6 +4313,7 @@ function rckDone(){
   $c.appendChild(box)
 }
 function pickAndSubmit(type,subject,append){
+  const recordDate=ckDate()
   ts('📷 请拍照或选择图片（可多张，也可以一张一张加）')
   const inp=document.createElement('input')
   inp.type='file';inp.accept='image/*';inp.multiple=true
@@ -4318,8 +4323,8 @@ function pickAndSubmit(type,subject,append){
     ts('⏳ 正在处理 '+files.length+'张照片...')
     compressAll(files,function(bs){
       if(!bs.length){ts('⚠️ 照片处理失败，请重试');return}
-      if(DEMO){submitCheck(type.id,subject||'',bs,!!append);return}
-      pendAdd({id:'p'+Date.now(),kind:'check',typeId:type.id,subject:subject||'',append:!!append,imgs:bs.map(function(d){return {d:d,u:''}}),ts:Date.now()})
+      if(DEMO){submitCheck(type.id,subject||'',bs,!!append,null,false,false,recordDate);return}
+      pendAdd({id:'p'+Date.now(),kind:'check',typeId:type.id,subject:subject||'',append:!!append,recordDate,imgs:bs.map(function(d){return {d:d,u:''}}),ts:Date.now()})
       ts('⏳ 正在传 '+bs.length+' 张（中途刷新也会自动接着传）')
       render();pendRun()
     })
@@ -4866,113 +4871,101 @@ function openTodayScores(review){
   _scView=review===true?'list':'trend'
   _scoreReviewOnly=review===true
   if(_scoreReviewOnly)_exFilter='all'
-  sw('scores')
+  sw('scores',true)
 }
-function rtoday(){
-  const jobs=hwToday()
-  const checks=(D.checks||[]).slice().sort((a,b)=>(b.ts||0)-(a.ts||0))
+function openCheckHistory(id){
+  _ckView='done'
+  sw('checkin')
+  const row=id!=null?document.getElementById('check-history-'+id):null
+  if(row){
+    row.scrollIntoView({block:'start'})
+    row.focus({preventScroll:true})
+  }
+}
+function recordTitle(rec){
+  return (rec.subject?rec.subject+' · ':'')+(rec.typeName||rec.type||'学习记录')
+}
+function todayHomeworkPanel(jobs){
+  const list=homeSection('作业清单',homeButton('查看清单',()=>openTodayCheckin('todayHomework'),'text','arrow-right'))
+  for(const job of jobs.slice(0,3)){
+    const st=hwStatus(job)
+    const action=st==='todo'||st==='rejected'
+      ? homeButton(st==='rejected'?'补交':(job.kind==='recite'?'交草稿本':'交照片'),()=>hwPick(job),'quiet')
+      : homeStatus(st)
+    list.appendChild(homeListRow(job.kind==='recite'?'book-open':'notebook-pen','lilac',
+      job.text||'作业',(job.subj||'其他')+' · '+(job.kind==='recite'?'背诵':'书面'),action))
+  }
+  return list
+}
+function recentFeedback(checks){
+  const latest=checks.reduce((best,c)=>!best||Math.max(c.at||0,c.ts||0)>Math.max(best.at||0,best.ts||0)?c:best,null)
+  if(!latest)return null
+  const st=latest.status||'pending'
+  return h('section',{className:'home-feedback'},
+    h('span',{className:'home-icon '+(st==='approved'?'mint':st==='rejected'?'rose':'amber')},homeIcon('list-checks',19)),
+    h('div',{className:'home-feedback-copy'},
+      h('span',null,'最近反馈'),
+      h('h2',null,recordTitle(latest)),
+      st==='approved'&&latest.note?h('p',null,latest.note):null),
+    h('div',{className:'home-feedback-actions'},homeStatus(st),
+      homeButton('看记录',()=>openCheckHistory(latest.id),'text','arrow-right')))
+}
+function homeShortcuts(parent){
+  const box=h('nav',{className:'home-shortcuts','aria-label':'常用功能'})
+  const tools=parent
+    ? [['录入成绩','bar-chart-3',()=>{_scView='list';_scoreReviewOnly=false;_openExamForm=true;sw('scores')}],
+        ['积分账本','star',()=>{_pkView='points';sw('points')}],['小搭','bot',()=>sw('chat')]]
+    : [['小搭','bot',()=>sw('chat')],['练单词','book-open',()=>sw('word')],
+        ['错题本','notebook-pen',()=>sw('mistake')],['记个习惯','flame',()=>openTodayCheckin('todayHabits')]]
+  for(const [label,icon,fn] of tools)box.appendChild(homeButton(label,fn,'quiet',icon))
+  return box
+}
+function parentReviewPanel(checks){
   const waiting=checks.filter(c=>c.status==='pending')
   const exams=(D.exams||[]).filter(e=>e.status==='pending')
+  const count=waiting.length+exams.length
+  const list=homeSection(count?'待处理 '+count+' 条':'待处理',waiting.length
+    ?homeButton('全部待审',()=>openTodayCheckin('pendingReviews'),'text','arrow-right')
+    :null)
+  for(const rec of waiting.slice(0,4)){
+    list.appendChild(homeListRow('notebook-pen','lilac',recordTitle(rec),
+      fd(rec.date),homeButton('审核',()=>openTodayCheckin('review-'+rec.id),'quiet','arrow-right')))
+  }
+  if(exams.length)list.appendChild(homeListRow('bar-chart-3','mint','成绩待审核',
+    exams.length+' 条成绩',homeButton('查看',()=>openTodayScores(true),'quiet','arrow-right')))
+  if(!count)list.appendChild(h('p',{className:'home-empty'},'当前没有待审核的记录。'))
+  return list
+}
+function rtoday(){
+  const checks=(D.checks||[]).slice().sort((a,b)=>(b.ts||0)-(a.ts||0))
   const parent=ROLE.parent
-  const pending=waiting.length+exams.length
   const unread=msgUnread(ROLE.firstPerson)
-  const habits=habStats(td)
-  const work=h('div',{className:'home-page'})
+  const work=h('div',{className:'home-page '+(parent?'parent-home':'kid-home')})
   const date=new Intl.DateTimeFormat('zh-CN',{month:'long',day:'numeric',weekday:'long'}).format(new Date())
   work.appendChild(h('header',{className:'home-heading'},
     h('div',null,h('h1',null,parent?'家长工作台':'我的驾驶舱'),h('p',null,date)),
-    homeButton(unread?'留言 · '+unread+' 条未读':'家庭留言',()=>sw('detail'),'quiet','message-circle')))
-
-  const hero=parent
-    ? h('section',{className:'home-hero'},
-        h('img',{className:'home-hero-art',src:'cockpit-hero.webp',alt:'',width:900,height:600,fetchpriority:'high'}),
-        h('div',{className:'home-hero-copy'},
-          h('h2',null,pending?'有 '+pending+' 条记录待审核':'暂无待审核记录'),
-          h('p',null,pending?'看过照片或成绩后，就可以给孩子反馈。':'新提交会出现在这里。'),
-          homeButton(pending?'去审核':'查看打卡',()=>exams.length&&!waiting.length?openTodayScores(true):openTodayCheckin('pendingReviews'),'primary','list-checks')))
-    : rewardHero()
-  work.appendChild(hero)
-  if(parent&&(D._alerts||[]).some(a=>!a.ack)){
-    work.appendChild(homeButton('查看小搭的关注提醒',()=>sw('chat'),'quiet','bell'))
-  }
-
-  const metric=h('div',{className:'home-metrics'})
-  const available=rewardBalance()
-  const metrics=[
-    [parent?'今日已通过':'今日提交',checks.filter(c=>c.date===td&&(parent?c.status==='approved':true)).length,'条','list-checks','lilac',()=>openTodayCheckin()],
-    parent?['连续打卡',ckStreak(),'天','flame','amber',()=>openTodayCheckin()]
-      : ['已获得奖励',D.parts.filter(p=>p.received||p.unlocked).length,'件','gift','amber',()=>{
-        openRewardCatalog('owned')
-      }],
-    ['可用积分',available,'分','star','mint',openRewardCatalog]
-  ]
-  for(const [label,value,unit,icon,tone,fn] of metrics){
-    metric.appendChild(h('button',{type:'button',className:'home-metric',onClick:fn},
-      h('span',{className:'home-icon '+tone},homeIcon(icon,20)),
-      h('span',{className:'home-metric-copy'},h('span',null,label),h('strong',null,value,h('small',null,unit)))))
-  }
-  work.appendChild(metric)
-
-  const grid=h('div',{className:'home-grid'})
-  const list=parent
-    ? homeSection('待审核',homeButton('查看打卡',()=>openTodayCheckin('pendingReviews'),'text','arrow-right'))
-    : homeSection('今日作业',homeButton('看清单',()=>openTodayCheckin('todayHomework'),'text','arrow-right'))
-  if(parent){
-    for(const c of waiting.slice(0,3)){
-      list.appendChild(homeListRow('notebook-pen','lilac',(c.subject?c.subject+' · ':'')+(c.typeName||'打卡记录'),
-        fd(c.date),homeButton('审核',()=>openTodayCheckin('review-'+c.id),'quiet')))
-    }
-    if(exams.length)list.appendChild(homeListRow('bar-chart-3','mint','成绩待审核',exams.length+' 条成绩记录',
-      homeButton('查看',()=>openTodayScores(true),'quiet')))
-    if(!pending)list.appendChild(h('p',{className:'home-empty'},'暂时没有待审核的记录。'))
-  }else{
-    for(const job of jobs.slice(0,4)){
-      const st=hwStatus(job)
-      const action=st==='todo'||st==='rejected'
-        ? homeButton(st==='rejected'?'补交':(job.kind==='recite'?'交草稿本':'交照片'),()=>hwPick(job),'quiet')
-        : homeStatus(st)
-      list.appendChild(homeListRow(job.kind==='recite'?'book-open':'notebook-pen','lilac',
-        job.text||'作业',(job.subj||'其他')+' · '+(job.kind==='recite'?'背诵':'书面'),action))
-    }
-    if(!jobs.length)list.appendChild(h('div',{className:'home-empty'},h('p',null,'今天还没有录入作业。'),
-      homeButton('添加作业清单',()=>openTodayCheckin('todayHomework'),'quiet','notebook-pen')))
-  }
-
-  const tools=homeSection('常用工具')
-  const shortcuts=[
-    ['小搭','问问题、聊一会儿','bot','lilac',()=>sw('chat')],
-    ['单词闯关','练单词、听发音','book-open','mint',()=>sw('word')],
-    ['错题本','拍下来，留着查','notebook-pen','rose',()=>sw('mistake')],
-    ['成绩变化',parent?'趋势、明细与录入':'看看自己的变化','bar-chart-3','amber',openTodayScores]
-  ]
-  const tiles=h('div',{className:'home-tools'})
-  for(const [label,desc,icon,tone,fn] of shortcuts){
-    tiles.appendChild(h('button',{type:'button',className:'home-tool',onClick:fn},
-      h('span',{className:'home-icon '+tone},homeIcon(icon,18)),
-      h('strong',null,label),h('span',{className:'home-tool-desc'},desc)))
-  }
-  tools.appendChild(tiles)
-  grid.appendChild(list)
-  grid.appendChild(tools)
-  work.appendChild(grid)
-
-  const recent=homeSection('最近提交',homeButton('查看记录',()=>openTodayCheckin(),'text','arrow-right'))
-  for(const c of checks.slice(0,3)){
-    recent.appendChild(homeListRow('camera','neutral',(c.subject?c.subject+' · ':'')+(c.typeName||'打卡记录'),
-      fd(c.date),homeStatus(c.status||'pending')))
-  }
-  if(!checks.length)recent.appendChild(h('p',{className:'home-empty'},'拍照提交后，记录会出现在这里。'))
-  const habitPanel=homeSection('习惯打卡',homeButton('去打卡',()=>openTodayCheckin('todayHabits'),'text','arrow-right'))
-  const habitList=h('div',{className:'home-habits'})
-  habitList.appendChild(h('p',null,'今天已记下 '+habits.done+' 项'))
-  for(const it of habits.ci.filter(it=>habits.tchk[it.key]).slice(0,4)){
-    habitList.appendChild(h('span',{className:'home-state mint'},it.label))
-  }
-  habitPanel.appendChild(habitList)
-  work.appendChild(h('div',{className:'home-grid'},recent,habitPanel))
-  work.appendChild(homeButton('查看今日详情',()=>sw('detail'),'text','arrow-right'))
+    homeButton(unread?'留言 · '+unread+' 条未读':'留言',()=>sw('detail'),'quiet','message-circle')))
   const upload=pendBanner()
-  if(upload)work.insertBefore(upload,hero)
+  if(upload)work.appendChild(upload)
+  if(parent){
+    if((D._alerts||[]).some(a=>!a.ack))work.appendChild(homeButton('查看小搭的关注提醒',()=>sw('chat'),'quiet','bell'))
+    const recent=homeSection('最近通过',homeButton('查看记录',()=>openCheckHistory(),'text','arrow-right'))
+    const passed=checks.filter(c=>c.status==='approved').sort((a,b)=>(b.at||b.ts||0)-(a.at||a.ts||0))
+    for(const c of passed.slice(0,3)){
+      recent.appendChild(homeListRow('camera','neutral',recordTitle(c),fd(c.date),homeStatus('approved')))
+    }
+    if(!passed.length)recent.appendChild(h('p',{className:'home-empty'},'通过的记录会显示在这里。'))
+    work.appendChild(h('div',{className:'parent-home-grid'},parentReviewPanel(checks),
+      h('div',{className:'parent-home-side'},homeShortcuts(true),recent)))
+    work.appendChild(homeButton('查看今日详情',()=>sw('detail'),'text','arrow-right'))
+  }else{
+    work.appendChild(rewardHero())
+    const latest=recentFeedback(checks)
+    if(latest)work.appendChild(latest)
+    const jobs=hwToday()
+    if(jobs.length)work.appendChild(todayHomeworkPanel(jobs))
+    work.appendChild(homeShortcuts(false))
+  }
   $c.appendChild(work)
   encEnsure()
   if(parent){ensureAsks();ensureSurprise()}
@@ -6155,9 +6148,9 @@ function rchat(){
 
 function rck(){
   const _segs=[
-    {label:'📷 记录今天',on:_ckView==='list',fn:function(){_ckView='list';render()}},
-    {label:'📅 记录日历',on:_ckView==='cal',fn:function(){_ckView='cal';render()}},
-    {label:'✅ 已通过记录',on:_ckView==='done',fn:function(){_ckView='done';render()}}
+    {label:'记录今天',on:_ckView==='list',fn:function(){_ckView='list';render()}},
+    {label:ROLE.kid?'我的记录':'已通过记录',on:_ckView==='done',fn:function(){_ckView='done';render()}},
+    {label:'日历',on:_ckView==='cal',fn:function(){_ckView='cal';render()}}
   ]
   if(ROLE.parent)_segs.push({label:'📊 各科统计',on:_ckView==='stat',fn:function(){_ckView='stat';render()}})
   $c.appendChild(segBar(_segs))
@@ -6411,11 +6404,14 @@ function rckList(){
   const _pb=pendBanner();if(_pb)$c.appendChild(_pb);
   if(_offline)$c.appendChild(h('div',{className:'alert warning',style:'margin-bottom:10px'},'📴 现在没连上网：拍照打卡照旧能用，先存在本机，联网后自动传上去。'));
   const _pc=ckPendingCard();if(_pc)$c.appendChild(_pc);
-  const _hc=hwCard();if(_hc){_hc.id='todayHomework';_hc.tabIndex=-1;$c.appendChild(_hc)};
   const ckd=ckDate()
+  const quick=h('section',{className:'card check-capture'},
+    h('div',null,h('h2',null,ckd===td?'拍一张，记一项':'补记 '+fd(ckd)),h('p',null,'作业、笔记或背诵草稿都可以拍。')),
+    homeButton('拍照打卡',()=>quickShot(ckd),'primary','camera'))
+  $c.appendChild(quick)
+  const _hc=hwCard();if(_hc){_hc.id='todayHomework';_hc.tabIndex=-1;$c.appendChild(_hc)};
   const cq=h('div',{className:'card'})
-  cq.appendChild(h('div',{className:'card-header'},icoEl('camera',18),'记录今天（拍张照给家长看，通过后加分）'))
-  cq.appendChild(h('button',{className:'btn btn-primary quick-shot',onClick:quickShot},'📷 随手拍（拍完自动认科目，一步搞定）'))
+  cq.appendChild(h('div',{className:'card-header'},icoEl('list-checks',18),'按科目提交'))
   const _mkTip=h('div',{style:'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:2px 0 4px'})
   _mkTip.appendChild(h('span',{style:'font-size:var(--fs-12);color:var(--faint);line-height:1.6;flex:1'},'错题在「📕 错题本」页签，点右边按钮去拍 →'))
   _mkTip.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){sw('mistake')}},'📕 去错题本拍'))
@@ -6426,7 +6422,11 @@ function rckList(){
   dateRow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){var v=document.getElementById('checkDateInput').value||td;if(v<minD){ts('⚠️ 只能补最近 2 天（'+minD+'之后）');return}if(v>td){ts('⚠️ 不能选未来日期');return}_checkDate=v;render()}},'切换'))
   dateRow.appendChild(h('button',{className:'btn btn-warning btn-sm',onClick:function(){var d=new Date();d.setDate(d.getDate()-1);_checkDate=ymd(d);render()}},'⏰ 补昨天'))
   if(ckd!==td)dateRow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_checkDate=null;render()}},'回到今天'))
-  cq.appendChild(dateRow)
+  if(ROLE.kid){
+    const dateOptions=h('details',{className:'check-date-options'},h('summary',null,'补前两天的记录'),dateRow)
+    dateOptions.open=ckd!==td
+    cq.appendChild(dateOptions)
+  }else cq.appendChild(dateRow)
   const ctrlRow=h('div',{style:'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px'})
   ctrlRow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){for(const sb of SUBJECTS)_openSubj[sb]=true;render()}},'全部展开'))
   ctrlRow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_openSubj={};render()}},'全部收起'))
@@ -6487,10 +6487,17 @@ function rckList(){
     const st=subjStats(subj,ckd)
     if(_onlyTodo&&st.total>0&&st.done===st.total)continue
     const open=!!_openSubj[subj]
-    const head=h('div',{id:'subj_'+subj,className:'subj-head'+(open?' open':''),onClick:function(){_openSubj[subj]=!_openSubj[subj];render()}})
+    const id='subj_'+subj
+    const head=h('button',{id,type:'button',className:'subj-head'+(open?' open':''),'aria-expanded':String(open),
+      onClick:()=>{
+        _openSubj[subj]=!_openSubj[subj]
+        render()
+        document.getElementById(id)?.focus({preventScroll:true})
+      }})
     head.appendChild(h('span',{className:'sh-name'},subj))
-    head.appendChild(h('span',{className:'sh-stat'},st.done+'/'+st.total+' 完成'+(st.pending?' · ⏳'+st.pending+' 待审核':'')))
-    head.appendChild(h('span',{className:'sh-arrow'},'▶'))
+    if(st.done||st.pending)head.appendChild(h('span',{className:'sh-stat'},
+      [st.done?'已通过 '+st.done:'',st.pending?'待审核 '+st.pending:''].filter(Boolean).join(' · ')))
+    head.appendChild(h('span',{className:'sh-arrow','aria-hidden':'true'},'›'))
     cq.appendChild(head)
     if(open){
       const grid=h('div',{className:'check-grid'})
@@ -6663,18 +6670,29 @@ function scoreOverview(){
   if(rows.length){
     const active=rows.find(r=>r.key===_scoreFocus)||rows.slice().reverse().find(r=>Number.isFinite(r.pct))||rows[rows.length-1]
     _scoreFocus=active.key
-    const graph=drawScoreTimeline(rows,row=>{
-      _scoreFocus=row.key
-      detail.replaceChildren(scoreSummary(row))
-      graph.querySelectorAll('.score-dot,.score-gap').forEach((dot,i)=>dot.setAttribute('r',rows[i].key===row.key?7:5))
-    })
     const detail=h('div',{className:'score-focus','aria-live':'polite'},scoreSummary(active))
-    panel.appendChild(graph)
-    panel.appendChild(h('div',{className:'score-legend'},
-      h('span',null,h('i',{className:'leg-solid'}),'有分数'),
-      h('span',null,h('i',{className:'leg-hollow'}),'缺记录、等级或待审核'),
-      h('span',null,'点任意记录查看详情')))
     panel.appendChild(detail)
+    if(rows.some(row=>Number.isFinite(row.pct))){
+      const graph=drawScoreTimeline(rows,row=>{
+        _scoreFocus=row.key
+        detail.replaceChildren(scoreSummary(row))
+        graph.querySelectorAll('.score-dot,.score-gap').forEach((dot,i)=>dot.setAttribute('r',rows[i].key===row.key?7:5))
+      })
+      panel.appendChild(graph)
+      panel.appendChild(h('div',{className:'score-legend'},
+        h('span',null,h('i',{className:'leg-solid'}),'有分数'),
+        h('span',null,h('i',{className:'leg-hollow'}),'暂无可画分数'),
+        h('span',null,'点任意记录查看详情')))
+    }else{
+      const list=h('div',{className:'score-status-list','aria-label':'未形成趋势的记录'})
+      for(const row of rows.slice().reverse()){
+        list.appendChild(homeButton((row.date||'').slice(5)+' · '+row.label,()=>{
+          _scoreFocus=row.key
+          detail.replaceChildren(scoreSummary(row))
+        },'quiet'))
+      }
+      panel.appendChild(list)
+    }
   }else{
     panel.appendChild(h('div',{className:'score-empty'},homeIcon('bar-chart-3',34),h('strong',null,'还没有考试记录'),
       h('p',null,ROLE.parent?'录入第一场考试，之后这里会显示变化。':'成绩录入后，这里会显示你的变化。')))
@@ -6816,7 +6834,7 @@ function saveRewardWish(part){
     return true
   }catch(e){ts('本机无法保存心愿，请检查浏览器存储。');return false}
 }
-function openRewardCatalog(filter){_showEarned=filter==='owned';_pkView='catalog';sw('points')}
+function openRewardCatalog(filter){_showEarned=filter==='owned';_pkView='catalog';sw('points',true)}
 function rewardState(part,balance){
   if(part.received)return '已签收'
   if(part.unlocked)return '已解锁'
@@ -6836,12 +6854,12 @@ function rewardHero(){
   const part=getRewardWish()
   const hasWish=!!part
   const balance=rewardBalance()
-  const title=hasWish?part.name:'挑一件想带回家的奖励'
-  let sub='桌面装备、电脑零件和游戏奖励。'
+  const title=hasWish?part.name:'今天记点什么？'
+  let sub='作业、笔记、背诵草稿，都可以拍。'
   if(hasWish){
     if(part.received||part.unlocked)sub=rewardState(part,balance)
-    else if(part.exchange)sub=balance>=rewardCost(part)?'积分已攒够，可以请家长兑换。':'我的心愿'
-    else sub='我的心愿 · '+(part.cond||part.det||'按家里约定解锁')
+    else if(part.exchange)sub=balance>=rewardCost(part)?'积分已攒够，可以请家长兑换。':''
+    else sub=part.cond||part.det||'按家里约定解锁'
   }
   return h('section',{className:'home-hero reward-hero',id:'rewardGoal',tabindex:'-1'},
     h('div',{className:'reward-art','aria-hidden':'true'},
@@ -6852,11 +6870,12 @@ function rewardHero(){
         h('div',{className:'reward-tower-front'},h('i'),h('i'),h('i'))),
       h('div',{className:'reward-controller'},homeIcon('gamepad',86))),
     h('div',{className:'home-hero-copy'},
-      h('h2',null,title),h('p',null,sub),
+      hasWish?h('div',{className:'hero-wish-label'},'我的心愿'):null,
+      h('h2',null,title),sub?h('p',null,sub):null,
       hasWish&&part.exchange&&!part.unlocked&&!part.received?rewardProgress(part,balance):null,
       h('div',{className:'reward-actions'},
-        homeButton('打开装机台',openRewardCatalog,'primary','gift'),
-        homeButton('拍照打卡',()=>quickShot(td),'quiet','camera'))))
+        homeButton('拍照打卡',()=>quickShot(td),'primary','camera'),
+        homeButton(hasWish?'查看心愿':'去装机台',hasWish?()=>rewardDialog(part):openRewardCatalog,'quiet','gift'))))
 }
 function rewardDialog(part){
   const balance=rewardBalance()
@@ -6881,10 +6900,13 @@ function rewardDialog(part){
     if(!owned||selected)actions.appendChild(homeButton(selected?'取消心愿':'设为我的心愿',()=>{
       if(!saveRewardWish(selected?null:part))return
       hide();render()
-      document.getElementById('rewardGoal')?.focus()
+      const target=document.getElementById('rewardGoal')||document.querySelector('[data-build-part="'+Number(part.id)+'"]')
+      target?.focus()
       ts(selected?'已取消心愿':'已设为我的心愿')
     },selected?'quiet':'primary','star'))
-    if(part.exchange&&!owned)actions.appendChild(homeButton('拍照打卡',()=>{hide();quickShot(td)},'quiet','camera'))
+    if(!owned)actions.appendChild(part.exchange
+      ?homeButton('拍照打卡',()=>{hide();quickShot(td)},'quiet','camera')
+      :homeButton('看我的成绩',()=>{hide();openTodayScores()},'quiet','bar-chart-3'))
   }else{
     if(part.exchange&&!owned&&balance>=need)actions.appendChild(homeButton('兑换奖励',()=>{
       hide()
@@ -6963,9 +6985,9 @@ function rewardCatalog(){
   feedback.hidden=!_showEarned||owned!==0
   bench.appendChild(feedback)
 
-  const board=h('section',{className:'build-chassis'+(_buildPowered?' powered':'')},
+  const board=h('section',{id:'buildCase',tabindex:'-1',className:'build-chassis'+(_buildPowered?' powered':'')},
     h('header',{className:'build-zone-head'},
-      h('div',null,h('h2',null,'主机内部'),h('p',null,installed+' / '+components.length+' 件部件已解锁')),
+      h('div',null,h('h2',null,'主机内部'),installed?h('p',null,'已解锁 '+installed+' 件内部部件'):null),
       h('button',{type:'button',className:'build-power','aria-pressed':String(_buildPowered),onClick:e=>{
         _buildPowered=!_buildPowered
         board.classList.toggle('powered',_buildPowered)
@@ -6978,7 +7000,21 @@ function rewardCatalog(){
   for(const part of components)circuit.appendChild(buildModule(part,balance,'board-module'))
   shell.appendChild(circuit)
   board.appendChild(shell)
-  const side=h('div',{className:'build-side'},buildShelf('桌面装备',desk,balance,'desk-shelf'),buildShelf('游戏装备',games,balance,'game-shelf'))
+  const desktop=buildShelf('桌面装备',desk,balance,'desk-shelf')
+  desktop.id='buildDesk'
+  desktop.tabIndex=-1
+  const gaming=buildShelf('游戏装备',games,balance,'game-shelf')
+  gaming.id='buildGames'
+  gaming.tabIndex=-1
+  const shortcuts=h('nav',{className:'build-jumps','aria-label':'在装机台中跳转'})
+  for(const [label,icon,target] of [['主机','pc',board],['桌面','keyboard',desktop],['游戏','gamepad',gaming]]){
+    shortcuts.appendChild(homeButton(label,()=>{
+      target.scrollIntoView({block:'start',behavior:'instant'})
+      target.focus({preventScroll:true})
+    },'quiet',icon))
+  }
+  bench.appendChild(shortcuts)
+  const side=h('div',{className:'build-side'},desktop,gaming)
   if(extras.length)side.appendChild(buildShelf('其他装备',extras,balance,'extra-shelf'))
   bench.appendChild(h('div',{className:'build-layout'},board,side))
   $c.appendChild(bench)
@@ -8097,7 +8133,7 @@ function applyTabs(){
   const grid=h('div',{className:'more-grid'})
   hidden.forEach(function(b){
     const it=h('button',{className:'more-item',type:'button',innerHTML:b.innerHTML,'data-section':b.dataset.tab,
-      onClick:()=>{closeMore();sw(b.dataset.tab)}})
+      onClick:()=>openMainTab(b.dataset.tab)})
     grid.appendChild(it)
   })
   grid.setAttribute('aria-label','更多功能')
@@ -8149,7 +8185,7 @@ function closeMore(restoreFocus){
   }
 }
 const _scrollPos={}      /* 切页签时记着刚才滚到哪（2026-09-19） */
-function sw(tab){
+function sw(tab,resetScroll){
   const _prev=tb
   try{_scrollPos[_prev]=window.scrollY||window.pageYOffset||0}catch(e){}
   if(_prev==='room'&&tab!=='room'){_spacePanel=null;_kidMenu=false}
@@ -8159,13 +8195,24 @@ function sw(tab){
   if(_prev!==tab)$c.focus({preventScroll:true})
   /* 记录型页面（错题本/积分/成绩）切回来还停在原处；操作型页面回顶部 */
   const _keep=['mistake','points','scores'].indexOf(tab)>=0
-  const _y=_keep?(_scrollPos[tab]||0):0
+  const _y=_keep&&!resetScroll?(_scrollPos[tab]||0):0
   if(_y>0)setTimeout(function(){try{window.scrollTo({top:_y})}catch(e){}},0)
   else window.scrollTo(0,0)
   if(_prev&&_prev!=='chat'&&tab==='chat')_ctxTab=_prev
   if(tab==='chat'){try{ensureChatOpener()}catch(e){}}
 }
-document.getElementById('tabNav').addEventListener('click',(e)=>{const btn=e.target.closest('.tab-btn');if(!btn)return;if(btn.dataset.tab==='more'){toggleMore();return}closeMore();sw(btn.dataset.tab)})
+function openMainTab(tab){
+  if(tab==='checkin')openTodayCheckin()
+  else if(tab==='scores')openTodayScores()
+  else if(tab==='points')openRewardCatalog()
+  else sw(tab)
+}
+document.getElementById('tabNav').addEventListener('click',e=>{
+  const btn=e.target.closest('.tab-btn')
+  if(!btn)return
+  if(btn.dataset.tab==='more')toggleMore()
+  else openMainTab(btn.dataset.tab)
+})
 document.querySelectorAll('[data-home]').forEach(b=>b.addEventListener('click',()=>sw('today')))
 window.addEventListener('resize',()=>{if(_moreOpen&&window.innerWidth>=900)closeMore()})
 var _cb=document.getElementById('cloudBadge')
