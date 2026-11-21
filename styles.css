@@ -1966,6 +1966,16 @@ body.workspace :is(.btn-success,.btn-warning,.btn-danger):hover{filter:brightnes
   .home-feedback .home-icon{display:none}
 }
 
+.kid-home-grid,.kid-home-work{display:grid;gap:13px;min-width:0}
+.kid-home-grid.has-homework{grid-template-columns:minmax(0,1fr)}
+@media(min-width:1180px){
+  .kid-home-grid.has-homework{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start;gap:18px}
+  .kid-home-grid.has-homework .reward-hero .home-hero-copy{width:76%;padding-inline:20px}
+  .kid-home-grid.has-homework .reward-hero h2{font-size:clamp(24px,2.2vw,32px)}
+}
+@media(max-width:620px){
+  .kid-home-grid.has-homework .reward-hero{min-height:180px}
+}
 .parent-home-grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(300px,1fr);gap:14px;align-items:start}
 .parent-home-side{display:grid;gap:12px;min-width:0}
 @media(max-width:990px){

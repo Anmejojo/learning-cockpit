@@ -1315,7 +1315,7 @@ async function scanCheck(recId,urls,localB64){
   }catch(e){}
 }
 
-function submitCheck(typeId,subject,imgsArr,append,localB64,quick,forceNew,recordDate){
+function submitCheck(typeId,subject,imgsArr,append,localB64,quick,forceNew,recordDate,homework){
   const type=CHECK_TYPES.find(function(t){return t.id===typeId})
   if(!type)return
   if(!D.checks)D.checks=[]
@@ -1335,6 +1335,11 @@ function submitCheck(typeId,subject,imgsArr,append,localB64,quick,forceNew,recor
   actLog('提交记录',_ds+' '+_lbl)
   try{confetti(120)}catch(e){}
   _rec.noteSubmit=encTake()
+  if(homework){
+    if(homework.text)_rec.homeworkTitle=String(homework.text)
+    homework.recId=_rec.id
+    homework.doneAt=_rec.ts
+  }
   D.checks.unshift(_rec)
   const _subCnt=(D.points||[]).filter(function(p){return p.date===_ds&&p.type==='earn'&&String(p.source||'').indexOf('提交·')===0}).length
   const _gaveSub=(_subCnt<SUB_PTS_MAX)
@@ -4215,7 +4220,7 @@ function ckPendingCard(){
     list.forEach(function(rec){
       const row=h('div',{id:'review-'+rec.id,tabindex:'-1',className:'review-row'})
       const left=h('div',{className:'grow'})
-      left.appendChild(h('div',{className:'work-item-title'},(rec.subject?rec.subject+' · ':'')+(rec.typeName||rec.type||'记录')))
+      left.appendChild(h('div',{className:'work-item-title'},recordTitle(rec)))
       left.appendChild(h('div',{className:'work-note'},fd(rec.date)+(rec.ts?' · '+fmtHM(rec.ts):'')))
       if(rec.noteSubmit)left.appendChild(h('p',{className:'work-note'},rec.noteSubmit))
       const _im=checkImgs(rec)
@@ -4857,7 +4862,7 @@ function kidAct(k){
 }
 
 const HOME_STATUS={
-  todo:['未提交','neutral'],pending:['待审核','amber'],
+  todo:['未提交','neutral'],uploading:['照片待传','neutral'],pending:['待审核','amber'],
   approved:['已通过','mint'],rejected:['待补交','rose']
 }
 function homeIcon(name,size){
@@ -4911,36 +4916,38 @@ function openCheckHistory(id){
   }
 }
 function recordTitle(rec){
-  return (rec.subject?rec.subject+' · ':'')+(rec.typeName||rec.type||'学习记录')
+  const homeworkTitle=rec.homeworkTitle||(D.hw||[]).find(job=>job&&job.recId===rec.id)?.text
+  return (rec.subject?rec.subject+' · ':'')+(homeworkTitle||rec.typeName||rec.type||'学习记录')
 }
-function homeHomeworkRow(entry){
+function homeHomeworkRow(entry,primary=false){
   const {job,status}=entry
   const needsPhoto=status==='todo'||status==='rejected'
   const label=status==='rejected'?'补交':job.kind==='recite'?'交草稿本':'交照片'
-  const action=needsPhoto?homeButton(label,()=>hwPick(job),'quiet','camera'):homeStatus(status)
+  const action=needsPhoto?homeButton(label,()=>hwPick(job),primary?'primary':'quiet','camera'):homeStatus(status)
   if(needsPhoto)action.setAttribute('aria-label',label+' · '+(job.text||'作业'))
   return homeListRow(job.kind==='recite'?'book-open':'notebook-pen','neutral',
     job.text||'作业',(job.subj||'其他')+' · '+(job.kind==='recite'?'背诵':'书面'),action)
 }
-function todayHomeworkPanel(jobs){
-  const order=['rejected','todo','pending','approved']
-  const entries=jobs.map(job=>({job,status:hwStatus(job)}))
+function todayHomeworkPanel(entries,next){
+  const order=['rejected','todo','uploading','pending','approved']
   entries.sort((a,b)=>order.indexOf(a.status)-order.indexOf(b.status))
-  const next=entries.find(entry=>entry.status==='rejected'||entry.status==='todo')
   const list=homeSection('作业清单')
   list.classList.add('home-homework')
   const progress=h('div',{className:'home-work-progress'})
-  if(!next)progress.appendChild(h('strong',null,'今天的作业都已提交'))
+  if(!next&&!entries.some(entry=>entry.status==='uploading')){
+    progress.appendChild(h('strong',null,'今天的作业都已提交'))
+  }
   for(const status of order){
     const count=entries.filter(entry=>entry.status===status).length
     if(count)progress.appendChild(homeStatus(status,count))
   }
   list.appendChild(progress)
-  if(next)list.appendChild(h('div',{className:'home-next-work'},homeHomeworkRow(next)))
-  const rest=entries.filter(entry=>entry!==next)
+  const visible=next||entries.find(entry=>entry.status==='uploading')
+  if(visible)list.appendChild(h('div',{className:'home-next-work'},homeHomeworkRow(visible,!!next)))
+  const rest=entries.filter(entry=>entry!==visible)
   if(!rest.length)return list
   const more=h('details',{className:'home-work-details'},
-    h('summary',null,next?'查看其余 '+rest.length+' 项':'查看 '+rest.length+' 项作业'))
+    h('summary',null,visible?'查看其余 '+rest.length+' 项':'查看 '+rest.length+' 项作业'))
   rest.forEach(entry=>more.appendChild(homeHomeworkRow(entry)))
   list.appendChild(more)
   return list
@@ -5007,11 +5014,19 @@ function rtoday(){
       h('div',{className:'parent-home-side'},homeShortcuts(true),recent)))
     work.appendChild(homeButton('查看今日详情',()=>sw('detail'),'text','arrow-right'))
   }else{
-    work.appendChild(rewardHero())
-    const jobs=hwToday()
-    if(jobs.length)work.appendChild(todayHomeworkPanel(jobs))
+    const uploading=hwUploadIds()
+    const entries=hwToday().map(job=>({job,status:hwDisplayStatus(job,uploading)}))
+    const next=entries.find(entry=>entry.status==='rejected')||entries.find(entry=>entry.status==='todo')
     const latest=recentFeedback(checks)
-    if(latest)work.appendChild(latest)
+    const workStack=h('div',{className:'kid-home-work'})
+    if(entries.length)workStack.appendChild(todayHomeworkPanel(entries,next))
+    if(latest)workStack.appendChild(latest)
+    const poster=rewardHero(entries.length>0,!!next||entries.some(entry=>entry.status==='uploading'))
+    const layout=h('div',{className:'kid-home-grid'+(entries.length?' has-homework':'')})
+    if(!entries.length)layout.appendChild(poster)
+    if(entries.length||latest)layout.appendChild(workStack)
+    if(entries.length)layout.appendChild(poster)
+    work.appendChild(layout)
     work.appendChild(homeShortcuts(false))
   }
   $c.appendChild(work)
@@ -6320,7 +6335,20 @@ function pickHwSheet(){
   }
   inp.click()
 }
+function hwUploadIds(){
+  return new Set(pendList().filter(entry=>entry.kind==='hwitem').map(entry=>entry.hwId))
+}
+function hwDisplayStatus(it,uploading){
+  return uploading.has(it.id)?'uploading':hwStatus(it)
+}
+function hwCanPick(it){
+  const current=(D.hw||[]).find(job=>job&&job.id===it.id)
+  if(!current)return false
+  const status=hwDisplayStatus(current,hwUploadIds())
+  return status==='todo'||status==='rejected'
+}
 function hwPick(it){
+  if(!hwCanPick(it)){ts('这项已有提交或照片正在等待上传');return}
   const inp=document.createElement('input')
   inp.type='file';inp.accept='image/*';inp.multiple=true
   inp.onchange=function(e){
@@ -6329,7 +6357,8 @@ function hwPick(it){
     ts('⏳ 正在传 '+(it.kind==='recite'?'草稿本':'作业')+'照片（'+files.length+' 张）...')
     compressAll(files,function(bs){
       if(!bs.length){ts('⚠️ 照片处理失败，重试一次');return}
-      if(DEMO){hwItemCommit(it.id,bs);render();return}   /* 本地测试台：直接落地，不上云 */
+      if(!hwCanPick(it)){ts('这项已有提交或照片正在等待上传');return}
+      if(DEMO){hwItemCommit(it.id,bs);return}   /* 本地测试台：直接落地，不上云 */
       pendAdd({id:'h'+Date.now(),kind:'hwitem',hwId:it.id,imgs:bs.map(function(d){return {d:d,u:''}}),ts:Date.now()})
       render();pendRun()
     })
@@ -6341,12 +6370,11 @@ function hwItemCommit(hwId,urls){
     const it=(D.hw||[]).filter(function(x){return x.id===hwId})[0]
     const typeId=(it&&it.kind==='recite')?'recite':'assignment'
     const subj=(it&&it.subj&&it.subj!=='其他')?it.subj:''
-    const rec=submitCheck(typeId,subj,urls,false,null,false,true,it&&it.date)
-    if(it&&rec){it.recId=rec.id;it.doneAt=Date.now();sv(D)}
+    return submitCheck(typeId,subj,urls,false,null,false,true,it&&it.date,it)
   }catch(e){console.warn('作业清单落地失败',e)}
 }
-function hwRow(it){
-  const st=hwStatus(it),r=hwRec(it)
+function hwRow(it,st){
+  const r=hwRec(it)
   const row=h('div',{className:'work-item'})
   const L=h('div',{className:'grow'})
   L.appendChild(h('div',{className:'work-item-title'},
@@ -6377,11 +6405,11 @@ function hwRow(it){
   return row
 }
 function hwCard(){
-  const list=hwToday().slice().sort(function(a,b){
-    const oa=hwStatus(a),ob=hwStatus(b)
-    const ra=(oa==='todo'?0:(oa==='rejected'?1:(oa==='pending'?2:3))),rb=(ob==='todo'?0:(ob==='rejected'?1:(ob==='pending'?2:3)))
-    return ra-rb||String(a.subj||'').localeCompare(String(b.subj||''))
-  })
+  const uploading=hwUploadIds()
+  const order=['todo','rejected','uploading','pending','approved']
+  const list=hwToday().map(job=>({job,status:hwDisplayStatus(job,uploading)}))
+  list.sort((a,b)=>order.indexOf(a.status)-order.indexOf(b.status)||
+    String(a.job.subj||'').localeCompare(String(b.job.subj||'')))
   const c=h('div',{className:'card'})
   c.appendChild(h('h2',{className:'card-header'},homeIcon('list-checks',18),'今日作业'))
   const add=()=>{_hwAdd=!_hwAdd;render()}
@@ -6393,14 +6421,13 @@ function hwCard(){
     if(_hwAdd)c.appendChild(hwAddRow())
     return c
   }
-  const counts={todo:0,rejected:0,pending:0,approved:0}
-  for(const it of list)counts[hwStatus(it)]++
   const summary=h('div',{className:'work-meta'},h('span',{className:'work-note'},'共 '+list.length+' 项'))
-  for(const [status,count] of Object.entries(counts)){
+  for(const status of order){
+    const count=list.filter(entry=>entry.status===status).length
     if(count)summary.appendChild(homeStatus(status,count))
   }
   c.appendChild(summary)
-  list.forEach(it=>c.appendChild(hwRow(it)))
+  list.forEach(({job,status})=>c.appendChild(hwRow(job,status)))
   c.appendChild(h('div',{className:'work-actions'},
     homeButton('重拍登记本',pickHwSheet,'quiet','camera'),
     homeButton('手动加一项',add,'quiet','pen-tool')))
@@ -6937,7 +6964,7 @@ function rewardProgress(part,balance){
     h('div',null,h('span',null,'积分进度'),h('strong',null,have.toLocaleString()+' / '+need.toLocaleString())),
     progress)
 }
-function rewardHero(){
+function rewardHero(hasHomework,secondaryCapture){
   const part=getRewardWish()
   const balance=rewardBalance()
   const showProgress=part&&part.exchange&&!part.unlocked&&!part.received
@@ -6945,9 +6972,9 @@ function rewardHero(){
     h('img',{className:'reward-art',src:'build-hero.webp',alt:'',decoding:'async',fetchpriority:'high'}),
     h('div',{className:'home-hero-copy'},
       h('h2',null,'今天记点什么？'),
-      h('p',null,'作业、笔记、背诵草稿，都可以拍。'),
+      h('p',null,hasHomework?'随手拍一张笔记或练习。':'作业、笔记、背诵草稿，都可以拍。'),
       h('div',{className:'reward-actions'},
-        homeButton('拍照打卡',()=>quickShot(td),'primary','camera'),
+        homeButton('拍照打卡',()=>quickShot(td),secondaryCapture?'quiet':'primary','camera'),
         part?null:homeButton('去装机台',openRewardCatalog,'quiet','gift')),
       part?h('div',{className:'hero-wish'},
         homeButton('我的心愿 · '+part.name,()=>rewardDialog(part),'text','star'),
