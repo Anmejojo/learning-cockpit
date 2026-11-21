@@ -1398,8 +1398,7 @@ function approveCheck(id){
   c.at=Date.now()
   c.note=encTake()
   actLog('通过记录',(c.date||'')+' '+((c.subject?c.subject+'·':'')+c.typeName))
-  try{confetti(140)}catch(e){}
-  D.points.push({id:_newId('p'),date:(c.date||td),source:(c.subject?c.subject+'·':'')+c.typeName,points:c.pts,type:'earn'});try{ptBurst(c.pts,c.typeName)}catch(e){}
+  D.points.push({id:_newId('p'),date:(c.date||td),source:(c.subject?c.subject+'·':'')+c.typeName,points:c.pts,type:'earn'})
   sv(D);render()
   ts('✅ 已通过 +'+c.pts+'分')
 }
@@ -2083,8 +2082,8 @@ function rckMk(){
   const all=_mkQ?_all0.filter(function(x){return mkHit(x,_mkQ)}):_all0
   const c=h('div',{className:'card'})
   c.appendChild(h('div',{className:'card-header'},icoEl('notebook-pen',18),'错题记录（'+all.length+' 道）'))
-  c.appendChild(h('div',{style:'font-size:var(--fs-14);color:var(--muted);margin-bottom:10px;line-height:1.7'},'拍一张错题 → 小搭自动认科目、认题型，存起来。记下来就行，不用重做。'))
-  c.appendChild(h('button',{className:'btn btn-primary',onClick:mkAdd},'📷 拍错题（可多张）'))
+  c.appendChild(h('div',{style:'font-size:var(--fs-14);color:var(--muted);margin-bottom:10px;line-height:1.7'},'拍下错题，小搭会识别科目和题型。可以一次选多张。'))
+  c.appendChild(homeButton('拍错题',mkAdd,'primary','camera'))
   c.appendChild(searchBox('mkQ',_mkQ,'🔍 搜题目 / 知识点 / 题型（如：一次函数）',function(v){_mkQ=v}))
   if(_mkQ)c.appendChild(h('div',{style:'font-size:var(--fs-12);color:var(--warning);margin-bottom:6px'},'🔍 只显示含「'+_mkQ+'」的 '+(all.length)+' 道（点框里 ✕ 可清空）'))
   $c.appendChild(c)
@@ -2286,9 +2285,9 @@ function rwrite(){
   const list=hwList()
   const stk=hwStreak()
   const c=h('div',{className:'card'})
-  c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'✍️'}),'硬笔字 · 作品墙'))
+  c.appendChild(h('h2',{className:'card-header'},homeIcon('pen-tool',18),'作品墙'))
   c.appendChild(h('div',{style:'font-size:var(--fs-14);color:var(--muted);margin-bottom:10px'},'已经上墙 '+list.length+' 幅；连着 '+stk+' 天有作品'))
-  c.appendChild(h('button',{className:'btn btn-primary',onClick:hwAdd},'📷 拍今天的字'))
+  c.appendChild(homeButton('拍今天的字',hwAdd,'primary','camera'))
   c.appendChild(h('div',{style:'font-size:var(--fs-12);color:var(--faint);margin-top:8px;line-height:1.6'},'一张一张拍，拍清楚点；提交后就上墙。'))
   $c.appendChild(c)
   if(!list.length){
@@ -2697,7 +2696,7 @@ function mkHit(x,q){
 }
 /* 搜索框：输入停 350ms 才重绘，并把焦点还回去（不然打一个字就失焦）*/
 function searchBox(id,val,ph,onChange){
-  const el=h('input',{id:id,type:'search',placeholder:ph,value:val||'',style:'width:100%;margin:8px 0'})
+  const el=h('input',{id:id,type:'search',placeholder:ph,'aria-label':ph,value:val||'',style:'width:100%;margin:8px 0'})
   el.addEventListener('input',function(){
     const v=this.value
     const T=(id==='mkQ')?_mkQT:_ptQT
@@ -2729,8 +2728,8 @@ let _speakId=null
 let _srPrev='',_srTimer=null
 function memPanelUI(){
   const full=h('div',{className:'mem-panel'})
-  const head=h('div',{className:'mem-head'},h('span',null,'小搭记得的事'),
-    h('button',{className:'mem-x',onClick:function(){_memOpen=false;render()}},'关闭'))
+  const head=h('div',{className:'mem-head'},h('h1',null,'小搭记得的事'),
+    h('button',{className:'mem-x',onClick:function(){_memOpen=false;render();document.getElementById('chatMemToggle')?.focus()}},'关闭'))
   full.appendChild(head)
   full.appendChild(h('div',{className:'mem-tip'},'这些是小搭记住的关于你的事。说得不对、或者你不想让它记的，直接删掉就行。'))
   const body=h('div',{className:'mem-body'})
@@ -3455,6 +3454,15 @@ function fitChat(){if(document.body.classList.contains('chat-page'))chatHeight()
 window.addEventListener('resize',fitChat)
 window.visualViewport?.addEventListener('resize',fitChat)
 
+function chatHeading(){
+  const memory=ROLE.kid?homeButton('记得的事',()=>{
+    _memOpen=true
+    render()
+    document.querySelector('.mem-x')?.focus()
+  },'quiet','book-open'):null
+  if(memory)memory.id='chatMemToggle'
+  return h('header',{className:'chat-heading'},h('h1',null,AI_NAME),memory)
+}
 function chatUI(){
   if(ROLE.kid&&_memOpen)return memPanelUI()
   const _all=chatLog()
@@ -3468,7 +3476,7 @@ function chatUI(){
   }
   try{
     const mem=(D._mem||[]).slice(-3)
-    if(mem.length)full.appendChild(h('div',{className:'mem-strip',onClick:function(){_memOpen=!_memOpen;render()}},'🧠 小搭记得：'+mem.map(function(m){return m.text}).join('；')))
+    if(ROLE.parent&&mem.length)full.appendChild(h('p',{className:'mem-strip'},'小搭记得：'+mem.map(m=>m.text).join('；')))
   }catch(e){}
   if(!list.length){
     scroll.appendChild(h('div',{className:'chat-empty'},'不会的题、不想学的时候，\n都可以跟他说一句'+(srSupported()?'\n\uff08不想打字就点 🎤 说话，说完点发送）':'')))
@@ -3498,7 +3506,7 @@ function chatUI(){
 
   const bottom=h('div',{className:'chat-bottom'})
   if(ROLE.kid){
-    const emo=h('div',{id:'emoPanel',style:'display:none;margin-bottom:8px;background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:10px'})
+    const emo=h('div',{id:'emoPanel',className:'chat-options',style:'display:none;margin-bottom:8px;background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:10px'})
     const etabs=h('div',{style:'display:flex;gap:6px;margin-bottom:8px'})
     const ebox=h('div',{style:'display:grid;grid-template-columns:repeat(8,1fr);gap:4px'})
     EMOJI_SETS.forEach(function(st,si){
@@ -3506,26 +3514,41 @@ function chatUI(){
     })
     emo.appendChild(etabs);emo.appendChild(ebox)
     renderEmoji(EMOJI_SETS[0].list,etabs,0,ebox)
-    const _more=h('div',{style:'display:flex;gap:8px;margin-top:8px;flex-wrap:wrap'})
-    _more.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_memOpen=true;render()}},'🧠 小搭记得的事'))
-    emo.appendChild(_more)
-    if(!srSupported())emo.appendChild(h('div',{style:'font-size:var(--fs-12);color:var(--faint);margin-top:8px;line-height:1.6'},'🎤 想说话就说：用 Chrome 或 Safari 打开这个网址，就会多一个麦克风按钮'))
     bottom.appendChild(emo)
-    if(_vcOpen)bottom.appendChild(voicePickCard())
-    const bar=h('div',{className:'chat-bar'})
-    bar.appendChild(h('button',{className:'chat-cam',onClick:function(){chatPickImage()}},'📷'))
-    bar.appendChild(h('button',{className:'chat-cam',onClick:function(){emo.style.display=(emo.style.display==='none'?'':'none')}},'😊'))
-    bar.appendChild(h('button',{className:'chat-cam'+(_vcOpen?' on':''),title:'换个声音试试',onClick:function(){_vcOpen=!_vcOpen;if(_vcOpen)emo.style.display='none';render()}},'🎚️'))
-    if(srSupported())bar.appendChild(h('button',{className:'chat-cam'+(_srOn?' rec':''),title:'说话自动变文字',onClick:function(){chatVoice()}},_srOn?'⏹':'🎤'))
-    bar.appendChild(h('button',{className:'chat-cam'+(D._tts!==false?' on':''),title:'小搭的话可以点着听',onClick:function(){D._tts=(D._tts===false);sv(D);if(D._tts===false)chatSpeakStop();ts(D._tts!==false?'🔊 小搭每句话旁边都能点着听':'🔈 已隐藏朗读按钮');render()}},(D._tts!==false?'🔊':'🔈')))
-    const _inp=h('input',{id:'chatInput',placeholder:'说点什么…',onInput:function(e){_draft=e.target.value},onKeyDown:function(e){if(e.key==='Enter'){e.preventDefault();chatSend()}}})
-    _inp.value=_draft
-    bar.appendChild(_inp)
-    bar.appendChild(h('button',{className:'chat-send',onClick:function(){chatSend()}},'发送'))
+    if(_vcOpen)bottom.appendChild(h('div',{id:'chatVoicePanel',className:'chat-options'},voicePickCard()))
+    const tools=h('div',{className:'chat-tools',role:'group','aria-label':'聊天工具'})
+    const photo=h('button',{type:'button',className:'chat-cam','aria-label':'发照片',title:'发照片',onClick:chatPickImage},homeIcon('camera',18))
+    const emoji=h('button',{type:'button',className:'chat-cam','aria-label':'添加表情',title:'添加表情','aria-controls':'emoPanel','aria-expanded':'false',onClick:()=>{
+      const open=emo.style.display==='none'
+      emo.style.display=open?'':'none'
+      emoji.setAttribute('aria-expanded',String(open))
+    }},homeIcon('smile',18))
+    tools.appendChild(photo)
+    tools.appendChild(emoji)
+    if(srSupported())tools.appendChild(h('button',{type:'button',className:'chat-cam'+(_srOn?' rec':''),
+      'aria-label':_srOn?'结束语音输入':'语音输入',title:_srOn?'结束语音输入':'语音输入',onClick:chatVoice},homeIcon(_srOn?'square':'mic',18)))
+    tools.appendChild(h('button',{type:'button',className:'chat-cam','aria-label':'设置小搭的声音',title:'设置小搭的声音',
+      'aria-expanded':String(_vcOpen),onClick:()=>{_vcOpen=!_vcOpen;render();document.getElementById('chatVoiceToggle')?.focus()},
+      id:'chatVoiceToggle'},homeIcon('settings',18)))
+    tools.appendChild(h('button',{type:'button',className:'chat-cam','aria-label':'显示朗读按钮',title:'显示朗读按钮',
+      'aria-pressed':String(D._tts!==false),onClick:()=>{
+        D._tts=(D._tts===false);sv(D)
+        if(D._tts===false)chatSpeakStop()
+        ts(D._tts!==false?'已显示朗读按钮':'已隐藏朗读按钮')
+        render()
+        document.getElementById('chatTtsToggle')?.focus()
+      },id:'chatTtsToggle'},homeIcon('volume',18)))
+    const inp=h('input',{id:'chatInput','aria-label':'给小搭发消息',placeholder:'跟小搭说点什么…',
+      onInput:e=>{_draft=e.target.value},onKeyDown:e=>{
+        if(e.key==='Enter'&&!e.isComposing&&e.keyCode!==229){e.preventDefault();chatSend()}
+      }})
+    inp.value=_draft
+    const bar=h('div',{className:'chat-bar'},inp,
+      h('button',{type:'button',className:'chat-send',onClick:()=>chatSend()},'发送'))
+    bar.appendChild(tools)
     bottom.appendChild(bar)
-    if(!srSupported())bottom.appendChild(h('div',{style:'font-size:var(--fs-12);color:var(--faint);text-align:center;margin-top:6px;line-height:1.5'},'🎤 想说话就说：用 Chrome 或 Safari 打开这个网址（微信里打开的不支持语音）'))
   }else{
-    bottom.appendChild(h('div',{style:'font-size:var(--fs-13);color:var(--muted);line-height:1.75'},'这是他在手机上看到的界面（微信式，整页）。这里是他和小搭的私人对话——你可以看，但不建议替他发言；有话想跟他说，用「留言」更合适。'))
+    bottom.appendChild(h('div',{style:'font-size:var(--fs-13);color:var(--muted);line-height:1.75'},'这里显示聊天记录。想给孩子发消息，可以用「留言」。'))
   }
   full.appendChild(bottom)
   return full
@@ -3970,7 +3993,7 @@ function approveChecks(list){
       c.status='approved'
       c.at=Date.now()
       c.note=encTake()
-      D.points.push({id:_newId('p'),date:(c.date||td),source:(c.subject?c.subject+'·':'')+c.typeName,points:c.pts,type:'earn'});try{ptBurst(c.pts,c.typeName)}catch(e){}
+      D.points.push({id:_newId('p'),date:(c.date||td),source:(c.subject?c.subject+'·':'')+c.typeName,points:c.pts,type:'earn'})
       n++;pts+=c.pts
     }
     if(n){actLog('批量通过记录',n+' 条');sv(D);render();ts('✅ 已通过 '+n+' 条打卡，+'+pts+'分')}
@@ -4172,6 +4195,13 @@ function pendBanner(){
    为什么要有：顶部红点只数"待审核条数"，但「记录今天」只看选中那天的、而且按科目分卡片 ——
    所以「补交的、没认科目的、以前留下的」待审核记录在界面上找不到（佳佳：'还有一天待审核的是什么？我找不到'）。
    这里把**所有**待审核记录按时间倒序列出来，直接点通过/退回。 */
+function checkReviewActions(rec){
+  return h('div',{className:'review-actions'},
+    h('button',{type:'button',className:'btn btn-success btn-sm',onClick:()=>approveCheck(rec.id)},
+      homeIcon('check',16),'通过'),
+    h('button',{type:'button',className:'btn btn-danger btn-sm',onClick:()=>rejectCheck(rec.id)},
+      homeIcon('arrow-left',16),'退回'))
+}
 function ckPendingCard(){
   try{
     if(!ROLE.parent)return null
@@ -4180,13 +4210,14 @@ function ckPendingCard(){
     list.sort(function(a,b){return (b.ts||0)-(a.ts||0)})
     const c=h('div',{className:'card'})
     c.id='pendingReviews';c.tabIndex=-1
-    c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'⏳'}),'待审核（'+list.length+' 条）'))
-    c.appendChild(h('div',{className:'t-muted',style:'margin:-4px 0 8px;line-height:1.7'},'所有没审的都列在这里（含以前补交的、没认科目的）。点「通过」加分，点「退回」就不计。'))
+    c.appendChild(h('h2',{className:'card-header'},homeIcon('list-checks',18),'待审核 · '+list.length+' 条'))
+    c.appendChild(h('p',{className:'work-note'},'包含补交记录。通过后计入积分。'))
     list.forEach(function(rec){
-      const row=h('div',{id:'review-'+rec.id,tabindex:'-1',style:'display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)'})
+      const row=h('div',{id:'review-'+rec.id,tabindex:'-1',className:'review-row'})
       const left=h('div',{className:'grow'})
-      left.appendChild(h('div',{style:'font-size:var(--fs-14);font-weight:600'},(rec.subject?rec.subject+'·':'')+(rec.typeName||rec.type||'记录')+'　'+fd(rec.date)))
-      left.appendChild(h('div',{style:'font-size:var(--fs-12);color:var(--muted);margin-top:2px'},(rec.ts?('提交 '+fmtHM(rec.ts)):'')+(rec.noteSubmit?('　💬 '+rec.noteSubmit):'')))
+      left.appendChild(h('div',{className:'work-item-title'},(rec.subject?rec.subject+' · ':'')+(rec.typeName||rec.type||'记录')))
+      left.appendChild(h('div',{className:'work-note'},fd(rec.date)+(rec.ts?' · '+fmtHM(rec.ts):'')))
+      if(rec.noteSubmit)left.appendChild(h('p',{className:'work-note'},rec.noteSubmit))
       const _im=checkImgs(rec)
       if(_im.length){
         const ir=h('div',{style:'display:flex;gap:4px;flex-wrap:wrap;margin-top:6px'})
@@ -4194,10 +4225,7 @@ function ckPendingCard(){
         left.appendChild(ir)
       }
       row.appendChild(left)
-      const br=h('div',{style:'display:flex;flex-direction:column;gap:5px'})
-      br.appendChild(h('button',{className:'btn btn-success btn-sm',onClick:function(){approveCheck(rec.id)}},'✅ 通过'))
-      br.appendChild(h('button',{className:'btn btn-danger btn-sm',onClick:function(){rejectCheck(rec.id)}},'↩️ 退回'))
-      row.appendChild(br)
+      row.appendChild(checkReviewActions(rec))
       c.appendChild(row)
     })
     return c
@@ -4557,7 +4585,7 @@ function habStats(date){
 }
 function segBar(items){
   const seg=h('div',{className:'seg'})
-  for(const it of items)seg.appendChild(h('button',{className:'seg-btn'+(it.on?' on':''),onClick:it.fn},it.label))
+  for(const it of items)seg.appendChild(h('button',{type:'button',className:'seg-btn'+(it.on?' on':''),'aria-pressed':String(!!it.on),onClick:it.fn},it.label))
   return seg
 }
 function gs(sem){return SUB[sem]||SUB['初二上']}
@@ -4847,9 +4875,9 @@ function homeListRow(icon,tone,title,meta,action){
     h('div',{className:'home-row-copy'},h('strong',null,title),meta?h('span',null,meta):null),
     action)
 }
-function homeStatus(status){
+function homeStatus(status,count){
   const [label,tone]=HOME_STATUS[status]||HOME_STATUS.todo
-  return h('span',{className:'home-state '+tone},label)
+  return h('span',{className:'home-state '+tone},count===undefined?label:label+' '+count)
 }
 function homeSection(title,action){
   return h('section',{className:'home-panel'},
@@ -5008,7 +5036,7 @@ function pcProgress(){
 /* 加分那一下的反馈：数字上飘 + 光晕 */
 function ptBurst(n,label){
   try{
-    if(!n)return
+    if(!n||window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches)return
     const w=document.createElement('div')
     w.className='pt-burst'
     const num=document.createElement('div');num.className='pt-burst-num';num.textContent='+'+n
@@ -5384,14 +5412,15 @@ function wGoalCheck(){
 /* ===== 🎉 庆祝：礼花 + 星星（纯 canvas，零文件，不挡操作）===== */
 function confetti(n){
   try{
+    if(window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches)return
     const cv=document.createElement('canvas')
     cv.style.cssText='position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:9999'
     document.body.appendChild(cv)
     const ctx=cv.getContext('2d')
     const W=cv.width=(window.innerWidth||360), H=cv.height=(window.innerHeight||640)
-    const COL=['#fbbf24','#f472b6','#60a5fa','#34d399','#a78bfa','#fb7185','#fde047']
+    const COL=['#d9b68b','#bd9878','#a9d0c5','#b6a2bb']
     const ps=[]
-    const N=Math.max(40,Math.min(240,n||130))
+    const N=Math.max(12,Math.min(32,Math.round((n||130)/5)))
     for(let i=0;i<N;i++){
       ps.push({x:W*0.5+(Math.random()-0.5)*W*0.6, y:H*0.40,
         vx:(Math.random()-0.5)*12, vy:-Math.random()*14-4,
@@ -5885,6 +5914,11 @@ function wQuit(){_wg=null;render();ts('已退出（进度已存）')}
 
 /* ===== 线性图标（Lucide，MIT，内联 SVG，不依赖 CDN）===== */
 const ICON={
+  'check':'<path d="m5 12 4 4L19 6"/>',
+  'smile':'<g><circle cx="12" cy="12" r="9"/><path d="M8 14a4 4 0 0 0 8 0M9 9h.01M15 9h.01"/></g>',
+  'mic':'<g><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11v1a7 7 0 0 0 14 0v-1M12 19v3"/></g>',
+  'square':'<rect x="6" y="6" width="12" height="12" rx="2"/>',
+  'volume':'<g><path d="M3 9h4l5-4v14l-5-4H3zM16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/></g>',
   'arrow-right':'<path d="M4 12h15m-6-6 6 6-6 6"/>',
   'arrow-left':'<path d="M20 12H5m6-6-6 6 6 6"/>',
   'more':'<g fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></g>',
@@ -6142,6 +6176,7 @@ function rchat(){
   if(!_aiBusy&&D._chat&&D._chat.some(function(m){return m.pending})){D._chat=D._chat.filter(function(m){return !m.pending});sv(D)}
   setTimeout(function(){try{ensureChatSummary()}catch(e){}},2500)
   chatHeight()
+  if(!(ROLE.kid&&_memOpen))$c.appendChild(chatHeading())
   $c.appendChild(chatUI())
   setTimeout(function(){const el=document.getElementById('chatScroll');if(el)el.scrollTop=el.scrollHeight},60)
 }
@@ -6152,7 +6187,7 @@ function rck(){
     {label:ROLE.kid?'我的记录':'已通过记录',on:_ckView==='done',fn:function(){_ckView='done';render()}},
     {label:'日历',on:_ckView==='cal',fn:function(){_ckView='cal';render()}}
   ]
-  if(ROLE.parent)_segs.push({label:'📊 各科统计',on:_ckView==='stat',fn:function(){_ckView='stat';render()}})
+  if(ROLE.parent)_segs.push({label:'各科统计',on:_ckView==='stat',fn:function(){_ckView='stat';render()}})
   $c.appendChild(segBar(_segs))
   const box=h('div',null)
   $c.appendChild(box)
@@ -6175,7 +6210,6 @@ function hwToday(){try{return (D.hw||[]).filter(function(x){return x&&x.date===t
 function hwRec(x){try{return (x&&x.recId)?((D.checks||[]).filter(function(c){return c.id===x.recId})[0]||null):null}catch(e){return null}}
 function hwStatus(x){const r=hwRec(x);return r?(r.status==='approved'?'approved':(r.status==='rejected'?'rejected':'pending')):'todo'}
 function hwMiss(){return hwToday().filter(function(x){return hwStatus(x)==='todo'}).length}
-function hwShort(it){return ((it.subj&&it.subj!=='其他')?it.subj+'·':'')+String(it.text||'').slice(0,7)}
 function hwKey(it){return String(it.subj||'')+'|'+String(it.text||'').replace(/\s+/g,'')}
 /* 来源标签：登记本 / 老师另布置的 / 妈妈加的 / 孩子说的 */
 function hwSrcLabel(src){return src==='sheet'?'📷 登记本':(src==='teacher'?'📢 老师另布置':(src==='mom'?'👩 妈妈加的':(src==='kid'?'🙋 我自己加的':'')))}
@@ -6293,13 +6327,13 @@ function hwItemCommit(hwId,urls){
 }
 function hwRow(it){
   const st=hwStatus(it),r=hwRec(it)
-  const row=h('div',{style:'display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)'})
+  const row=h('div',{className:'work-item'})
   const L=h('div',{className:'grow'})
-  L.appendChild(h('div',{style:'font-size:var(--fs-15);line-height:1.5'},(it.subj&&it.subj!=='其他'?('【'+it.subj+'】'):'')+String(it.text||'')))
-  const sc=st==='approved'?'var(--success)':st==='pending'?'var(--warning)':st==='rejected'?'var(--danger)':'var(--muted)'
-  const lab=st==='approved'?'✅ 家长已通过':st==='pending'?'⏳ 等家长审核':st==='rejected'?'↩️ 被打回，重新交':'⬜ 还没交'
-  L.appendChild(h('div',{style:'font-size:var(--fs-12);margin-top:2px;color:'+sc},
-    (it.kind==='recite'?'📝 背诵 · 要交草稿本照片':'✏️ 书面')+' · '+lab+(hwSrcLabel(it.src)?(' · '+hwSrcLabel(it.src)):'')))
+  L.appendChild(h('div',{className:'work-item-title'},
+    (it.subj&&it.subj!=='其他'?it.subj+' · ':'')+String(it.text||'')))
+  const source=hwSrcLabel(it.src)
+  L.appendChild(h('div',{className:'work-meta'},
+    homeStatus(st),h('span',{className:'work-note'},(it.kind==='recite'?'背诵 · 交草稿本':'书面')+(source?' · '+source:''))))
   const im=checkImgs(r)
   if(im.length){
     const ir=h('div',{style:'display:flex;gap:4px;flex-wrap:wrap;margin-top:5px'})
@@ -6309,7 +6343,7 @@ function hwRow(it){
   row.appendChild(L)
   const btns=h('div',{style:'flex:0 0 auto;display:flex;flex-direction:column;gap:5px'})
   if(st==='todo'||st==='rejected'){
-    btns.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){hwPick(it)}},it.kind==='recite'?'📷 交草稿本':'📷 交这项'))
+    btns.appendChild(homeButton(it.kind==='recite'?'交草稿本':'交这项',()=>hwPick(it),'primary','camera'))
   }
   if(ROLE.parent){
     const d=h('button',{className:'btn btn-outline btn-sm',onClick:function(){
@@ -6329,30 +6363,27 @@ function hwCard(){
     return ra-rb||String(a.subj||'').localeCompare(String(b.subj||''))
   })
   const c=h('div',{className:'card'})
-  const ok=list.filter(function(x){return hwStatus(x)==='approved'}).length
-  c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📋'}),
-    '今日作业清单'+(list.length?('（'+ok+'/'+list.length+' 已通过）'):'')))
+  c.appendChild(h('h2',{className:'card-header'},homeIcon('list-checks',18),'今日作业'))
+  const add=()=>{_hwAdd=!_hwAdd;render()}
   if(!list.length){
-    c.appendChild(h('div',{style:'font-size:var(--fs-13);color:var(--muted);line-height:1.7;margin-bottom:8px'},
-      '拍一张「作业登记本」（黑板上抄的 / 作业本上抄的），我帮你列出今天要交的，一项一项对。'))
-    c.appendChild(h('button',{className:'btn btn-primary quick-shot',onClick:pickHwSheet},'📷 拍作业登记本（30 秒）'))
-    c.appendChild(h('button',{className:'btn btn-outline btn-sm mt8',onClick:function(){_hwAdd=!_hwAdd;render()}},'✏️ 手动加一项（老师另布置 / 漏抄的）'))
+    c.appendChild(h('p',{className:'work-note'},'拍作业登记本，小搭会把作业整理成清单。'))
+    c.appendChild(h('div',{className:'work-actions'},
+      homeButton('拍作业登记本',pickHwSheet,'primary','camera'),
+      homeButton('手动加一项',add,'quiet','pen-tool')))
     if(_hwAdd)c.appendChild(hwAddRow())
     return c
   }
-  const miss=list.filter(function(x){return hwStatus(x)==='todo'||hwStatus(x)==='rejected'})
-  const wait=list.filter(function(x){return hwStatus(x)==='pending'}).length
-  const tail=miss.length?(' ｜ 还差 '+miss.length+' 项：'+miss.slice(0,4).map(hwShort).join('、')+(miss.length>4?' …':''))
-    :(wait?(' ｜ 都交了，等家长审核 '+wait+' 项'):' ｜ 全部通过 ✓')
-  c.appendChild(h('div',{style:'font-size:var(--fs-14);line-height:1.8;margin-bottom:4px'},
-    '今天该交 '+list.length+' 项 ｜ 已通过 '+ok+' 项'+tail))
-  if(list.some(function(x){return x.kind==='recite'}))
-    c.appendChild(h('div',{style:'font-size:var(--fs-12);color:var(--warning);line-height:1.6;margin-bottom:4px'},'📝 背诵 / 默写项：要交「草稿本照片」才算（不能只打钩）。'))
-  list.forEach(function(it){c.appendChild(hwRow(it))})
-  const bar=h('div',{style:'display:flex;gap:6px;flex-wrap:wrap;margin-top:10px'})
-  bar.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:pickHwSheet},'📷 重拍登记本'))
-  bar.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_hwAdd=!_hwAdd;render()}},'✏️ 加一项（漏抄 / 老师另布置）'))
-  c.appendChild(bar)
+  const counts={todo:0,rejected:0,pending:0,approved:0}
+  for(const it of list)counts[hwStatus(it)]++
+  const summary=h('div',{className:'work-meta'},h('span',{className:'work-note'},'共 '+list.length+' 项'))
+  for(const [status,count] of Object.entries(counts)){
+    if(count)summary.appendChild(homeStatus(status,count))
+  }
+  c.appendChild(summary)
+  list.forEach(it=>c.appendChild(hwRow(it)))
+  c.appendChild(h('div',{className:'work-actions'},
+    homeButton('重拍登记本',pickHwSheet,'quiet','camera'),
+    homeButton('手动加一项',add,'quiet','pen-tool')))
   if(_hwAdd)c.appendChild(hwAddRow())
   return c
 }
@@ -6412,10 +6443,6 @@ function rckList(){
   const _hc=hwCard();if(_hc){_hc.id='todayHomework';_hc.tabIndex=-1;$c.appendChild(_hc)};
   const cq=h('div',{className:'card'})
   cq.appendChild(h('div',{className:'card-header'},icoEl('list-checks',18),'按科目提交'))
-  const _mkTip=h('div',{style:'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:2px 0 4px'})
-  _mkTip.appendChild(h('span',{style:'font-size:var(--fs-12);color:var(--faint);line-height:1.6;flex:1'},'错题在「📕 错题本」页签，点右边按钮去拍 →'))
-  _mkTip.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){sw('mistake')}},'📕 去错题本拍'))
-  cq.appendChild(_mkTip)
   const minD=(function(){var d=new Date();d.setDate(d.getDate()-2);return ymd(d)})()
   const dateRow=h('div',{style:'display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap'})
   dateRow.innerHTML='<span style="font-size:var(--fs-15)">日期：</span><input type="date" id="checkDateInput" value="'+ckd+'" min="'+minD+'" max="'+td+'" style="width:150px">'+(ckd!==td?'<span style="font-size:var(--fs-14);color:var(--warning)">（补卡 '+ckd+'）</span>':'')
@@ -6464,10 +6491,7 @@ function rckList(){
         card.appendChild(br2)
       }
       if(ROLE.review&&rec.status==='pending'){
-        const br=h('div',{style:'margin-top:6px;display:flex;gap:5px;justify-content:center'})
-        br.appendChild(h('button',{className:'btn btn-success btn-sm',onClick:function(){approveCheck(rec.id)}},'✅ 通过'))
-        br.appendChild(h('button',{className:'btn btn-danger btn-sm',onClick:function(){rejectCheck(rec.id)}},'↩️ 退回'))
-        card.appendChild(br)
+        card.appendChild(checkReviewActions(rec))
       }
       if(ROLE.review&&rec.status==='approved'){
         const br4=h('div',{style:'margin-top:6px;display:flex;justify-content:center'})
@@ -6513,6 +6537,7 @@ function rckList(){
   const ggrid=h('div',{className:'check-grid'})
   for(const type of CHECK_TYPES.filter(function(t){return !t.subject}))ggrid.appendChild(makeCheckCard(type,''))
   cq.appendChild(ggrid)
+  cq.appendChild(h('div',{className:'work-actions'},homeButton('去错题本',()=>sw('mistake'),'text','notebook-pen')))
   $c.appendChild(cq)
 
   // 习惯打卡
@@ -6819,6 +6844,48 @@ let _showEarned=false,_buildPowered=false
 function rewardBalance(){
   return myExp()-(D.points||[]).filter(p=>p.type==='spend').reduce((n,p)=>n+(p.points||0),0)
 }
+const REWARD_PHOTO_CREDITS={
+  1:{"source":"https://commons.wikimedia.org/wiki/File:Ergonomic_mouse_pad.JPG","author":"Ppntori（来源页推定）","license":"公有领域","licenseUrl":""},
+  2:{"source":"https://commons.wikimedia.org/wiki/File:Razer_Naga_2014_MMO_Gaming_Mouse_(14714867599).jpg","author":"osman gucel","license":"CC BY 2.0","licenseUrl":"https://creativecommons.org/licenses/by/2.0"},
+  3:{"source":"https://commons.wikimedia.org/wiki/File:Power_strip_of_National.jpg","author":"Yapparina","license":"CC0","licenseUrl":"http://creativecommons.org/publicdomain/zero/1.0/deed.en"},
+  4:{"source":"https://commons.wikimedia.org/wiki/File:Keychron_K8_Non-Backlight_Wireless_Mechanical_Keyboard.jpg","author":"Triple-green","license":"CC BY 2.0","licenseUrl":"https://creativecommons.org/licenses/by/2.0"},
+  5:{"source":"https://commons.wikimedia.org/wiki/File:Sound_BlasterX_H5_Gaming_Headset.jpg","author":"Dinopkk","license":"CC BY-SA 3.0","licenseUrl":"https://creativecommons.org/licenses/by-sa/3.0"},
+  6:{"source":"https://commons.wikimedia.org/wiki/File:Webcam_(Logitech_c922).jpg","author":"Zsinytwiki","license":"CC0","licenseUrl":"http://creativecommons.org/publicdomain/zero/1.0/deed.en"},
+  7:{"source":"https://commons.wikimedia.org/wiki/File:Logitech-usb-speakers.jpg","author":"Evan-Amos","license":"公有领域","licenseUrl":""},
+  8:{"source":"https://commons.wikimedia.org/wiki/File:ATX_computer_case_-_left_-_2018-05-18.jpg","author":"Bretwa","license":"CC BY-SA 4.0","licenseUrl":"https://creativecommons.org/licenses/by-sa/4.0"},
+  9:{"source":"https://commons.wikimedia.org/wiki/File:Nintendo-Switch-Pro-Controller-FL.jpg","author":"Evan-Amos","license":"公有领域","licenseUrl":""},
+  10:{"source":"https://commons.wikimedia.org/wiki/File:1TB_2280_NVME_SSD.jpg","author":"User5515","license":"CC0","licenseUrl":"http://creativecommons.org/publicdomain/zero/1.0/deed.en"},
+  11:{"source":"https://commons.wikimedia.org/wiki/File:NH-D15_with_classic_fans.jpg","author":"Kaleb Kloppe","license":"CC BY 2.0","licenseUrl":"https://creativecommons.org/licenses/by/2.0"},
+  12:{"source":"https://commons.wikimedia.org/wiki/File:Full_modular_ATX_power_supply_unit.jpg","author":"Project Kei","license":"CC BY-SA 4.0","licenseUrl":"https://creativecommons.org/licenses/by-sa/4.0"},
+  13:{"source":"https://commons.wikimedia.org/wiki/File:WD_Caviar_Black_1_TB_SATA_Hard_Drive_(WD1001FALS).jpg","author":"Mario T.","license":"CC BY-SA 2.0","licenseUrl":"https://creativecommons.org/licenses/by-sa/2.0"},
+  14:{"source":"https://commons.wikimedia.org/wiki/File:DDR4_Ram_IMGP5854_smial_wp.jpg","author":"Rainer Knäpper","license":"Free Art License","licenseUrl":"https://artlibre.org/licence/lal/en/"},
+  15:{"source":"https://commons.wikimedia.org/wiki/File:Asus-ROG-Strix-Z390-F-Gaming-Motherboard_20201120_DSC6025.jpg","author":"PantheraLeo1359531","license":"CC BY 4.0","licenseUrl":"https://creativecommons.org/licenses/by/4.0"},
+  16:{"source":"https://commons.wikimedia.org/wiki/File:Dell_Computer_Monitor.png","author":"IT Photography","license":"CC BY-SA 4.0","licenseUrl":"https://creativecommons.org/licenses/by-sa/4.0"},
+  17:{"source":"https://commons.wikimedia.org/wiki/File:AMD_Ryzen_5_5600X.jpg","author":"Phiarc","license":"CC BY-SA 4.0","licenseUrl":"https://creativecommons.org/licenses/by-sa/4.0"},
+  18:{"source":"https://commons.wikimedia.org/wiki/File:Gigabyte_GeForce_RTX_3090_Eagle_OC_24G,_24576_MiB_GDDR6X_Front_20201114_DSC5880.jpg","author":"PantheraLeo1359531","license":"CC BY 4.0","licenseUrl":"https://creativecommons.org/licenses/by/4.0"},
+  19:{"source":"https://commons.wikimedia.org/wiki/File:Nintendo-Switch-Console-Docked-wJoyConRB.jpg","author":"Evan-Amos","license":"公有领域","licenseUrl":""},
+  20:{"source":"https://commons.wikimedia.org/wiki/File:Nintendo-Switch-Cartridge.jpg","author":"Evan-Amos","license":"公有领域","licenseUrl":"","caption":"Switch 卡带外观参考"},
+}
+const REWARD_STUDIO_ORDER=[8,11,17,14,15,18,10,13,12,16,4,2,1,5,7,6,3,9,19,20]
+function rewardStudioPreview(part){
+  const slot=REWARD_STUDIO_ORDER.indexOf(Number(part.id))
+  if(slot<0)return null
+  const x=(slot%4)*100/3,y=Math.floor(slot/4)*25
+  return h('span',{className:'reward-studio',style:'--studio-x:'+x+'%;--studio-y:'+y+'%'})
+}
+function rewardPhoto(part){
+  const id=Number(part.id)
+  const credit=REWARD_PHOTO_CREDITS[id]
+  return credit?{src:'reward-photos/'+String(id).padStart(2,'0')+'.webp',...credit}:null
+}
+function rewardPhotoFigure(photo){
+  return h('figure',{className:'reward-photo-detail'},h('img',{src:photo.src,alt:'',decoding:'async'}),
+    h('figcaption',null,'参考实拍 · ',photo.caption?photo.caption+' · ':null,
+      h('a',{href:photo.source,target:'_blank',rel:'noopener noreferrer'},photo.author),
+      ' · ',photo.licenseUrl?h('a',{href:photo.licenseUrl,target:'_blank',rel:'noopener noreferrer'},photo.license):photo.license,
+      ' · 已缩放'),
+    h('p',{className:'reward-art-note'},'装机台缩略图为 AI 风格展示。'))
+}
 function rewardCost(part){return Math.round(part.value*(D.rate||10))}
 function rewardWishKey(){return DEMO?'lc_demo_reward_wish':'lc_reward_wish'}
 function getRewardWish(){
@@ -6874,9 +6941,10 @@ function rewardDialog(part){
   const owned=part.received||part.unlocked
   const ownWish=getRewardWish()
   const selected=ownWish&&ownWish.id===part.id
+  const photo=rewardPhoto(part)
   const dialog=h('dialog',{className:'reward-dialog','aria-labelledby':'rewardDialogTitle'})
   const hide=()=>dialog.close()
-  const header=h('header',null,h('span',{className:'reward-dialog-art','aria-hidden':'true'},
+  const header=h('header',null,photo?null:h('span',{className:'reward-dialog-art','aria-hidden':'true'},
     homeIcon(REWARD_ICONS[part.id]||'gift',44)),
     h('div',null,h('h2',{id:'rewardDialogTitle'},part.name),h('span',{className:'reward-tag'},rewardState(part,balance))),
     h('button',{type:'button',className:'reward-close','aria-label':'关闭详情',onClick:hide},'×'))
@@ -6910,7 +6978,9 @@ function rewardDialog(part){
     if(part.unlocked&&!part.received)actions.appendChild(homeButton('标记签收',()=>{hide();receiveReward(part)},'primary','list-checks'))
     actions.appendChild(homeButton('改价',()=>{hide();editRewardPrice(part)},'quiet','pen-tool'))
   }
-  dialog.append(header,details,actions)
+  dialog.appendChild(header)
+  if(photo)dialog.appendChild(rewardPhotoFigure(photo))
+  dialog.append(details,actions)
   dialog.addEventListener('close',()=>dialog.remove(),{once:true})
   dialog.addEventListener('click',e=>{
     if(e.target!==dialog)return
@@ -6925,11 +6995,9 @@ function buildModule(part,balance,scope){
   const state=rewardState(part,balance)
   const owned=part.received||part.unlocked
   const ready=part.exchange&&!owned&&balance>=rewardCost(part)
-  const model=h('span',{className:'hardware-model model-'+id,'aria-hidden':'true'},
-    homeIcon(REWARD_ICONS[id]||'gift',29))
-  if([11,14,15,18,12].includes(id)){
-    model.append(h('i'),h('i'),h('i'))
-  }
+  const preview=rewardStudioPreview(part)
+  const model=h('span',{className:'hardware-model'+(preview?' has-photo':''),'aria-hidden':'true'},
+    preview||homeIcon(REWARD_ICONS[id]||'gift',29))
   return h('button',{type:'button',className:'build-module module-'+id+' '+scope+(owned?' owned':ready?' ready':''),
     'data-build-part':part.id,'aria-label':part.name+'，'+state,onClick:()=>rewardDialog(part)},
     model,
@@ -6954,8 +7022,10 @@ function rewardCatalog(){
   const bench=h('div',{className:'build-bench'+(_showEarned?' show-earned':'')})
   const wish=ROLE.kid?getRewardWish():null
   if(wish){
+    const preview=rewardStudioPreview(wish)
     bench.appendChild(h('section',{className:'reward-goal build-wish',id:'rewardGoal',tabindex:'-1'},
-      h('span',{className:'reward-dialog-art','aria-hidden':'true'},homeIcon(REWARD_ICONS[wish.id]||'gift',32)),
+      h('span',{className:'reward-dialog-art','aria-hidden':'true'},
+        preview||homeIcon(REWARD_ICONS[wish.id]||'gift',32)),
       h('div',{className:'reward-goal-text'},h('h2',null,'我的心愿 · '+wish.name),
         wish.exchange&&!wish.unlocked&&!wish.received?rewardProgress(wish,balance):
           h('p',null,wish.unlocked||wish.received?rewardState(wish,balance):(wish.cond||'按家里约定解锁'))),
@@ -6978,7 +7048,7 @@ function rewardCatalog(){
 
   const board=h('section',{id:'buildCase',tabindex:'-1',className:'build-chassis'+(_buildPowered?' powered':'')},
     h('header',{className:'build-zone-head'},
-      h('div',null,h('h2',null,'主机内部'),h('p',null,'点装备查看获得方式')),
+      h('div',null,h('h2',null,'主机内部'),h('p',null,'点装备看实拍和获得方式')),
       h('button',{type:'button',className:'build-power','aria-pressed':String(_buildPowered),onClick:e=>{
         _buildPowered=!_buildPowered
         board.classList.toggle('powered',_buildPowered)
