@@ -5,7 +5,7 @@
    · 不改数据结构。零件来自 D.parts（id/icon/name/value/cond/det/
      unlocked/received/exchange），本文件只负责“怎么画、怎么点”。
    · 不自己存业务数据。相机位置、锁定样式只存 localStorage（本机偏好）。
-   · 只暴露 window.ROOM.mount(host, opts)，由 app.js 的 rp() 调用。
+   · 只暴露 window.ROOM.mount(host, opts)，由 app.js 的奖励书桌与旧房间深链接调用。
    =================================================================== */
 (function () {
   'use strict';
@@ -322,9 +322,16 @@
     s += rr(x + 2, y + 56, 6, 26, 3, '#39415a');
     s += rr(x + 44, y + 56, 6, 26, 3, '#39415a');
     return s;
-  }  function part(id, inner, box) {
+  }
+  function part(id, inner, box) {
     var p = P(id), on = isOn(p);
-    return '<g class="lcr-part ' + (on ? 'unlocked' : 'locked') + '" data-id="' + id + '" role="button" tabindex="0" aria-label="' + ((p && p.name) || '') + '">' +
+    var dim = cur.rewardIds && !cur.rewardIds.includes(+id);
+    var name = String((p && p.name) || '').replace(/[&<>"]/g, function (ch) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch];
+    });
+    var attrs = dim ? ' aria-hidden="true"' : ' role="button" tabindex="0" aria-label="' + name + '"';
+    return '<g class="lcr-part ' + (on ? 'unlocked' : 'locked') + (dim ? ' reward-muted' : '') +
+      '" data-id="' + id + '"' + attrs + '><title>' + name + '</title>' +
       '<rect class="ph" x="' + box.x.toFixed(1) + '" y="' + box.y.toFixed(1) + '" width="' + Math.max(8, box.w).toFixed(1) +
       '" height="' + Math.max(8, box.h).toFixed(1) + '" rx="5" fill="rgba(120,150,200,.05)" stroke="rgba(150,180,220,.5)" stroke-width="1.3" stroke-dasharray="5 4"/>' +
       '<g class="shp">' + inner + '</g>' +
@@ -352,7 +359,7 @@
       var p = P(id); if (!p) return;
       var x = CASE.x + 12 + (idx % 2) * (iw + 2), y = CASE.y + 14 + Math.floor(idx / 2) * (ih + 2);
       var w = iw - 4, h = ih - 6, on = isOn(p);
-      var inner = on
+      var inner = on || cur.rewardZone
         ? rr(x, y, w, h, 3, 'rgba(62,108,175,.55)') +
           '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="3" fill="none" stroke="rgba(150,200,255,.5)"/>' +
           tx(x + w / 2, y + h / 2 + 4, p.icon, 11, '#d7e7ff', 'middle')
@@ -362,9 +369,9 @@
     s += part(3, strip(840, 766), { x: 840, y: 766, w: 192, h: 26 });
 
     s += part(16, monitor(372, 230, 456, 266), { x: 372, y: 204, w: 456, h: 296 });
-    s += act('wall', '<rect x="380" y="238" width="440" height="250" fill="transparent"/>', { x: 380, y: 238, w: 440, h: 250 }, '成绩');
+    if (!cur.rewardZone) s += act('wall', '<rect x="380" y="238" width="440" height="250" fill="transparent"/>', { x: 380, y: 238, w: 440, h: 250 }, '成绩');
     s += part(6, webcam(586, 204), { x: 586, y: 202, w: 38, h: 24 });
-    s += part(7, speaker(300, 496) + speaker(834, 496), { x: 300, y: 370, w: 620, h: 130 });
+    s += part(7, speaker(300, 496) + speaker(834, 496), { x: 300, y: 370, w: 86, h: 126 });
     s += part(9, gamepad(316, 492), { x: 316, y: 444, w: 76, h: 54 });
     s += part(1, mat(290, 548, 540, 84), { x: 290, y: 548, w: 540, h: 84 });
     s += part(4, keyboard(372, 566, 350, 58), { x: 372, y: 566, w: 350, h: 58 });
@@ -376,7 +383,8 @@
     // 20 件之外自己加的
     var known = { 1:1,2:1,3:1,4:1,5:1,6:1,7:1,8:1,9:1,10:1,11:1,12:1,13:1,14:1,15:1,16:1,17:1,18:1,19:1,20:1 };
     var ei = 0;
-    (cur.parts || []).forEach(function (p) { if (!known[p.id]) extraPart(p, ei++); });
+    (cur.parts || []).forEach(function (p) { if (!known[p.id]) s += extraPart(p, ei++); });
+    if (cur.rewardZone) return s + plant(112, 636) + mug(688, 522);
 
     s += chair() + plant(112, 636) + mug(688, 522) + cables();
     // ── 空间里的"入口"物件（不是按钮）
@@ -426,8 +434,22 @@
     if (w <= v.w) cam.x = (v.w - w) / 2; else cam.x = Math.min(0, Math.max(v.w - w, cam.x));
     if (h <= v.h) cam.y = (v.h - h) / 2; else cam.y = Math.min(0, Math.max(v.h - h, cam.y));
   }
+  var rewardFrames = {
+    all: { x: 218, y: 187, w: 900, h: 627 },
+    desk: { x: 277, y: 185, w: 812, h: 620 },
+    pc: { x: 696, y: 617, w: 178, h: 188 },
+    game: { x: 283, y: 407, w: 711, h: 248 }
+  };
   function fit() {
     var v = viewSize();
+    if (cur && cur.rewardZone) {
+      var frame = rewardFrames[cur.rewardZone] || rewardFrames.all;
+      cam.k = Math.min(v.w / frame.w, v.h / frame.h, 2.8);
+      cam.x = v.w / 2 - cam.k * (frame.x + frame.w / 2);
+      cam.y = v.h / 2 - cam.k * (frame.y + frame.h / 2);
+      apply();
+      return;
+    }
     var kFit = Math.min(v.w / W, v.h / H);
     var kCov = Math.max(v.w / W, v.h / H);
     // 手机（竖着的窄框）：不要贴太近，最多放大到 2.2 倍，剩下的用背景补
@@ -463,6 +485,8 @@
   function openSheet(id) {
     if (!cur || !sheetEl) return;
     var p = P(id); if (!p) return;
+    if (cur.rewardIds && !cur.rewardIds.includes(id)) return;
+    if (cur.onPart) { cur.onPart(p); return; }
     var st = statusOf(p), cost = Math.round((p.value || 0) * (cur.rate || 1));
     sheetEl.querySelector('.lcr-sh-ico').textContent = p.icon || '📦';
     sheetEl.querySelector('.lcr-sh-name').textContent = p.name || '零件';
@@ -539,8 +563,9 @@
       if (cur && cur.toast) cur.toast('未解锁零件：' + name[lockMode]);
     };
 
-    var ptrs = {}, moved = 0;
+    var ptrs = {}, moved = 0, hit = null;
     svgEl.addEventListener('pointerdown', function (e) {
+      hit = e.target.closest && e.target.closest('[data-id],[data-act]');
       try { svgEl.setPointerCapture(e.pointerId); } catch (err) { }
       var l = local(e); ptrs[e.pointerId] = { x: l.x, y: l.y }; moved = 0;
     });
@@ -568,12 +593,20 @@
       var l = local(e); zoomAt(l.x, l.y, e.deltaY < 0 ? 1.12 : .89); saveCam();
     }, { passive: false });
 
+    function activate(target) {
+      if (target && target.hasAttribute('data-id')) openSheet(+target.getAttribute('data-id'));
+      else if (target && cur.onAct) cur.onAct(target.getAttribute('data-act'));
+      else closeSheet();
+    }
     svgEl.addEventListener('click', function (e) {
-      if (moved > 12) return;
-      var a = e.target.closest ? e.target.closest('[data-act]') : null;
-      if (a && cur && cur.onAct) { try{ if(navigator.vibrate) navigator.vibrate(8) }catch(err){} cur.onAct(a.getAttribute('data-act')); return; }
-      var g = e.target.closest ? e.target.closest('[data-id]') : null;
-      if (g) openSheet(+g.getAttribute('data-id')); else closeSheet();
+      var target = (e.target.closest && e.target.closest('[data-id],[data-act]')) || hit;
+      hit = null;
+      if (moved <= 12) activate(target);
+    });
+    svgEl.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      var target = e.target.closest && e.target.closest('[data-id],[data-act]');
+      if (target) { e.preventDefault(); activate(target); }
     });
 
     // 横竖屏切换 / 窗口变化：重新取景（防抖，避免拖影）
@@ -606,14 +639,17 @@
   window.ROOM = {
     version: 2,
     mount: function (h, opts) {
+      var movedHost = !hostEl || hostEl !== h;
+      var previousZone = cur && cur.rewardZone;
       cur = opts; hostEl = h;
       if (!el) build();
       if (el.parentNode !== h) h.appendChild(el);
-      el.className = 'lcr-room mode-' + lockMode + (opts && opts.bare ? ' bare' : '');
+      el.className = 'lcr-room mode-' + (opts.rewardZone ? 'rewards' : lockMode) + (opts && opts.bare ? ' bare' : '');
+      closeSheet();
       paint();
       requestAnimationFrame(function () {
         if (!el) return;
-        if (!fitted) { fit(); fitted = true; }
+        if (!fitted || (opts.rewardZone && movedHost) || previousZone !== opts.rewardZone) { fit(); fitted = true; }
         else { clampCam(); apply(); }
       });
       return el;

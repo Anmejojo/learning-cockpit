@@ -372,6 +372,7 @@ function ld(){
   try{
     if(DEMO){
       const wantReset=up.has('reset')
+      if(wantReset)localStorage.removeItem('lc_demo_reward_wish')
       // 测试台数据跟着版本走：发新版后（app.js?v=xxx 变了）自动重建，保证看到最新示例
       const dv=(function(){try{const s=document.querySelector('script[src*="app.js"]');const m=s&&s.src.match(/[?&]v(\w+)/);return m?m[1]:''}catch(e){return ''}})()
       let raw=localStorage.getItem('lc_demo')
@@ -485,7 +486,14 @@ function demoData(){
     {id:104,date:y2,type:'word',typeName:'背单词',subject:'英语',imgs:[],pts:2,status:'approved',ts:Date.now()-176000000,at:Date.now()-175000000}
   ]
   d.points=[{date:today,source:'数学·作业拍照',points:2,type:'earn'},{date:y1,source:'数学·错题本拍照',points:2,type:'earn'},{date:y2,source:'整理错题本',points:2,type:'earn'}]
-  d.exams=[{id:1,date:y1,sem:'初二上',examType:'月考',scores:{chinese:105,math:96,english:78,physics:72,geo:70,bio:62,dao:66,history:74,pe:32},status:'approved',ts:Date.now()-88000000}]
+  const demoScores={chinese:105,math:96,english:78,physics:72,geo:70,bio:62,dao:66,history:74,pe:32}
+  d.exams=[
+    {id:11,date:ymd(new Date(Date.now()-7*86400000)),sem:'初二上',examType:'小测试',scores:{math:82,english:71},status:'approved'},
+    {id:12,date:ymd(new Date(Date.now()-5*86400000)),sem:'初二上',examType:'小测试',scores:{english:73},status:'approved'},
+    {id:13,date:y2,sem:'初二上',examType:'月考',scores:{...demoScores,math:91,english:75},status:'approved'},
+    {id:1,date:y1,sem:'初二上',examType:'月考',scores:demoScores,status:'approved',ts:Date.now()-88000000}
+  ]
+  d.examDate=today
   d.msgs=[{id:1,from:'p',text:'看到你这周数学错题整理了 3 道，比上周多',ts:Date.now()-7200000}]
   d.tasks=[{id:1,date:today,text:'英语单词 20 个',done:false}]
   d.hw=[
@@ -524,7 +532,7 @@ function demoBar(){
   panel.appendChild(mk('重置测试数据',function(){try{const u=new URLSearchParams(location.search);u.set('reset','1');u.set('t',String(Date.now()));location.search=u.toString()}catch(e){location.reload()}}))
   panel.appendChild(mk('清空测试数据',function(){
     /* 只清测试专用的几项（原来的 localStorage.clear() 会连同一来源下别的东西一起清） */
-    try{['lc_demo','lc_demo_v','lc_demo_pending'].forEach(function(k){localStorage.removeItem(k)})}catch(e){}
+    try{['lc_demo','lc_demo_v','lc_demo_pending','lc_demo_reward_wish'].forEach(function(k){localStorage.removeItem(k)})}catch(e){}
     location.reload()
   }))
   panel.appendChild(mk('填口令(试小搭)',function(){const v=prompt('输入家长口令（只在本地测试用）');if(v){try{sessionStorage.setItem('lc_demo_tok',hsh(v))}catch(e){}ts('已填，刷新后小搭可用')}}))
@@ -1307,11 +1315,11 @@ async function scanCheck(recId,urls,localB64){
   }catch(e){}
 }
 
-function submitCheck(typeId,subject,imgsArr,append,localB64,quick,forceNew){
+function submitCheck(typeId,subject,imgsArr,append,localB64,quick,forceNew,recordDate){
   const type=CHECK_TYPES.find(function(t){return t.id===typeId})
   if(!type)return
   if(!D.checks)D.checks=[]
-  const _ds=_checkDate||td
+  const _ds=recordDate||ckDate()
   const _sub=subject||''
   const old=forceNew?null:(D.checks||[]).find(function(c){return c.date===_ds&&c.subject===_sub&&c.type===typeId})
   const _lbl=(_sub?_sub+'·':'')+type.name
@@ -2319,15 +2327,15 @@ let _ctxTab=''   // 他刚刚在看哪一页（切到聊天时记下）
 const TAB_NAME={today:'今日',chat:'小搭',checkin:'作业与打卡',mistake:'错题本',write:'硬笔字',word:'单词',scores:'成绩',points:'积分奖励',room:'学习房间',settings:'设置',detail:'今日详情'}
 function chatSiteMap(){
   return ['【他能看到的网页（家里人给他做的「学习驾驶舱」）】',
-  '桌面左侧是学习导航；手机底部的「更多」里还有小搭、成绩、硬笔字、积分奖励、学习房间和设置。',
-  '· 今日：拍照提交、今日作业与状态、连续打卡、可用积分、家庭留言；',
+  '桌面左侧是学习导航；手机底部可直接看成绩和奖励，「更多」里有错题本、小搭、单词、硬笔字和设置。',
+  '· 今日：看自己的奖励心愿，拍照打卡，查看今天的作业和家庭留言；',
   '· 小搭：就是你，他在这里跟你说话；',
   '· 打卡：拍照记录今天做的事（家长看过后加分）、习惯打勾、今天的任务清单；',
   '· 错题本：拍错题→你自动认科目、认题型、抓知识点；按科目存着，是「记录」不是「重做」；下面还有错题汇总、你写过的总结、你说过的提醒；',
   '· 硬笔字：拍今天写的字，攒成作品墙；',
   '· 成绩：录入考试、成绩趋势图、基准线（起点分）、薄弱科目；',
-  '· 积分奖励：积分明细和规则 / 电脑零件清单（一件件解锁，攒积分兑换）；',
-  '· 学习房间：打开书桌、成绩墙和电脑配件；',
+  '· 奖励：看桌搭、装机和游戏奖品，选一件心愿。积分兑换品与学习条件解锁的奖品分别显示规则；家长确认兑换。',
+  '· 奖励书桌上的每样物件都能点开看条件，也可以按名称找奖品。',
   '· 孩子版设置：查看家里的规则。',
   '他问"我在哪看xxx"时，直接告诉他点哪个标签、大概在页面什么位置，别让他自己找。'
   ].join('\n')
@@ -4136,7 +4144,7 @@ async function pendRun(){
     if(!_keep.length){pendDel(e.id);continue}
     try{
       const urls=_keep.map(function(im){return im.u})
-      if(e.kind==='check')submitCheck(e.typeId,e.subject,urls,e.append,_keep.map(function(im){return im.d}),e.quick)
+      if(e.kind==='check')submitCheck(e.typeId,e.subject,urls,e.append,_keep.map(function(im){return im.d}),e.quick,false,e.recordDate)
       else if(e.kind==='mk')mkCommit(urls)
       else if(e.kind==='hwitem')hwItemCommit(e.hwId,urls)
       else hwApply(urls)
@@ -4323,7 +4331,8 @@ function quickPrompt(){
     '{"subject":"'+MK_SUBJECTS.join('|')+'","kind":"作业拍照|课堂笔记|额外学习|其他"}',
     '· subject 认不出就填 其他；kind 只能从那四个里选。'].join('\n')
 }
-function quickShot(){
+function quickShot(forDate){
+  const recordDate=typeof forDate==='string'?forDate:ckDate()
   const inp=document.createElement('input')
   inp.type='file';inp.accept='image/*';inp.multiple=true
   inp.onchange=function(e){
@@ -4333,11 +4342,11 @@ function quickShot(){
     compressAll(files,function(bs){
       if(!bs.length){ts('照片处理失败，重拍一张');return}
       if(DEMO){
-        bs.forEach(d=>submitCheck('assignment','',[d],false,null,false,true))
+        bs.forEach(d=>submitCheck('assignment','',[d],false,null,false,true,recordDate))
         render()
         return
       }
-      bs.forEach(function(d,i){pendAdd({id:'q'+Date.now()+i+Math.random().toString(36).slice(2,5),kind:'check',typeId:'assignment',subject:'',append:false,quick:true,imgs:[{d:d,u:''}],ts:Date.now()})})
+      bs.forEach(function(d,i){pendAdd({id:'q'+Date.now()+i+Math.random().toString(36).slice(2,5),kind:'check',typeId:'assignment',subject:'',append:false,quick:true,recordDate:recordDate,imgs:[{d:d,u:''}],ts:Date.now()})})
       ts('⏳ 正在传（传完我自动认科目和类型）')
       render();pendRun()
     })
@@ -4550,33 +4559,6 @@ function gs(sem){return SUB[sem]||SUB['初二上']}
 function ct(sc,sem){const subs=gs(sem);let t=0,f=0;for(const s of subs){f+=s.full*s.rate;const v=sc[s.id];if(v!=null&&typeof v==='number')t+=v*s.rate}return{total:Math.round(t*10)/10,fullTotal:Math.round(f*10)/10,pct:f>0?Math.round(t/f*1000)/10:0}}
 function ymd(d){d=d||new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)}
 function fd(d){if(!d)return'—';const p=d.split('-');return p[0]+'年'+parseInt(p[1])+'月'+parseInt(p[2])+'日'}
-function buildTrendSvg(list){
-  const W=660,H=220,padL=46,padR=16,padT=18,padB=34
-  const pts=list.map(function(e){const info=ct(e.scores,e.sem);return {label:(e.date||'').slice(5)+' '+(e.examType||''),pct:info.pct}})
-  const n=pts.length
-  const x=function(i){return padL+(W-padL-padR)*(n<=1?0.5:i/(n-1))}
-  const y=function(v){return padT+(H-padT-padB)*(1-v/100)}
-  let path='',dots='',labels=''
-  for(let i=0;i<n;i++){
-    const px=x(i),py=y(pts[i].pct)
-    path+=(i?' L':'M')+px.toFixed(1)+' '+py.toFixed(1)
-    dots+='<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="4" fill="#818cf8" stroke="#0b0d12" stroke-width="2"/>'
-    dots+='<text x="'+px.toFixed(1)+'" y="'+(py-10).toFixed(1)+'" fill="#e6e8ee" font-size="11" text-anchor="middle">'+pts[i].pct.toFixed(0)+'%</text>'
-    if(n<=8||i%2===0||i===n-1)labels+='<text x="'+px.toFixed(1)+'" y="'+(H-12)+'" fill="#8b93a5" font-size="10" text-anchor="middle">'+pts[i].label.slice(0,9)+'</text>'
-  }
-  const ty=y(78.1)
-  const svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="'+H+'" preserveAspectRatio="xMidYMid meet" role="img" aria-label="成绩趋势">'+
-    '<line x1="'+padL+'" y1="'+padT+'" x2="'+padL+'" y2="'+(H-padB)+'" stroke="rgba(255,255,255,0.12)"/>'+
-    '<line x1="'+padL+'" y1="'+(H-padB)+'" x2="'+(W-padR)+'" y2="'+(H-padB)+'" stroke="rgba(255,255,255,0.12)"/>'+
-    '<line x1="'+padL+'" y1="'+ty.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+ty.toFixed(1)+'" stroke="#34d399" stroke-width="1.5" stroke-dasharray="6 5" opacity="0.9"/>'+
-    '<text x="'+(W-padR)+'" y="'+(ty-6).toFixed(1)+'" fill="#34d399" font-size="10" text-anchor="end">三中线 78%</text>'+
-    '<text x="8" y="'+(padT+4)+'" fill="#8b93a5" font-size="10">100%</text>'+
-    '<text x="14" y="'+(H-padB)+'" fill="#8b93a5" font-size="10">0%</text>'+
-    '<path d="'+path+'" fill="none" stroke="#818cf8" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>'+dots+labels+'</svg>'
-  const box=h('div',{style:'width:100%;overflow:hidden'})
-  box.innerHTML=svg
-  return box
-}
 function roundRect(g,x,y,w,hh,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+hh,r);g.arcTo(x+w,y+hh,x,y+hh,r);g.arcTo(x,y+hh,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath()}
 function wrapText(g,text,x,y,maxW,lh){
   let line=''
@@ -4651,9 +4633,15 @@ function render(){
   $c.innerHTML=''
   if(tb!=='chat'){document.body.classList.remove('chat-page');_memOpen=false}
   if(tb!=='today'&&tb!=='chat'){
-    $c.appendChild(h('header',{className:'workspace-heading'},
-      h('h1',null,TAB_NAME[tb]),
-      tb==='detail'?homeButton('返回今日',()=>sw('today'),'text','arrow-left'):null))
+    const isReward=tb==='points'
+    const title=isReward?(_pkView==='points'?'积分账本':'我的奖励书桌'):TAB_NAME[tb]
+    const headerAction=isReward
+      ? homeButton(_pkView==='points'?'返回书桌':'积分账本',()=>{
+          _pkView=_pkView==='points'?'catalog':'points'
+          render()
+        },'quiet',_pkView==='points'?'arrow-left':'list-checks')
+      : tb==='detail'?homeButton('返回今日',()=>sw('today'),'text','arrow-left'):null
+    $c.appendChild(h('header',{className:'workspace-heading'},h('h1',null,title),headerAction))
   }
   if(tb==='today')rtoday()
   else if(tb==='room')$c.appendChild(spaceHome())
@@ -4670,7 +4658,7 @@ function render(){
   try{pactDailyNudge()}catch(e){}
 }
 
-let _showAlerts=false,_openImg={},_examEdit=false,_openExamForm=false,_ckView='list',_scView='list',_pkView='points',_partEdit=false,_blEdit=false,_ptFilter='all',_exFilter='all'
+let _showAlerts=false,_openImg={},_examEdit=false,_openExamForm=false,_ckView='list',_scView='trend',_pkView='catalog',_partEdit=false,_blEdit=false,_ptFilter='all',_exFilter='all'
 
 /* ============ ① 今日（概览 + 快捷操作） ============ */
 /* 空间里的"面板"：点物件后，在场景里展开一块，而不是跳页面 */
@@ -4682,7 +4670,7 @@ function spacePanelBody(kind,host){
     else if(kind==='mistake') rckMk()
     else if(kind==='word') rckWord()
     else if(kind==='set') rset()
-    else if(kind==='parts'){ try{_pkView='parts'}catch(e){}; rpk() }
+    else if(kind==='parts'){ _pkView=ROLE.parent?'parts':'catalog'; rpk() }
     else if(kind==='wall'&&window.WALL){ WALL.mount(host,wallData()) }
     else if(kind==='detail')rtodayDetail()
     else if(kind==='chat'){
@@ -4874,8 +4862,10 @@ function openTodayCheckin(target){
     }
   }
 }
-function openTodayScores(){
-  _scView='list'
+function openTodayScores(review){
+  _scView=review===true?'list':'trend'
+  _scoreReviewOnly=review===true
+  if(_scoreReviewOnly)_exFilter='all'
   sw('scores')
 }
 function rtoday(){
@@ -4890,30 +4880,31 @@ function rtoday(){
   const work=h('div',{className:'home-page'})
   const date=new Intl.DateTimeFormat('zh-CN',{month:'long',day:'numeric',weekday:'long'}).format(new Date())
   work.appendChild(h('header',{className:'home-heading'},
-    h('div',null,h('h1',null,parent?'家长工作台':'今日学习'),h('p',null,date)),
+    h('div',null,h('h1',null,parent?'家长工作台':'我的驾驶舱'),h('p',null,date)),
     homeButton(unread?'留言 · '+unread+' 条未读':'家庭留言',()=>sw('detail'),'quiet','message-circle')))
 
-  const primary=parent
-    ? (pending?()=>waiting.length?openTodayCheckin('pendingReviews'):openTodayScores():()=>openTodayCheckin())
-    : quickShot
-  const title=parent?(pending?'有 '+pending+' 条记录待审核':'暂无待审核记录'):'拍照交作业'
-  const intro=parent?(pending?'看过照片或成绩后，就可以给孩子反馈。':'新提交会出现在这里。'):'作业、笔记、背诵，都可以拍下来。'
-  const hero=h('section',{className:'home-hero'},
-    h('img',{className:'home-hero-art',src:'cockpit-hero.webp',alt:'',width:900,height:600}),
-    h('div',{className:'home-hero-copy'},
-      h('h2',null,title),h('p',null,intro),
-      homeButton(parent?(pending?'去审核':'查看打卡'):'拍照提交',primary,'primary',parent?'list-checks':'camera')))
+  const hero=parent
+    ? h('section',{className:'home-hero'},
+        h('img',{className:'home-hero-art',src:'cockpit-hero.webp',alt:'',width:900,height:600,fetchpriority:'high'}),
+        h('div',{className:'home-hero-copy'},
+          h('h2',null,pending?'有 '+pending+' 条记录待审核':'暂无待审核记录'),
+          h('p',null,pending?'看过照片或成绩后，就可以给孩子反馈。':'新提交会出现在这里。'),
+          homeButton(pending?'去审核':'查看打卡',()=>exams.length&&!waiting.length?openTodayScores(true):openTodayCheckin('pendingReviews'),'primary','list-checks')))
+    : rewardHero()
   work.appendChild(hero)
   if(parent&&(D._alerts||[]).some(a=>!a.ack)){
     work.appendChild(homeButton('查看小搭的关注提醒',()=>sw('chat'),'quiet','bell'))
   }
 
   const metric=h('div',{className:'home-metrics'})
-  const available=myExp()-(D.points||[]).filter(p=>p.type==='spend').reduce((n,p)=>n+(p.points||0),0)
+  const available=rewardBalance()
   const metrics=[
     [parent?'今日已通过':'今日提交',checks.filter(c=>c.date===td&&(parent?c.status==='approved':true)).length,'条','list-checks','lilac',()=>openTodayCheckin()],
-    ['连续打卡',ckStreak(),'天','flame','amber',()=>openTodayCheckin()],
-    ['可用积分',available,'分','star','mint',()=>{_pkView='points';sw('points')}]
+    parent?['连续打卡',ckStreak(),'天','flame','amber',()=>openTodayCheckin()]
+      : ['已获得奖励',D.parts.filter(p=>p.received||p.unlocked).length,'件','gift','amber',()=>{
+        openRewardCatalog('owned')
+      }],
+    ['可用积分',available,'分','star','mint',openRewardCatalog]
   ]
   for(const [label,value,unit,icon,tone,fn] of metrics){
     metric.appendChild(h('button',{type:'button',className:'home-metric',onClick:fn},
@@ -4932,7 +4923,7 @@ function rtoday(){
         fd(c.date),homeButton('审核',()=>openTodayCheckin('review-'+c.id),'quiet')))
     }
     if(exams.length)list.appendChild(homeListRow('bar-chart-3','mint','成绩待审核',exams.length+' 条成绩记录',
-      homeButton('查看',openTodayScores,'quiet')))
+      homeButton('查看',()=>openTodayScores(true),'quiet')))
     if(!pending)list.appendChild(h('p',{className:'home-empty'},'暂时没有待审核的记录。'))
   }else{
     for(const job of jobs.slice(0,4)){
@@ -4952,8 +4943,7 @@ function rtoday(){
     ['小搭','问问题、聊一会儿','bot','lilac',()=>sw('chat')],
     ['单词闯关','练单词、听发音','book-open','mint',()=>sw('word')],
     ['错题本','拍下来，留着查','notebook-pen','rose',()=>sw('mistake')],
-    [parent?'成绩记录':'学习房间',parent?'录入与周报':'看看你的书桌',parent?'bar-chart-3':'house','amber',
-      parent?openTodayScores:()=>sw('room')]
+    ['成绩变化',parent?'趋势、明细与录入':'看看自己的变化','bar-chart-3','amber',openTodayScores]
   ]
   const tiles=h('div',{className:'home-tools'})
   for(const [label,desc,icon,tone,fn] of shortcuts){
@@ -5905,6 +5895,18 @@ const ICON={
   'arrow-right':'<path d="M4 12h15m-6-6 6 6-6 6"/>',
   'arrow-left':'<path d="M20 12H5m6-6-6 6 6 6"/>',
   'more':'<g fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></g>',
+  'pad':'<g><rect x="3" y="4" width="18" height="16" rx="4"/><path d="M5 16c5-4 9-5 14-4"/></g>',
+  'mouse':'<g><rect x="7" y="2" width="10" height="20" rx="5"/><path d="M12 5v4m-5 2h10"/></g>',
+  'bolt':'<path d="m13 2-7 12h6l-1 8 7-12h-6z"/>',
+  'keyboard':'<g><rect x="2" y="6" width="20" height="12" rx="3"/><path d="M5 10h1m3 0h1m4 0h1m3 0h1M6 14h1m3 0h5m3 0h1"/></g>',
+  'headset':'<g><path d="M3 13v-1a9 9 0 0 1 18 0v1"/><rect x="3" y="12" width="5" height="8" rx="2"/><rect x="16" y="12" width="5" height="8" rx="2"/></g>',
+  'speaker':'<g><rect x="6" y="2" width="12" height="20" rx="2"/><circle cx="12" cy="14.5" r="3.4"/><path d="M11.5 6h1"/></g>',
+  'pc':'<g><rect x="6" y="2" width="12" height="20" rx="2"/><circle cx="12" cy="8" r="2.6"/><circle cx="12" cy="15.5" r="2.6"/><path d="M8 22v1m8-1v1"/></g>',
+  'gamepad':'<g><path d="M7 7h10c2 0 3.4 2 4 4l1 5c.4 2-2 3.5-3.5 2l-3-3h-7l-3 3C4 19.5 1.6 18 2 16l1-5c.6-2 2-4 4-4Z"/><path d="M6 11h4m-2-2v4m8-2h.01M18 13h.01"/></g>',
+  'storage':'<g><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h10M7 15h4m5 0h1"/></g>',
+  'fan':'<g><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="12" cy="12" r="2"/><path d="M10 10C6 5 14 4 13 10m1 2c6 0 5 6 0 4l-2-2m-2-1c-3 6-9-.3-4-2l4 1"/></g>',
+  'chip':'<g><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6" rx="1"/><path d="M9 2v3m6-3v3M9 19v3m6-3v3M2 9h3m-3 6h3m14-6h3m-3 6h3"/></g>',
+  'console':'<g><rect x="2" y="6" width="20" height="12" rx="4"/><path d="M7 6v12m10-12v12M4.5 12h.1m14.8 0h.1"/></g>',
   'monitor':'<g><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M12 17v4m-4 0h8"/></g>',
   'sun':'<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></g>',
   'house':'<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></g>',
@@ -5943,7 +5945,7 @@ function icoEl(name,size){
 const NAV_ICONS={today:'house',checkin:'list-checks',scores:'bar-chart-3',mistake:'notebook-pen',
   word:'book-open',write:'pen-tool',chat:'bot',points:'gift',room:'monitor',settings:'settings',more:'more'}
 const GUIDE=[
-  {tab:'today',sel:'.home-hero',t:'从交一张开始',d:'在今日页拍照交作业，也可以看作业清单和提交状态。'},
+  {tab:'today',sel:'.home-hero',t:'选一个想攒的奖励',d:'可以先逛奖励展柜、选一个心愿；学过一项，也可以在首页拍照记下来。'},
   {tab:'checkin',sel:'.tabs [data-tab="checkin"]',t:'想记一笔就点这里',d:'拍张照就算记下来了。不用一次做完，也不用写得多好。'},
   {tab:'chat',sel:'#chatInput',t:'有不会的就找小搭',d:'在今日页的常用工具或导航里点「小搭」。题不会、心情不好，都能跟它说。'}
 ]
@@ -6292,7 +6294,7 @@ function hwItemCommit(hwId,urls){
     const it=(D.hw||[]).filter(function(x){return x.id===hwId})[0]
     const typeId=(it&&it.kind==='recite')?'recite':'assignment'
     const subj=(it&&it.subj&&it.subj!=='其他')?it.subj:''
-    const rec=submitCheck(typeId,subj,urls,false,null,false,true)
+    const rec=submitCheck(typeId,subj,urls,false,null,false,true,it&&it.date)
     if(it&&rec){it.recId=rec.id;it.doneAt=Date.now();sv(D)}
   }catch(e){console.warn('作业清单落地失败',e)}
 }
@@ -6552,27 +6554,409 @@ function rckList(){
 }
 
 /* ============ ③ 成绩（记录 / 周报） ============ */
+let _scoreSubject='all',_scoreFocus=null,_scoreReviewOnly=false
 function rsc(){
-  $c.appendChild(segBar([
-    {label:'📋 成绩记录',on:_scView==='list',fn:function(){_scView='list';render()}},
-    {label:'📊 学习周报',on:_scView==='weekly',fn:function(){_scView='weekly';render()}}
-  ]))
-  const box=h('div',null)
+  const modes=[['trend','变化趋势'],['list','考试明细'],['weekly','学习周报']]
+  $c.appendChild(segBar(modes.map(([key,label])=>({label,on:_scView===key,fn:()=>{
+    _scView=key;_scoreReviewOnly=false;render()
+  }}))))
+  const box=h('div',{className:'scores-page'})
   $c.appendChild(box)
   const host=$c; $c=box
-  try{ if(_scView==='weekly')rwk(); else rs() } finally{ $c=host }
+  try{
+    if(_scView==='weekly')rwk()
+    else if(_scView==='list')rs()
+    else scoreOverview()
+  }finally{$c=host}
+}
+function examsByDate(){
+  return (D.exams||[]).slice().sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||(a.ts||0)-(b.ts||0))
+}
+function absentExam(){
+  return D.examDate&&!D.exams.some(ex=>ex.date===D.examDate)?D.examDate:null
+}
+function scoreField(ex,kind){
+  const subs=gs(ex.sem||D.sem)
+  if(kind==='all'){
+    const numeric=subs.filter(sb=>Number.isFinite(ex.scores?.[sb.id]))
+    if(numeric.length!==subs.length)return {label:'只记录了部分科目',pct:null}
+    const res=ct(ex.scores,ex.sem||D.sem)
+    return {label:res.total+' / '+res.fullTotal,pct:res.pct}
+  }
+  const subj=subs.find(sb=>sb.id===kind)
+  if(!subj)return {label:'该学期无此科目',pct:null}
+  const raw=ex.scores?.[kind]
+  if(Number.isFinite(raw))return {label:raw+' / '+subj.full,pct:raw/subj.full*100}
+  if(typeof raw==='string'&&raw.trim())return {label:'等级 '+raw,pct:null}
+  return {label:'未录入该科',pct:null}
+}
+function scoreTimeline(){
+  const rows=examsByDate().map(ex=>{
+    const field=ex.status==='pending'?{label:'待审核',pct:null}
+      : ex.status==='rejected'?{label:'已退回',pct:null}:scoreField(ex,_scoreSubject)
+    return {key:String(ex.id),date:ex.date,title:ex.examType||'考试',...field}
+  })
+  const absent=absentExam()
+  if(absent&&absent<=td){
+    rows.push({key:'planned',date:absent,title:'计划考试',label:'整场未录入',pct:null})
+    rows.sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')))
+  }
+  return rows.slice(-8)
+}
+function drawScoreTimeline(rows,onPick){
+  const width=window.innerWidth<650?360:660,height=244,left=39,right=width-26,top=21,bottom=183
+  const values=rows.filter(row=>Number.isFinite(row.pct)).map(row=>row.pct)
+  const max=Math.max(100,Math.ceil(Math.max(0,...values)/25)*25)
+  const x=i=>rows.length===1?(left+right)/2:left+15+(right-left-30)*i/(rows.length-1)
+  const y=value=>bottom-(bottom-top)*Math.max(0,value)/max
+  let grid='',dots='',line='',connected=false
+  for(const tick of [0,25,50,75,100].map(n=>Math.round(n*max/100))){
+    grid+='<line x1="'+left+'" y1="'+y(tick)+'" x2="'+right+'" y2="'+y(tick)+'" class="score-gridline"/>'+
+      '<text x="'+(left-7)+'" y="'+(y(tick)+4)+'" text-anchor="end">'+tick+'%</text>'
+  }
+  for(let i=0;i<rows.length;i++){
+    const row=rows[i], px=x(i)
+    const date=/^\d{4}-\d{2}-\d{2}$/.test(row.date||'')?row.date.slice(5).replace('-','/'):''
+    const numeric=Number.isFinite(row.pct), py=numeric?y(row.pct):201
+    if(numeric){line+=(connected?' L':' M')+px+' '+py;connected=true}
+    else connected=false
+    dots+='<g tabindex="0" role="button" data-score-index="'+i+'" aria-label="'+(date||'考试')+
+      (numeric?'，得分率 '+Math.round(row.pct)+'%':'，暂无数值')+'">'+
+      '<circle cx="'+px+'" cy="'+py+'" r="16" fill="transparent"/>'+
+      '<circle cx="'+px+'" cy="'+py+'" r="'+(row.key===_scoreFocus?7:5)+'" class="'+(numeric?'score-dot':'score-gap')+'"/>'+
+      '<text x="'+px+'" y="228" text-anchor="middle">'+date+'</text></g>'
+  }
+  const graph=h('div',{className:'score-graph',innerHTML:
+    '<svg viewBox="0 0 '+width+' '+height+'" aria-label="最近考试得分率与缺记录">'+grid+
+    '<path class="score-line" d="'+line+'"/>'+dots+'</svg>'})
+  function select(e){
+    const hit=e.target.closest('[data-score-index]')
+    if(!hit)return
+    onPick(rows[Number(hit.dataset.scoreIndex)])
+  }
+  graph.addEventListener('click',select)
+  graph.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(e)}})
+  return graph
+}
+function scoreSummary(row){
+  const num=Number.isFinite(row.pct)
+  return h('div',{className:'score-highlight'},
+    h('span',{className:'score-highlight-icon'},homeIcon(num?'trending-up':'list-checks',20)),
+    h('div',null,h('strong',null,row.title),h('span',null,fd(row.date))),
+    h('div',{className:'score-reading'},h('strong',null,row.label),num?h('small',null,row.pct.toFixed(1)+'% 得分率'):null))
+}
+function scoreOverview(){
+  const rows=scoreTimeline()
+  const subjects=[...new Map(Object.values(SUB).flat().map(sb=>[sb.id,sb.name])).entries()]
+  const panel=h('section',{className:'score-panel'},
+    h('header',{className:'score-panel-head'},
+      h('div',null,h('h2',null,'我的成绩变化'),h('p',null,'按学期设定的满分换算得分率。')),
+      h('label',{className:'score-select'},h('span',null,'查看科目'),
+        h('select',{'aria-label':'查看科目',onChange:e=>{
+          _scoreSubject=e.target.value;_scoreFocus=null;render()
+          document.querySelector('.score-select select')?.focus({preventScroll:true})
+        }},...[['all','总分'],...subjects].map(([id,label])=>{
+          const opt=h('option',{value:id},label)
+          opt.selected=_scoreSubject===id
+          return opt
+        })))))
+  if(rows.length){
+    const active=rows.find(r=>r.key===_scoreFocus)||rows.slice().reverse().find(r=>Number.isFinite(r.pct))||rows[rows.length-1]
+    _scoreFocus=active.key
+    const graph=drawScoreTimeline(rows,row=>{
+      _scoreFocus=row.key
+      detail.replaceChildren(scoreSummary(row))
+      graph.querySelectorAll('.score-dot,.score-gap').forEach((dot,i)=>dot.setAttribute('r',rows[i].key===row.key?7:5))
+    })
+    const detail=h('div',{className:'score-focus','aria-live':'polite'},scoreSummary(active))
+    panel.appendChild(graph)
+    panel.appendChild(h('div',{className:'score-legend'},
+      h('span',null,h('i',{className:'leg-solid'}),'有分数'),
+      h('span',null,h('i',{className:'leg-hollow'}),'缺记录、等级或待审核'),
+      h('span',null,'点任意记录查看详情')))
+    panel.appendChild(detail)
+  }else{
+    panel.appendChild(h('div',{className:'score-empty'},homeIcon('bar-chart-3',34),h('strong',null,'还没有考试记录'),
+      h('p',null,ROLE.parent?'录入第一场考试，之后这里会显示变化。':'成绩录入后，这里会显示你的变化。')))
+  }
+  const note=absentExam()
+  if(note){
+    panel.appendChild(h('p',{className:'score-missing'},
+      note>td?'计划考试 · '+fd(note):'还没录入 '+fd(note)+' 的考试'))
+  }
+  panel.appendChild(h('div',{className:'score-actions'},
+    homeButton('查看考试明细',()=>{_scView='list';_scoreReviewOnly=false;render()},'quiet','arrow-right'),
+    ROLE.parent?homeButton('录入成绩',()=>{_scView='list';_openExamForm=true;render()},'primary','pen-tool'):null))
+  $c.appendChild(panel)
+}
+function scoreRecordList(){
+  const panel=h('section',{className:'score-panel score-history'})
+  const head=h('header',{className:'score-panel-head'},h('div',null,h('h2',null,'考试记录')),
+    h('label',{className:'score-select'},h('span',null,'学期'),
+      h('select',{'aria-label':'按学期筛选',onChange:e=>{
+        _exFilter=e.target.value;render()
+        document.querySelector('.score-history select')?.focus({preventScroll:true})
+      }},...[['all','全部学期'],...Object.keys(SUB).map(s=>[s,s])].map(([id,label])=>{
+        const opt=h('option',{value:id},label)
+        opt.selected=_exFilter===id
+        return opt
+      }))))
+  panel.appendChild(head)
+  const pending=ROLE.parent?D.exams.filter(ex=>ex.status==='pending'):[]
+  if(pending.length||_scoreReviewOnly){
+    panel.appendChild(h('div',{className:'score-actions'},
+      homeButton(_scoreReviewOnly?'显示所有记录':'待审核 · '+pending.length,()=>{
+        _scoreReviewOnly=!_scoreReviewOnly
+        if(_scoreReviewOnly)_exFilter='all'
+        render()
+      },_scoreReviewOnly?'primary':'quiet'),
+      ROLE.parent&&pending.length?homeButton('全部通过',()=>approveExams(pending),'quiet'):null))
+  }
+  const missing=absentExam()
+  if(missing&&missing<=td&&_exFilter==='all'&&!_scoreReviewOnly){
+    panel.appendChild(h('p',{className:'score-missing'},fd(missing)+' · 整场未录入'))
+  }
+  const exams=examsByDate().reverse().filter(ex=>
+    (!_scoreReviewOnly||ex.status==='pending')&&(_exFilter==='all'||ex.sem===_exFilter))
+  if(!exams.length)panel.appendChild(h('p',{className:'score-missing'},
+    _scoreReviewOnly?'当前没有待审核成绩。':'这个学期还没有成绩记录。'))
+  for(const ex of exams){
+    const parts=gs(ex.sem||D.sem)
+    const entered=parts.filter(sb=>ex.scores?.[sb.id]!=null&&ex.scores[sb.id]!=='').length
+    const all=scoreField(ex,'all')
+    const state=ex.status==='pending'?'待审核':ex.status==='rejected'?'已退回':entered<parts.length?'部分录入':'已记录'
+    const row=h('details',{className:'score-record'})
+    row.appendChild(h('summary',null,
+      h('span',{className:'score-highlight-icon'},homeIcon('notebook-pen',19)),
+      h('span',{className:'score-exam-title'},h('strong',null,ex.examType||'考试'),h('small',null,fd(ex.date)+' · '+(ex.sem||D.sem))),
+      h('span',{className:'score-exam-value'},h('strong',null,Number.isFinite(all.pct)?all.label:'已录 '+entered+' / '+parts.length+' 科'),
+        h('small',null,state))))
+    const detail=h('div',{className:'score-exam-body'})
+    const grids=h('div',{className:'score-subjects'})
+    for(const sb of parts){
+      const val=ex.scores?.[sb.id]
+      const missing=val==null||val===''
+      grids.appendChild(h('div',{className:'score-subject'+(missing?' missing':'')},
+        h('span',null,sb.name),h('strong',null,missing?'未录入':Number.isFinite(val)?val+' / '+sb.full:'等级 '+val)))
+    }
+    detail.appendChild(grids)
+    const photos=ex.imgs||[]
+    if(photos.length){
+      const images=h('div',{className:'score-photos'})
+      for(const photo of photos)images.appendChild(photoImg(photo,photos,'width:60px;height:60px;object-fit:cover;border-radius:8px;cursor:pointer'))
+      detail.appendChild(images)
+    }
+    if(ex.history?.length){
+      const history=h('details',{className:'score-log'},h('summary',null,'更新记录 · '+ex.history.length+' 条'))
+      for(const item of ex.history)history.appendChild(h('p',null,fd(ymd(new Date(item.ts)))+' · '+item.note))
+      detail.appendChild(history)
+    }
+    if(ROLE.parent){
+      const actions=h('div',{className:'score-actions'})
+      if(ex.status==='approved')actions.appendChild(homeButton('撤回通过',()=>unapproveExam(ex.id),'quiet'))
+      if(ex.status==='pending'){
+        actions.appendChild(homeButton('通过',()=>approveExam(ex.id),'primary'))
+        actions.appendChild(homeButton('退回',()=>rejectExam(ex.id),'quiet'))
+      }
+      if(ex.status==='rejected')actions.appendChild(homeButton('重新提交',()=>{
+        ex.status='pending';ex.at=Date.now();sv(D);render()
+      },'quiet'))
+      actions.appendChild(homeButton('编辑',()=>{
+        _editExamId=ex.id;_editOrig=ex;render()
+        const form=document.getElementById('scoreExamForm')
+        form?.scrollIntoView({block:'start'})
+        form?.focus({preventScroll:true})
+      },'quiet','pen-tool'))
+      actions.appendChild(homeButton('删除',()=>{
+        const label=fd(ex.date)+' '+(ex.examType||'考试')
+        trashPush('exam',label,ex)
+        removeWithUndo(D.exams,ex,label)
+      },'quiet'))
+      detail.appendChild(actions)
+    }
+    row.appendChild(detail)
+    panel.appendChild(row)
+  }
+  $c.appendChild(panel)
 }
 
 /* ============ ④ 积分奖励（积分 / 零件） ============ */
 function rpk(){
-  $c.appendChild(segBar([
-    {label:'⭐ 积分账本',on:_pkView==='points',fn:function(){_pkView='points';render()}},
-    {label:'🎁 零件奖励',on:_pkView==='parts',fn:function(){_pkView='parts';render()}}
-  ]))
   const box=h('div',null)
   $c.appendChild(box)
   const host=$c; $c=box
-  try{ if(_pkView==='parts')rp(); else rpt() } finally{ $c=host }
+  try{
+    if(_pkView==='points')rpt()
+    else rewardCatalog()
+  }finally{$c=host}
+}
+
+const REWARD_FILTERS=[['all','全景'],['desk','桌面'],['pc','机箱'],['game','游戏'],['owned','已获得']]
+const REWARD_ICONS={1:'pad',2:'mouse',3:'bolt',4:'keyboard',5:'headset',6:'camera',7:'speaker',8:'pc',
+  9:'gamepad',10:'storage',11:'fan',12:'bolt',13:'storage',14:'chip',15:'chip',16:'monitor',17:'chip',18:'fan',
+  19:'console',20:'gamepad'}
+let _rewardFilter='all'
+function rewardGroup(part){
+  if(part.exchange||[9,19,20].includes(Number(part.id)))return 'game'
+  if([8,10,11,12,13,14,15,17,18].includes(Number(part.id)))return 'pc'
+  return 'desk'
+}
+function rewardBalance(){
+  return myExp()-(D.points||[]).filter(p=>p.type==='spend').reduce((n,p)=>n+(p.points||0),0)
+}
+function rewardCost(part){return Math.round(part.value*(D.rate||10))}
+function rewardWishKey(){return DEMO?'lc_demo_reward_wish':'lc_reward_wish'}
+function getRewardWish(){
+  try{
+    const id=localStorage.getItem(rewardWishKey())
+    return D.parts.find(p=>String(p.id)===id)||null
+  }catch(e){return null}
+}
+function saveRewardWish(part){
+  try{
+    if(part)localStorage.setItem(rewardWishKey(),String(part.id))
+    else localStorage.removeItem(rewardWishKey())
+    return true
+  }catch(e){ts('本机无法保存心愿，请检查浏览器存储。');return false}
+}
+function openRewardCatalog(filter){_rewardFilter=typeof filter==='string'?filter:'all';_pkView='catalog';sw('points')}
+function rewardState(part,balance){
+  if(part.received)return '已签收'
+  if(part.unlocked)return '已解锁'
+  if(!part.exchange)return '条件解锁'
+  return balance>=rewardCost(part)?'可兑换':'积分兑换'
+}
+function rewardProgress(part,balance){
+  const need=Math.max(0,rewardCost(part))
+  const have=Math.max(0,balance)
+  const done=Math.min(have,need)
+  const progress=h('progress',{value:done,max:need||1,'aria-label':'心愿积分进度'})
+  return h('div',{className:'reward-progress'},
+    h('div',null,h('span',null,'积分进度'),h('strong',null,have.toLocaleString()+' / '+need.toLocaleString())),
+    progress)
+}
+function rewardHero(){
+  const part=getRewardWish()
+  const hasWish=!!part
+  const balance=rewardBalance()
+  const title=hasWish?part.name:'挑一件想带回家的奖励'
+  let sub='桌面装备、电脑零件和游戏奖励。'
+  if(hasWish){
+    if(part.received||part.unlocked)sub=rewardState(part,balance)
+    else if(part.exchange)sub=balance>=rewardCost(part)?'积分已攒够，可以请家长兑换。':'我的心愿'
+    else sub='我的心愿 · '+(part.cond||part.det||'按家里约定解锁')
+  }
+  return h('section',{className:'home-hero reward-hero',id:'rewardGoal',tabindex:'-1'},
+    h('div',{className:'reward-art','aria-hidden':'true'},
+      h('div',{className:'reward-light'}),
+      h('div',{className:'reward-tower'},
+        h('div',{className:'reward-tower-top'}),
+        h('div',{className:'reward-tower-side'},h('i'),h('i'),h('i')),
+        h('div',{className:'reward-tower-front'},h('i'),h('i'),h('i'))),
+      h('div',{className:'reward-controller'},homeIcon('gamepad',86))),
+    h('div',{className:'home-hero-copy'},
+      h('h2',null,title),h('p',null,sub),
+      hasWish&&part.exchange&&!part.unlocked&&!part.received?rewardProgress(part,balance):null,
+      h('div',{className:'reward-actions'},
+        homeButton('看我的书桌',openRewardCatalog,'primary','gift'),
+        homeButton('拍照打卡',()=>quickShot(td),'quiet','camera'))))
+}
+function rewardDialog(part){
+  const balance=rewardBalance()
+  const need=rewardCost(part)
+  const owned=part.received||part.unlocked
+  const ownWish=getRewardWish()
+  const selected=ownWish&&ownWish.id===part.id
+  const dialog=h('dialog',{className:'reward-dialog','aria-labelledby':'rewardDialogTitle'})
+  const hide=()=>dialog.close()
+  const header=h('header',null,h('span',{className:'reward-dialog-art','aria-hidden':'true'},
+    homeIcon(REWARD_ICONS[part.id]||'gift',44)),
+    h('div',null,h('h2',{id:'rewardDialogTitle'},part.name),h('span',{className:'reward-tag'},rewardState(part,balance))),
+    h('button',{type:'button',className:'reward-close','aria-label':'关闭详情',onClick:hide},'×'))
+  const details=h('div',{className:'reward-dialog-info'},
+    h('h3',null,part.exchange?'兑换规则':'解锁条件'),
+    h('p',null,part.exchange?(need.toLocaleString()+' 积分 · 家长确认兑换'):(part.cond||'按家里约定解锁')),
+    part.det?h('p',null,part.det):null,
+    ROLE.parent?h('p',null,'参考价格 ¥'+Number(part.value||0).toLocaleString()):null)
+  if(part.exchange&&!owned)details.appendChild(rewardProgress(part,balance))
+  const actions=h('div',{className:'reward-actions'})
+  if(ROLE.kid){
+    if(!owned||selected)actions.appendChild(homeButton(selected?'取消心愿':'设为我的心愿',()=>{
+      if(!saveRewardWish(selected?null:part))return
+      hide();render()
+      document.getElementById('rewardGoal')?.focus()
+      ts(selected?'已取消心愿':'已设为我的心愿')
+    },selected?'quiet':'primary','star'))
+    if(part.exchange&&!owned)actions.appendChild(homeButton('拍照打卡',()=>{hide();quickShot(td)},'quiet','camera'))
+  }else{
+    if(part.exchange&&!owned&&balance>=need)actions.appendChild(homeButton('兑换奖励',()=>{
+      hide()
+      ask('兑换「'+part.name+'」？','确认后将扣除 '+need.toLocaleString()+' 积分。','确认兑换',()=>{
+        const current=D.parts.find(p=>p.id===part.id)
+        if(current&&rewardCost(current)!==need){ts('奖励价格已更新，请重新查看。');return}
+        exchangeReward(current)
+      })
+    },'primary','gift'))
+    if(part.unlocked&&!part.received)actions.appendChild(homeButton('标记签收',()=>{hide();receiveReward(part)},'primary','list-checks'))
+    actions.appendChild(homeButton('改价',()=>{hide();editRewardPrice(part)},'quiet','pen-tool'))
+  }
+  dialog.append(header,details,actions)
+  dialog.addEventListener('close',()=>dialog.remove(),{once:true})
+  dialog.addEventListener('click',e=>{
+    if(e.target!==dialog)return
+    const {top,right,bottom,left}=dialog.getBoundingClientRect()
+    if(e.clientX<left||e.clientX>right||e.clientY<top||e.clientY>bottom)hide()
+  })
+  document.body.appendChild(dialog)
+  dialog.showModal()
+}
+function rewardCatalog(){
+  const balance=rewardBalance()
+  const owned=D.parts.filter(p=>p.received||p.unlocked).length
+  const data=h('div',{className:'reward-catalog'})
+  const wish=ROLE.kid?getRewardWish():null
+  if(wish){
+    data.appendChild(h('section',{className:'reward-goal',id:'rewardGoal',tabindex:'-1'},
+      h('span',{className:'reward-dialog-art','aria-hidden':'true'},homeIcon(REWARD_ICONS[wish.id]||'gift',32)),
+      h('div',{className:'reward-goal-text'},h('h2',null,'我的心愿 · '+wish.name),
+        wish.exchange&&!wish.unlocked&&!wish.received?rewardProgress(wish,balance):
+          h('p',null,wish.unlocked||wish.received?rewardState(wish,balance):(wish.cond||'按家里约定解锁'))),
+      homeButton('详情',()=>rewardDialog(wish),'quiet')))
+  }
+  const section=h('section',{className:'reward-shelf',id:'rewardShelf','aria-label':'可视化奖品书桌'},
+    h('header',{className:'reward-shelf-head'},
+      h('h2',null,'点物件看奖品'),
+      h('span',null,homeIcon('star',16),'可用积分 '+balance.toLocaleString(),h('span',null,'已获得 '+owned+' 件'))))
+  const filters=h('div',{className:'reward-filters','aria-label':'书桌取景'})
+  for(const [key,label] of REWARD_FILTERS){
+    filters.appendChild(h('button',{type:'button','data-reward-filter':key,'aria-pressed':String(_rewardFilter===key),onClick:()=>{
+      _rewardFilter=key
+      render()
+      document.querySelector('[data-reward-filter="'+key+'"]')?.focus({preventScroll:true})
+    }},label))
+  }
+  const items=D.parts.filter(p=>_rewardFilter==='all'||(_rewardFilter==='owned'?(p.received||p.unlocked):rewardGroup(p)===_rewardFilter))
+  const scene=h('div',{className:'reward-room-host'})
+  const picker=h('select',{id:'rewardPicker','aria-label':'按名称找奖品',
+    onChange:e=>{
+      const part=items.find(p=>String(p.id)===e.target.value)
+      e.target.value=''
+      if(part)rewardDialog(part)
+    }},h('option',{value:''},'按名称找奖品'))
+  for(const part of items)picker.appendChild(h('option',{value:part.id},part.name+' · '+rewardState(part,balance)))
+  picker.disabled=!items.length
+  section.appendChild(filters)
+  section.appendChild(scene)
+  section.appendChild(h('div',{className:'reward-picker'},picker))
+  if(_rewardFilter==='owned'&&!items.length)section.appendChild(h('p',{className:'reward-empty'},'已解锁或已兑换的奖品会在这里亮起。'))
+  data.appendChild(section)
+  $c.appendChild(data)
+  if(window.ROOM){
+    ROOM.mount(scene,{parts:D.parts,rate:D.rate||10,avail:balance,bare:true,rewardZone:_rewardFilter,
+      rewardIds:_rewardFilter==='all'?null:items.map(p=>Number(p.id)),onPart:rewardDialog})
+  }else{
+    scene.appendChild(h('p',{className:'reward-empty'},'书桌暂未载入，可以按名称查看奖品。'))
+  }
 }
 
 /* ============ ⑤ 设置（所有配置集中） ============ */
@@ -7135,8 +7519,6 @@ function _rsetBody(){
 
 let _editExamId=null,_editOrig=null
 function rs(){
-  $c.appendChild(h('div',{className:'daily-praise'},'💬 '+encLine()))
-
   const editing=_editExamId?true:false
   const orig=_editOrig
   // 每科目的照片：subjImgs[科目id] = [b64,...]
@@ -7145,14 +7527,11 @@ function rs(){
   else if(editing&&orig&&orig.imgs&&orig.imgs.length){subjImgs['__all']=orig.imgs.slice()}
 
   const _showForm=editing||_openExamForm
-  if(!_showForm){
-    const oc=h('div',{className:'card edit-only'})
-    oc.appendChild(h('button',{className:'btn btn-primary',onClick:function(){_openExamForm=true;render()}},'＋ 录入考试成绩'))
-    oc.appendChild(h('div',{style:'font-size:var(--fs-14);color:var(--muted);margin-top:8px'},'点按钮展开录入；录入时可以顺手拍试卷照片，通过后计入'))
-    $c.appendChild(oc)
+  if(!_showForm&&ROLE.parent){
+    $c.appendChild(homeButton('录入考试成绩',()=>{_openExamForm=true;render()},'primary','pen-tool'))
   }
-  if(_showForm){
-  const fc=h('div',{className:'card'})
+  if(_showForm&&ROLE.parent){
+  const fc=h('div',{className:'card',id:'scoreExamForm',tabindex:'-1'})
   fc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📝'}),editing?'编辑考试成绩':'录入考试成绩（分数+试卷照片放一起）'))
   const sel=function(v,c){return v===c?' selected':''}
   fc.innerHTML+='<div class="form-row"><div><label>日期</label><input type="date" id="ed" value="'+(editing&&orig?orig.date:td)+'"><div style="margin-top:4px;display:flex;gap:6px"><button type="button" class="btn btn-outline btn-sm" onclick="setExamDate(0)">今天</button><button type="button" class="btn btn-warning btn-sm" onclick="setExamDate(1)">昨天</button></div></div><div><label>学期</label><select id="es">'+['初二上','初二下','初三上','初三下'].map(function(s){return '<option value="'+s+'"'+(editing&&orig?sel(orig.sem,s):(D.sem===s?' selected':''))+'>'+s+'</option>'}).join('')+'</select></div><div><label>考试类型</label><select id="et">'+['小测试','期中','期末','月考','模拟考','中考'].map(function(s){return '<option value="'+s+'"'+(editing&&orig?sel(orig.examType,s):'')+'>'+s+'</option>'}).join('')+'</select></div></div>'
@@ -7290,32 +7669,10 @@ function rs(){
   $c.appendChild(fc)
   }
 
-  // 家长审核区
-  if(ROLE.review){
-    const pending=(D.exams||[]).filter(function(x){return x.status==='pending'})
-    if(pending.length){
-      const ap=h('div',{className:'card'})
-      ap.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'👩‍👩‍👧'}),'待审核成绩（'+pending.length+'条）'))
-      ap.appendChild(h('button',{className:'btn btn-success btn-sm',style:'margin-bottom:10px',onClick:function(){approveExams(pending)}},'✅ 全部通过（'+pending.length+'条）'))
-      for(const ex of pending){
-        const row=h('div',{className:'mistake-item'})
-        const info=ct(ex.scores,ex.sem)
-        row.innerHTML='<div><strong>'+fd(ex.date)+' '+ex.sem+' '+ex.examType+'</strong> 总分 '+info.total+'/'+info.fullTotal+'</div>'
-        if(ex.imgs&&ex.imgs.length){
-          const ir=h('div',{style:'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px'})
-          for(const b of ex.imgs){ir.appendChild(photoImg(b,ex.imgs,'width:70px;height:70px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)'))}
-          row.appendChild(ir)
-        }
-        const br=h('div',{className:'mt8'})
-        br.appendChild(h('button',{className:'btn btn-success btn-sm',onClick:function(){approveExam(ex.id)}},'✅ 通过'))
-        br.appendChild(h('button',{className:'btn btn-danger btn-sm ml6',onClick:function(){rejectExam(ex.id)}},'↩️ 退回'))
-        row.appendChild(br)
-        ap.appendChild(row)
-      }
-      $c.appendChild(ap)
-    }
-  }
-
+  scoreRecordList()
+  if(!ROLE.parent)return
+  const baselines=h('details',{className:'score-baseline'},h('summary',null,'起点成绩和学习参考'))
+  baselines.open=_blEdit
   // 成绩基准线（起点分）+ 薄弱科目
   const bsubs=gs(D.sem)
   const bc=h('div',{className:'card'})
@@ -7358,7 +7715,7 @@ function rs(){
       },'✅ 基准分已保存')
     }
   }
-  $c.appendChild(bc)
+  baselines.appendChild(bc)
 
   const weakSubs=[]
   for(const sb of bsubs){const raw=D.bl&&D.bl[sb.id]!=null?D.bl[sb.id]:null;if(raw!=null){const wp=raw/sb.full*100;if(wp<60)weakSubs.push({name:sb.name,pct:wp})}}
@@ -7373,78 +7730,11 @@ function rs(){
       else if(w.name==='物理')adv='先弄懂每个公式的含义，做课本例题'
       wc.appendChild(h('div',{className:'alert danger'},'🔴 '+w.name+' 得分率 '+w.pct.toFixed(1)+'% — 建议：'+adv))
     }
-    $c.appendChild(wc)
+    baselines.appendChild(wc)
   }
 
-  // 成绩趋势图
-  const _exs=(D.exams||[]).filter(function(e){return e.status!=='rejected'})
-  if(_exs.length>=2){
-    const _sorted=[..._exs].sort(function(a,b){return (a.date||'').localeCompare(b.date||'')}).slice(-12)
-    const tcc=h('div',{className:'card'})
-    tcc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📈'}),'成绩趋势（'+(D.sem||'')+' 得分率）'))
-    tcc.appendChild(buildTrendSvg(_sorted))
-    tcc.appendChild(h('div',{style:'font-size:var(--fs-14);color:var(--muted);margin-top:4px'},'绿色虚线是「三中 625 线」对应得分率 78.1%，点越往上越好'))
-    $c.appendChild(tcc)
-  }
 
-  // 成绩列表
-  const lc=h('div',{className:'card'})
-  lc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📋'}),'成绩记录（共 '+D.exams.length+' 次）'))
-  const _ech=h('div',{style:'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px'})
-  ;[['all','全部'],['初二上','初二上'],['初二下','初二下'],['初三上','初三上'],['初三下','初三下']].forEach(function(f){
-    _ech.appendChild(h('button',{className:'btn btn-sm '+(_exFilter===f[0]?'btn-primary':'btn-outline'),onClick:function(){_exFilter=f[0];render()}},f[1]))
-  })
-  lc.appendChild(_ech)
-  if(!D.exams.length){lc.appendChild(h('div',{style:'text-align:center;padding:40px;color:var(--muted)'},'📭 暂无记录'))}
-  else{
-    const sorted=[...D.exams].filter(function(x){return _exFilter==='all'||(x.sem||'初二上')===_exFilter}).sort(function(a,b){return b.ts-a.ts})
-    for(const ex of sorted){
-      const info=ct(ex.scores,ex.sem)
-      const pctColor=info.pct<65?'var(--danger)':info.pct<75?'var(--warning)':'var(--success)'
-      const st=ex.status==='pending'?'⏳ 待审核':ex.status==='rejected'?'↩️ 已退回':'✅'
-      const stc=ex.status==='pending'?'var(--warning)':ex.status==='rejected'?'var(--muted)':'var(--success)'
-      const row=h('div',{className:'mistake-item'})
-      row.innerHTML='<div><strong>'+fd(ex.date)+' '+ex.sem+' '+ex.examType+'</strong> <span style="color:'+stc+'">'+st+'</span></div><div style="font-size:var(--fs-15);color:var(--muted);margin-top:2px">总分 <strong style="color:'+pctColor+'">'+info.total+'</strong> / '+info.fullTotal+' （'+ps(info.pct)+'）</div>'
-      if(ex.imgs&&ex.imgs.length){
-        const ir=h('div',{style:'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px'})
-        for(const b of ex.imgs){ir.appendChild(photoImg(b,ex.imgs,'width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)'))}
-        row.appendChild(ir)
-      }
-      if(ex.history&&ex.history.length){
-        const hd=h('div',{style:'margin-top:6px;font-size:var(--fs-14);color:var(--faint)'})
-        hd.appendChild(h('div',{style:'font-weight:600;color:var(--muted)'},'📝 更新日志（'+ex.history.length+'条）'))
-        for(const hh of ex.history){hd.appendChild(h('div',{style:'margin-top:2px'},fd(ymd(new Date(hh.ts)))+': '+hh.note))}
-        row.appendChild(hd)
-      }
-      if(ROLE.edit&&ex.status!=='approved'){
-        const br=h('div',{className:'mt8'})
-        if(ex.status==='pending'){
-          br.appendChild(h('button',{className:'btn btn-success btn-sm',onClick:function(){approveExam(ex.id)}},'✅ 通过'))
-          br.appendChild(h('button',{className:'btn btn-danger btn-sm ml6',onClick:function(){rejectExam(ex.id)}},'↩️ 退回'))
-        }
-        if(ex.status==='rejected'){
-          br.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){ex.status='pending';sv(D);render()}},'重新提交'))
-        }
-        row.appendChild(br)
-      }
-      if(ROLE.review){
-        const br2=h('div',{className:'mt8'})
-        if(ex.status==='approved')br2.appendChild(h('button',{className:'btn btn-outline btn-sm',style:'margin-right:6px',onClick:function(){unapproveExam(ex.id)}},'↩️ 回退'))
-        br2.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_editExamId=ex.id;_editOrig=ex;render()}},'✏️ 编辑'))
-        const delBtn=h('button',{className:'btn btn-danger btn-sm ml6'})
-        delBtn.innerHTML='🗑'
-        delBtn.onclick=function(){
-          const _nm=fd(ex.date)+' '+ex.sem+' '+ex.examType
-          trashPush('exam',_nm,ex)
-          removeWithUndo(D.exams,ex,_nm)
-        }
-        br2.appendChild(delBtn)
-        row.appendChild(br2)
-      }
-      lc.appendChild(row)
-    }
-  }
-  $c.appendChild(lc)
+  $c.appendChild(baselines)
 }
 
 function cu(ex){
@@ -7458,20 +7748,6 @@ function cu(ex){
   if(ex.sem==='初二上'&&ex.examType==='期末'&&info.total>=508&&!D.phone){D.phone=true;ch=true}
   if(ch){sv(D);ts('🎉 解锁！ · '+praise('unlock'))}
 }
-
-/* 空间视图偏好：房间 / 成绩墙 / 清单（只存本机，不进 D、不上云） */
-const LS_ROOMVIEW='lc_space_view'
-function spaceView(){
-  try{
-    const v=localStorage.getItem(LS_ROOMVIEW)
-    if(v==='room'||v==='wall'||v==='list')return v
-    if(v==='0')return 'list'          /* 兼容老值 */
-    return 'room'
-  }catch(e){return 'room'}
-}
-function setSpaceView(v){try{localStorage.setItem(LS_ROOMVIEW,v)}catch(e){}}
-function roomViewOn(){return spaceView()!=='list'}
-function setRoomView(on){setSpaceView(on?'room':'list')}
 
 /* 房间要反映的今天：待审核几张、今天过了几条 */
 function roomToday(){
@@ -7525,106 +7801,28 @@ function wallData(){
     role:ROLE.parent?'p':'c',next:next}
 }
 
-function rp(){
-  $c.appendChild(h('div',{className:'daily-praise'},'💬 '+encLine()))
-  const rate=D.rate||1
-  const pu=D.parts.filter(p=>p.unlocked).length
-  const pr=D.parts.filter(p=>p.received).length
-  const tv=D.parts.filter(p=>p.unlocked).reduce((s,p)=>s+p.value,0)
-  const tpc=D.parts.filter(p=>p.unlocked).reduce((s,p)=>s+Math.round(p.value*rate),0)
-
-  const sg=h('div',{className:'stat-grid'})
-  sg.appendChild(h('div',{className:'stat-card success'},h('div',{className:'sv'},pu+'/'+D.parts.length),h('div',{className:'sl'},'已解锁')))
-  sg.appendChild(h('div',{className:'stat-card primary'},h('div',{className:'sv'},pr+'/11'),h('div',{className:'sl'},'已签收')))
-  sg.appendChild(h('div',{className:'stat-card '+(pu>=3?'success':'warning')},h('div',{className:'sv'},'¥'+tv.toLocaleString()),h('div',{className:'sl'},'已解锁价值')))
-  sg.appendChild(h('div',{className:'stat-card primary'},h('div',{className:'sv'},'⭐'+tpc.toLocaleString()),h('div',{className:'sl'},'已解锁需积分')))
-
-  /* 积分兑换率已移到「设置」页 */
-
-  const teP=D.points.filter(p=>p.type==='earn').reduce((s,p)=>s+p.points,0)
-  const tsP=D.points.filter(p=>p.type==='spend').reduce((s,p)=>s+p.points,0)
-  const availPts=teP-tsP
-
-  /* 签收 / 兑换 / 改价 —— 房间和清单共用，逻辑只有这一份 */
-  function doReceive(part){
-    if(!ROLE.parent||!part||!part.unlocked||part.received)return
-    part.received=true;sv(D);render();ts('✅ 已标记签收 · '+praise('part'))
-    undoBar('已标记「'+part.name+'」签收',function(){part.received=false;sv(D);render();ts('↩️ 已撤销签收')})
-  }
-  function doExchange(part,need){
-    if(!ROLE.parent||!part||part.unlocked)return
-    if(part._buying)return
-    part._buying=1;setTimeout(function(){try{part._buying=0}catch(e2){}},1500)
-    if(availPts<need){ts('⚠️ 积分不足，还差 '+(need-availPts).toLocaleString()+' 分');return}
-    const _rec={id:_newId('p'),date:td,source:'兑换 '+part.name,points:need,type:'spend'}
-    D.points.push(_rec);part.unlocked=true;sv(D);render();ts('✅ 已兑换 '+part.name+' · '+praise('part'))
-    undoBar('已兑换：'+part.name+'（-⭐'+need.toLocaleString()+'）',function(){const _i=D.points.indexOf(_rec);if(_i>=0)D.points.splice(_i,1);part.unlocked=false;sv(D);render();ts('↩️ 已撤销兑换')})
-  }
-  function doEditPrice(part){
-    if(!ROLE.edit||!part)return
-    const np=prompt('修改 '+part.name+' 价格（当前：¥'+part.value.toLocaleString()+'）：',part.value)
-    if(np!==null){const v=parseFloat(np);if(!isNaN(v)&&v>0){part.value=v;sv(D);render();ts('✅ 已更新')}}
-  }
-  function partById(id){for(const x of D.parts){if(x.id===id)return x}return null}
-
-  /* 空间 / 清单 切换（只记本机偏好，不进 D、不同步） */
-  const sv=spaceView()
-  const seg=h('div',{className:'room-seg'})
-  seg.appendChild(h('button',{className:'btn btn-sm '+(sv==='room'?'btn-primary':'btn-outline'),onClick:function(){setSpaceView('room');render()}},'🖥 房间'))
-  seg.appendChild(h('button',{className:'btn btn-sm '+(sv==='wall'?'btn-primary':'btn-outline'),onClick:function(){setSpaceView('wall');render()}},'🖼 成绩墙'))
-  seg.appendChild(h('button',{className:'btn btn-sm '+(sv==='list'?'btn-primary':'btn-outline'),onClick:function(){setSpaceView('list');render()}},'📋 清单'))
-  $c.appendChild(seg)
-
-  if(sv==='wall'&&window.WALL){
-    const whost=h('div',{className:'wall-host'})
-    $c.appendChild(whost)
-    try{ WALL.mount(whost,wallData()) }catch(e){ setSpaceView('list'); $c.appendChild(h('div',{className:'card'},'成绩墙没加载出来（'+e.message+'），已切回清单')) }
-  }else if(sv==='room'&&window.ROOM){
-    const host=h('div',{className:'room-host'})
-    $c.appendChild(host)
-    try{
-      ROOM.mount(host,{
-        parts:D.parts,rate:rate,avail:availPts,today:roomToday(),
-        canReceive:ROLE.parent,canEdit:ROLE.edit,
-        onReceive:function(id){doReceive(partById(id))},
-        onExchange:function(id){const p=partById(id);if(p)doExchange(p,Math.round(p.value*rate))},
-        onEdit:function(id){doEditPrice(partById(id))},
-        toast:function(m){ts(m)}
-      })
-    }catch(e){
-      setRoomView(false)
-      $c.appendChild(h('div',{className:'card'},'房间没加载出来（'+e.message+'），已经给你切回清单'))
-    }
-  }else{
-    const pc=h('div',{className:'card'})
-    pc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'💻'}),'零件清单（¥价格 / ⭐积分）'))
-    const grid=h('div',{className:'parts-grid'})
-    for(const part of D.parts){
-      const pcost=Math.round(part.value*rate)
-      const card=h('div',{className:'part-card '+(part.unlocked?'unlocked':'locked'),onClick:()=>{doReceive(part)}})
-      card.innerHTML='<div class="pb">'+(part.received?'✅':part.unlocked?'🔓':'🔒')+'</div><div class="pi">'+part.icon+'</div><div class="pn">'+part.name+'</div><div class="pv">¥'+part.value.toLocaleString()+' / ⭐'+pcost.toLocaleString()+'</div><div class="pc">'+part.cond+'</div><div style="font-size:var(--fs-12);color:var(--muted);margin-top:2px">'+(part.exchange?('需 '+pcost.toLocaleString()+' 积分兑换'):part.det)+'</div>'
-      if(part.exchange&&!part.unlocked&&ROLE.parent){
-        const need=pcost
-        const can=availPts>=need
-        card.appendChild(h('button',{className:'btn btn-sm '+(can?'btn-success':'btn-outline'),style:'margin-top:6px;font-size:var(--fs-14)',onClick:(e)=>{e.stopPropagation();doExchange(part,need)}},(can?'💰 兑换 ⭐':'🔒 积分不足')))
-      }
-      if(ROLE.edit)card.appendChild(h('button',{className:'btn btn-outline btn-sm edit-only',style:'margin-top:6px;font-size:var(--fs-12)',onClick:(e)=>{e.stopPropagation();doEditPrice(part)}},'✏️ 改价'))
-      grid.appendChild(card)
-    }
-    pc.appendChild(grid)
-    const av=D.parts.reduce((s,p)=>s+p.value,0)
-    const ap=D.parts.reduce((s,p)=>s+Math.round(p.value*rate),0)
-    pc.appendChild(h('div',{style:'margin-top:14px;padding:10px;background:var(--bg-elev);border-radius:6px;font-size:var(--fs-15);text-align:center',innerHTML:'💰 全部总价：<strong>¥'+av.toLocaleString()+'</strong> | 共需积分：<strong>⭐'+ap.toLocaleString()+'</strong>（1元='+rate+'分）'}))
-    $c.appendChild(pc)
-  }
-
-  $c.appendChild(sg)
-
-  /* 管理零件清单已移到「设置」页 */
-
+function receiveReward(part){
+  if(!ROLE.parent||!part||!part.unlocked||part.received)return
+  part.received=true;sv(D);render();ts('✅ 已标记签收 · '+praise('part'))
+  undoBar('已标记「'+part.name+'」签收',function(){part.received=false;sv(D);render();ts('↩️ 已撤销签收')})
 }
-
-/* rdl() 已合并进打卡页 rckList() */
+const rewardPurchaseUntil=new Map()
+function exchangeReward(part){
+  if(!ROLE.parent||!part||!part.exchange||part.unlocked||part.received)return
+  const need=rewardCost(part)
+  if(Date.now()<(rewardPurchaseUntil.get(part.id)||0))return
+  const availPts=rewardBalance()
+  if(availPts<need){ts('⚠️ 积分不足，还差 '+(need-availPts).toLocaleString()+' 分');return}
+  rewardPurchaseUntil.set(part.id,Date.now()+1500)
+  const _rec={id:_newId('p'),date:td,source:'兑换 '+part.name,points:need,type:'spend'}
+  D.points.push(_rec);part.unlocked=true;sv(D);render();ts('✅ 已兑换 '+part.name+' · '+praise('part'))
+  undoBar('已兑换：'+part.name+'（-⭐'+need.toLocaleString()+'）',function(){const _i=D.points.indexOf(_rec);if(_i>=0)D.points.splice(_i,1);part.unlocked=false;sv(D);render();ts('↩️ 已撤销兑换')})
+}
+function editRewardPrice(part){
+  if(!ROLE.edit||!part)return
+  const np=prompt('修改 '+part.name+' 价格（当前：¥'+part.value.toLocaleString()+'）：',part.value)
+  if(np!==null){const v=parseFloat(np);if(!isNaN(v)&&v>0){part.value=v;sv(D);render();ts('✅ 已更新')}}
+}
 
 function rpt(){
   $c.appendChild(h('div',{className:'daily-praise'},'💬 '+encLine()))
@@ -7841,7 +8039,7 @@ function rwk(){
    改成「主位 4 个 + 更多抽屉」，其余点一下就从抽屉里出来。 */
 let _tabsSig='',_moreOpen=false
 function tabsFor(isParent){
-  return isParent?['today','checkin','scores','settings']:['today','checkin','mistake','word']
+  return isParent?['today','checkin','scores','settings']:['today','checkin','scores','points']
 }
 function applyTabs(){
   const nav=document.getElementById('tabNav')
@@ -7857,6 +8055,8 @@ function applyTabs(){
     const label=b.querySelector('.tab-label')
     if(label){
       if(key==='checkin')label.textContent=ROLE.parent?'审核与打卡':'作业与打卡'
+      if(key==='points')label.textContent=ROLE.parent?'积分奖励':'奖励'
+      if(key==='today'&&!ROLE.parent)label.textContent='首页'
       const prev=b.querySelector('.ico-s')
       if(prev&&prev.parentNode===b)prev.remove()
       b.insertBefore(homeIcon(NAV_ICONS[key],19),label)
@@ -8098,11 +8298,12 @@ async function checkNewVersion(){
 const startTab=up.get('tab')
 const startScene=up.get('kv')
 const startPanel=up.get('sp')
-if(Object.hasOwn(TAB_NAME,startTab)&&startTab!=='today')tb=startTab
-else if(startScene==='room'||startScene==='wall'||Object.hasOwn(SPACE_TITLE,startPanel)){
+if(startTab==='room'||startPanel==='parts'||startScene==='room')tb='points'
+else if(startScene==='wall'||startPanel==='wall')tb='scores'
+else if(Object.hasOwn(TAB_NAME,startTab)&&startTab!=='today')tb=startTab
+else if(Object.hasOwn(SPACE_TITLE,startPanel)){
   tb='room'
-  _kidView=startScene==='wall'?'wall':'room'
-  if(Object.hasOwn(SPACE_TITLE,startPanel))_spacePanel=startPanel
+  _spacePanel=startPanel
 }
 initAuth()
 ;(async function boot(){
