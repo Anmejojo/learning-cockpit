@@ -3278,6 +3278,11 @@ function chatSend(imgB64){
   const v=(el&&el.value||'').trim()
   const _isVoice=_srUsed;_srUsed=false
   if(!v&&!imgB64)return
+  const registration=ROLE.kid&&!imgB64?homeworkChatRequest(v):null
+  if(registration){
+    openHomeworkRegistration(registration)
+    return
+  }
   const log=chatLog()
   log.push({id:Date.now(),date:td,role:'u',text:(v||'（发了张图）'),img:(imgB64||''),voice:(_isVoice?true:undefined),ts:Date.now()})
   _draft=''
@@ -3476,7 +3481,11 @@ function chatHeading(){
     document.querySelector('.mem-x')?.focus()
   },'quiet','book-open'):null
   if(memory)memory.id='chatMemToggle'
-  return h('header',{className:'chat-heading'},h('h1',null,AI_NAME),memory)
+  const registration=ROLE.kid?homeButton('登记作业',()=>openHomeworkRegistration({
+    text:document.getElementById('chatInput')?.value||_draft
+  }),'quiet'):null
+  return h('header',{className:'chat-heading'},h('h1',null,AI_NAME),
+    ROLE.kid?h('div',{className:'chat-heading-actions'},registration,memory):null)
 }
 function chatUI(){
   if(ROLE.kid&&_memOpen)return memPanelUI()
@@ -3553,9 +3562,9 @@ function chatUI(){
         render()
         document.getElementById('chatTtsToggle')?.focus()
       },id:'chatTtsToggle'},homeIcon('volume',18)))
-    const inp=h('input',{id:'chatInput','aria-label':'给小搭发消息',placeholder:'跟小搭说点什么…',
+    const inp=h('textarea',{id:'chatInput',rows:'1','aria-label':'给小搭发消息',placeholder:'跟小搭说点什么…',
       onInput:e=>{_draft=e.target.value},onKeyDown:e=>{
-        if(e.key==='Enter'&&!e.isComposing&&e.keyCode!==229){e.preventDefault();chatSend()}
+        if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing&&e.keyCode!==229){e.preventDefault();chatSend()}
       }})
     inp.value=_draft
     const bar=h('div',{className:'chat-bar'},inp,
@@ -4898,9 +4907,10 @@ function homeSection(title,action){
   return h('section',{className:'home-panel'},
     h('header',{className:'home-panel-head'},h('h2',null,title),action))
 }
-function openTodayCheckin(target){
+function openTodayCheckin(target,homeworkDate){
   _ckView='list'
   _checkDate=null
+  _hwDate=homeworkDate||''
   sw('checkin')
   if(typeof target==='string'){
     const node=document.getElementById(target)
@@ -4936,7 +4946,7 @@ function homeHomeworkRow(entry,primary=false){
   const action=needsPhoto?homeButton(label,()=>hwPick(job),primary?'primary':'quiet','camera'):homeStatus(status)
   if(needsPhoto)action.setAttribute('aria-label',label+' · '+(job.text||'作业'))
   return homeListRow(job.kind==='recite'?'book-open':'notebook-pen','neutral',
-    job.text||'作业',(job.subj||'其他')+' · '+(job.kind==='recite'?'背诵':'书面'),action)
+    job.text||'作业',[job.subj||'其他',job.kind==='recite'?'背诵':'书面',HOMEWORK_CATEGORIES[hwCategory(job)]].filter(Boolean).join(' · '),action)
 }
 function todayHomeworkPanel(entries,next){
   const order=['rejected','todo','uploading','pending','approved']
@@ -4981,7 +4991,8 @@ function homeShortcuts(parent){
     ? [['录入成绩','bar-chart-3',()=>{_scView='list';_scoreReviewOnly=false;_openExamForm=true;sw('scores')}],
         ['积分账本','star',()=>{_pkView='points';sw('points')}],['小搭','bot',()=>sw('chat')]]
     : [['小搭','bot',()=>sw('chat')],['单词游戏','book-open',()=>sw('word')],
-        ['错题本','notebook-pen',()=>sw('mistake')],['记个习惯','flame',()=>openTodayCheckin('todayHabits')]]
+        ['错题本','notebook-pen',()=>sw('mistake')],['记个习惯','flame',()=>openTodayCheckin('todayHabits')],
+        ['登记作业','list-checks',()=>openHomeworkRegistration()]]
   for(const [label,icon,fn] of tools)box.appendChild(homeButton(label,fn,'quiet',icon))
   return box
 }
@@ -6245,8 +6256,27 @@ function rck(){
    发现不了"漏了哪一科哪一项"。现在：拍一张作业登记本 → AI 读成清单 →
    一项一项交照片（**书面交作业本、背诵交草稿本**）→ 漏了哪项一眼可见。
    注意：清单项**只能靠交照片完成**，没有"打个钩就算"的口子（背诵尤其如此）。 */
-let _hwAdd=false
-function hwToday(){try{return (D.hw||[]).filter(function(x){return x&&x.date===td})}catch(e){return []}}
+let _hwDate=''
+const HOMEWORK_CATEGORIES={school:'学校作业',family:'家庭作业'}
+function hwOn(date){return (D.hw||[]).filter(job=>job&&job.date===date)}
+function hwToday(){return hwOn(td)}
+function hwCategory(job){
+  if(Object.hasOwn(HOMEWORK_CATEGORIES,job.category))return job.category
+  if(job.src==='sheet'||job.src==='teacher')return 'school'
+  if(job.src==='mom')return 'family'
+  return ''
+}
+function homeworkDateValid(value){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(value||''))return false
+  const [year,month,day]=value.split('-').map(Number)
+  return ymd(new Date(year,month-1,day))===value
+}
+function homeworkChatRequest(value){
+  const match=String(value||'').match(/^(?:(?:小搭[，,：:\s]*)?(?:请\s*)?(?:帮我\s*)?(?:登记|记录|整理)\s*)(学校作业|家庭作业|作业)(?:[：:\s]+([\s\S]*))?$/)||
+    String(value||'').match(/^(?:今天|昨天|明天)?(学校作业|家庭作业|作业)[：:]\s*([\s\S]+)$/)
+  if(!match)return null
+  return {category:match[1]==='家庭作业'?'family':'school',text:(match[2]||'').trim(),identify:!!match[2]?.trim()}
+}
 function hwRec(x){try{return (x&&x.recId)?((D.checks||[]).filter(function(c){return c.id===x.recId})[0]||null):null}catch(e){return null}}
 function hwStatus(x){const r=hwRec(x);return r?(r.status==='approved'?'approved':(r.status==='rejected'?'rejected':'pending')):'todo'}
 function hwMiss(){return hwToday().filter(function(x){return hwStatus(x)==='todo'}).length}
@@ -6254,12 +6284,12 @@ function hwKey(it){return String(it.subj||'')+'|'+String(it.text||'').replace(/\
 /* 来源标签：登记本 / 老师另布置的 / 妈妈加的 / 孩子说的 */
 function hwSrcLabel(src){return src==='sheet'?'📷 登记本':(src==='teacher'?'📢 老师另布置':(src==='mom'?'👩 妈妈加的':(src==='kid'?'🙋 我自己加的':'')))}
 /* 把一段多行文字拆成清单项：去掉序号/项目符号，认科目，背诵类自动标 recite */
-function hwParseLines(txt){
+function hwParseLines(txt,limit=60){
   const out=[]
   String(txt||'').split(/[\r\n;；]+/).forEach(function(ln){
     let s=String(ln||'').replace(/^\s*[-–—•·*●○□☐✔✓※>]+\s*/,'').replace(/^\s*\(?\d+\s*[\)）.、:：]\s*/,'').replace(/\s+/g,' ').trim()
     if(!s)return
-    if(s.length>60){s=s.slice(0,60);out.trunc=1}    /* 标记被截过，别静默改用户输入 */
+    if(s.length>limit){s=s.slice(0,limit);out.trunc=1}    /* 标记被截过，别静默改用户输入 */
     let subj=''
     let m=s.match(/^[【\[\(（]\s*([\u4e00-\u9fa5A-Za-z]{2,4})\s*[】\]\)）]\s*(.+)$/)
     if(!m)m=s.match(/^([\u4e00-\u9fa5]{2,4})\s*[：:]\s*(.+)$/)
@@ -6272,41 +6302,37 @@ function hwParseLines(txt){
   })
   return out
 }
-function hwPush(subj,text,kind,src){
-  try{
-    if(!D.hw)D.hw=[]
-    const it={id:Date.now()+Math.floor(Math.random()*900),date:td,subj:subj||'',text:String(text||'').slice(0,60),
-      kind:(kind||'written'),src:(src||''),at:Date.now(),recId:null}
-    D.hw.push(it);return it
-  }catch(e){return null}
+function hwPush(subj,text,kind,src,date=td,category){
+  if(!D.hw)D.hw=[]
+  const it={id:_newId('hw'),date,subj:subj||'',text:category?String(text||''):String(text||'').slice(0,60),
+    kind:kind||'written',src:src||'',at:Date.now(),recId:null}
+  if(category)it.category=category
+  D.hw.push(it)
+  return it
 }
-function hwMerge(items){
-  try{
-    if(!D.hw)D.hw=[]
-    const have={}
-    hwToday().forEach(function(x){have[hwKey(x)]=1})
-    let n=0
-    ;(items||[]).forEach(function(it){
-      const subj=MK_SUBJECTS.indexOf(String(it.subj))>=0?String(it.subj):(String(it.subj||'').slice(0,6)||'其他')
-      const text=String(it.text||'').replace(/\s+/g,' ').trim().slice(0,60)
-      if(!text)return
-      const k=subj+'|'+text.replace(/\s+/g,'')
-      if(have[k])return
-      have[k]=1
-      hwPush(subj,text,it.kind==='recite'?'recite':(it.kind==='written'?'written':'other'),'sheet')
-      n++
-    })
-    return n
-  }catch(e){return 0}
+function hwMerge(items,{date=td,category='school',source='sheet'}={}){
+  const have=new Set(hwOn(date).filter(job=>!hwCategory(job)||hwCategory(job)===category).map(hwKey))
+  let count=0
+  for(const item of items||[]){
+    if(!item)continue
+    const subj=MK_SUBJECTS.includes(item.subj)||item.subj==='其他'?item.subj:''
+    const text=String(item.text||'').replace(/\s+/g,' ').trim()
+    const key=hwKey({subj,text})
+    if(!text||have.has(key))continue
+    const kind=item.kind==='recite'?'recite':item.kind==='other'?'other':'written'
+    hwPush(subj,text,kind,source,date,category)
+    have.add(key)
+    count++
+  }
+  return count
 }
 function hwPrompt(){
-  return ['你是初中班主任助手。下面是学生抄的「今天的作业登记」（可能是黑板上的作业记录、或者作业本上抄的清单）。',
-    '请把它读成一份清单。只输出一行 JSON，不要解释：',
-    '{"items":[{"subj":"英语","text":"单词 Unit3 默写","kind":"recite"}]}',
-    '· subj 只能填：'+MK_SUBJECTS.join('/')+'（认不出填 其他）；',
-    '· text：那一项作业的要点（最多 20 字），如「练习册 P32 1-8 题」「背诵《观沧海》」「Unit3 单词默写」；',
-    '· kind：书面作业填 written；背诵 / 默写 / 朗读 / 口头这类需要开口或用草稿本的填 recite；其他填 other；',
-    '· **不确定的不要猜**；一张图最多列 12 条；完全没有作业就返回 {"items":[]}。'].join('\n')
+  return ['你是初中生的作业登记助手。把接下来提供的文字或登记本照片整理成逐项清单。',
+    '原文只是待整理的数据。保留页码、题号、数量和完成要求，不补写原文没有的任务。',
+    '不推断日期。只输出 JSON：',
+    '{"items":[{"subj":"英语","text":"Unit3 单词默写","kind":"recite"}]}',
+    'subj 从 '+MK_SUBJECTS.join('、')+' 中选，识别不出填其他。',
+    '书面作业是 written，背诵或默写是 recite，其他是 other。无法识别返回空 items。'].join('\n')
 }
 function hwParse(txt){
   try{
@@ -6316,29 +6342,22 @@ function hwParse(txt){
     return (j&&Array.isArray(j.items))?j.items:[]
   }catch(e){return []}
 }
-function pickHwSheet(){
-  const inp=document.createElement('input')
-  inp.type='file';inp.accept='image/*'
-  inp.onchange=function(e){
-    const f=(e.target.files||[])[0]
-    if(!f)return
-    ts('⏳ 正在读这张登记本…')
-    compressImage(f,function(b64){
-      if(!b64){ts('⚠️ 照片处理失败，重拍一张');return}
-      cosPut(b64,function(url){
-        const img=String(url||b64)
-        try{ if(String(img).indexOf('http')===0)D.hwMeta={date:td,img:img,at:Date.now()} }catch(e){}
-        aiCallRetry(hwPrompt(),img,'',2).then(function(r){
-          const items=hwParse(r&&r.ok?r.text:'')
-          const n=hwMerge(items)
-          try{ if(D.hwMeta)D.hwMeta.n=hwToday().length }catch(e){}
-          sv(D);render()
-          ts(n?('✅ 读到 '+n+' 项作业'):(hwToday().length?'这次的清单和已有的一样':'⚠️ 没读出内容，可以点「加一项」手动加'))
-        }).catch(function(){ts('⚠️ 读清单失败，稍后再试（也可以手动加一项）')})
-      })
-    })
-  }
-  inp.click()
+function openHomeworkRegistration({text='',category='school',identify=false}={}){
+  const existing=document.getElementById('homeworkRegistration')
+  if(existing){existing.querySelector('textarea')?.focus();return}
+  const dialog=h('dialog',{className:'reward-dialog homework-registration',id:'homeworkRegistration','aria-labelledby':'homeworkRegistrationTitle'})
+  dialog.appendChild(h('header',null,h('h2',{id:'homeworkRegistrationTitle'},'登记作业'),
+    h('button',{type:'button',className:'reward-close','aria-label':'关闭作业登记',onClick:()=>dialog.close()},'×')))
+  const form=hwAddRow({text,category,onSaved:date=>{
+    dialog.close()
+    openTodayCheckin('todayHomework',date)
+  }})
+  dialog.appendChild(form)
+  dialog.addEventListener('close',()=>dialog.remove(),{once:true})
+  document.body.appendChild(dialog)
+  dialog.showModal()
+  dialog.querySelector('input[type=date]')?.focus()
+  if(identify&&text)dialog.querySelector('#hwAiBtn')?.click()
 }
 function hwUploadIds(){
   return new Set(pendList().filter(entry=>entry.kind==='hwitem').map(entry=>entry.hwId))
@@ -6378,7 +6397,7 @@ function hwItemCommit(hwId,urls){
     return submitCheck(typeId,subj,urls,false,null,false,true,it&&it.date,it)
   }catch(e){console.warn('作业清单落地失败',e)}
 }
-function hwRow(it,st){
+function hwRow(it,st=hwStatus(it)){
   const r=hwRec(it)
   const row=h('div',{className:'work-item'})
   const L=h('div',{className:'grow'})
@@ -6409,21 +6428,43 @@ function hwRow(it,st){
   row.appendChild(btns)
   return row
 }
+function homeworkLine(item){
+  return (item.subj?item.subj+'：':'')+item.text
+}
+async function copyHomework(date,items){
+  const sections=[fd(date)+' 作业清单']
+  for(const [category,label] of [...Object.entries(HOMEWORK_CATEGORIES),['','以往登记']]){
+    const group=items.filter(it=>hwCategory(it)===category)
+    if(group.length)sections.push(label,...group.map(it=>'· '+homeworkLine(it)))
+  }
+  const text=sections.join('\n')
+  try{
+    await navigator.clipboard.writeText(text)
+    ts('已复制这一天的作业')
+  }catch(e){window.prompt('复制这一天的作业清单',text)}
+}
 function hwCard(){
+  const date=_hwDate||td
   const uploading=hwUploadIds()
   const order=['todo','rejected','uploading','pending','approved']
-  const list=hwToday().map(job=>({job,status:hwDisplayStatus(job,uploading)}))
+  const jobs=hwOn(date)
+  const list=jobs.map(job=>({job,status:hwDisplayStatus(job,uploading)}))
   list.sort((a,b)=>order.indexOf(a.status)-order.indexOf(b.status)||
     String(a.job.subj||'').localeCompare(String(b.job.subj||'')))
-  const c=h('div',{className:'card'})
-  c.appendChild(h('h2',{className:'card-header'},homeIcon('list-checks',18),'今日作业'))
-  const add=()=>{_hwAdd=!_hwAdd;render()}
+  const c=h('section',{className:'card homework-ledger'})
+  c.appendChild(h('h2',{className:'card-header'},homeIcon('list-checks',18),'每日作业清单'))
+  const filter=h('input',{type:'date','aria-label':'查看哪一天的作业',value:date,onChange:e=>{
+    if(!homeworkDateValid(e.target.value)){e.target.value=date;return}
+    _hwDate=e.target.value
+    render()
+    document.querySelector('#todayHomework input[type=date]')?.focus({preventScroll:true})
+  }})
+  c.appendChild(h('div',{className:'homework-ledger-tools'},
+    h('label',null,h('span',null,'查看日期'),filter),
+    homeButton('登记作业',()=>openHomeworkRegistration(),'primary','pen-tool'),
+    list.length?homeButton('复制清单',()=>copyHomework(date,jobs),'quiet'):null))
   if(!list.length){
-    c.appendChild(h('p',{className:'work-note'},'拍作业登记本，小搭会把作业整理成清单。'))
-    c.appendChild(h('div',{className:'work-actions'},
-      homeButton('拍作业登记本',pickHwSheet,'primary','camera'),
-      homeButton('手动加一项',add,'quiet','pen-tool')))
-    if(_hwAdd)c.appendChild(hwAddRow())
+    c.appendChild(h('p',{className:'work-note'},'这一天还没有作业，可以手填、粘贴或拍登记本。'))
     return c
   }
   const summary=h('div',{className:'work-meta'},h('span',{className:'work-note'},'共 '+list.length+' 项'))
@@ -6432,55 +6473,108 @@ function hwCard(){
     if(count)summary.appendChild(homeStatus(status,count))
   }
   c.appendChild(summary)
-  list.forEach(({job,status})=>c.appendChild(hwRow(job,status)))
-  c.appendChild(h('div',{className:'work-actions'},
-    homeButton('重拍登记本',pickHwSheet,'quiet','camera'),
-    homeButton('手动加一项',add,'quiet','pen-tool')))
-  if(_hwAdd)c.appendChild(hwAddRow())
+  for(const [category,label] of [...Object.entries(HOMEWORK_CATEGORIES),['','以往登记']]){
+    const group=list.filter(entry=>hwCategory(entry.job)===category)
+    if(!group.length)continue
+    const section=h('section',{className:'homework-category'},h('h3',null,label))
+    group.forEach(({job,status})=>section.appendChild(hwRow(job,status)))
+    c.appendChild(section)
+  }
   return c
 }
-function hwAddRow(){
-  const box=h('div',{style:'margin-top:8px;display:flex;flex-direction:column;gap:6px'})
-  const r1=h('div',{style:'display:flex;gap:6px;flex-wrap:wrap;align-items:center'})
-  const sel=h('select',{style:'width:96px',id:'hwSubSel'})
-  MK_SUBJECTS.forEach(function(x){sel.appendChild(h('option',{value:x},x))})
-  sel.appendChild(h('option',{value:'其他'},'其他'))
-  const kind=h('select',{style:'width:118px',id:'hwKindSel'})
-  kind.appendChild(h('option',{value:'written'},'✏️ 书面'));
-  kind.appendChild(h('option',{value:'recite'},'📝 背诵(要草稿)'));
-  kind.appendChild(h('option',{value:'other'},'其他'))
-  const src=h('select',{style:'width:132px',id:'hwSrcSel'})
-  src.appendChild(h('option',{value:'teacher'},'📢 老师另布置'))
-  src.appendChild(h('option',{value:'mom'},'👩 妈妈加的'))
-  src.appendChild(h('option',{value:'kid'},'🙋 孩子说的'))
-  if(!ROLE.parent)src.value='kid'
-  r1.appendChild(sel);r1.appendChild(kind);r1.appendChild(src);box.appendChild(r1)
-  const txt=h('textarea',{id:'hwTxtIn',rows:'3',placeholder:'一行一项，可以直接粘老师群里的消息，例如：\n英语：Unit3 单词默写\n数学 练习册 P32 1-8 题\n历史 背诵第 5 课',style:'width:100%;font-size:var(--fs-14);line-height:1.7'})
-  box.appendChild(txt)
-  const r2=h('div',{style:'display:flex;gap:6px;flex-wrap:wrap;align-items:center'})
-  const _hwGo=function(){
-    const items=hwParseLines(txt.value)
-    if(!items.length){ts('先写一下这项作业是什么');return}
-    const s0=sel.value,k0=kind.value,src0=src.value
-    const have={};hwToday().forEach(function(x){have[hwKey(x)]=1})
-    let n=0
-    items.forEach(function(x){
-      const subj=x.subj||(s0==='其他'?'':s0)
-      const kv=(!k0||k0==='written')?x.kind:k0
-      const kk=String(subj||'')+'|'+String(x.text||'').replace(/\s+/g,'')
-      if(have[kk])return
-      have[kk]=1
-      if(hwPush(subj,x.text,kv,src0))n++
-    })
-    try{if(D.hwMeta)D.hwMeta.n=hwToday().length}catch(e){}
-    sv(D);_hwAdd=false;render()
-    ts(n?((items.trunc?('⚠️ 加了 '+n+' 项（太长的只留了前 60 个字）'):('✅ 加了 '+n+' 项'))):'这几项今天的清单里已经有了')
+function hwAddRow({text='',category='school',onSaved=()=>render()}={}){
+  const box=h('div',{className:'homework-form'})
+  const day=h('input',{type:'date',id:'hwDateIn','aria-label':'这是哪一天的作业？'})
+  const source=h('select',{id:'hwSrcSel','aria-label':'作业来源'})
+  for(const [key,label] of Object.entries(HOMEWORK_CATEGORIES))source.appendChild(h('option',{value:key},label))
+  source.value=category
+  const txt=h('textarea',{id:'hwTxtIn',rows:'5',placeholder:'英语：Unit 3 单词默写\n数学：练习册第 32 页第 1–8 题'})
+  txt.value=text
+  const feedback=h('p',{className:'work-note homework-feedback',role:'status'})
+  const original=h('details',{className:'homework-original',hidden:''},
+    h('summary',null,'查看识别前的原文'),h('pre'))
+  let recognizedKinds=new Map()
+  let photoUrl=''
+  let busy=false
+  const setDate=value=>{day.value=value}
+  const previous=()=>{const d=new Date();d.setDate(d.getDate()-1);return ymd(d)}
+  function submit(){
+    if(busy)return
+    if(!homeworkDateValid(day.value)){feedback.textContent='这是哪一天的作业？请先选日期。';day.focus();return}
+    const items=hwParseLines(txt.value,Infinity).map(item=>({
+      ...item,kind:recognizedKinds.get(hwKey(item))||item.kind
+    }))
+    if(!items.length){feedback.textContent='先填一项作业，可以直接粘贴。';txt.focus();return}
+    const date=day.value
+    const n=hwMerge(items,{date,category:source.value,source:photoUrl?'sheet':ROLE.parent?'mom':'kid'})
+    if(!n){feedback.textContent='这几项在当天同一类作业里已经有了。';return}
+    if(photoUrl)D.hwMeta={date,img:photoUrl,at:Date.now(),n:hwOn(date).length}
+    sv(D)
+    onSaved(date)
+    ts(fd(date)+' · 已登记 '+n+' 项'+(n<items.length?'，重复项已略过':''))
   }
-  txt.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();_hwGo()}})
-  const add=h('button',{className:'btn btn-primary btn-sm',id:'hwAddBtn',onClick:_hwGo},'➕ 加进清单')
-  r2.appendChild(add)
-  if(ROLE.parent)r2.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_hwAdd=false;render()}},'取消'))
-  box.appendChild(r2)
+  const save=h('button',{type:'button',className:'btn btn-primary',id:'hwAddBtn',onClick:submit},'保存到清单')
+  function setBusy(value){busy=value;save.disabled=value;ai.disabled=value;photo.disabled=value}
+  async function identify(image='',before=txt.value){
+    const content=before.trim()
+    if(!image&&!content){feedback.textContent='请先粘贴或填写作业。';txt.focus();return}
+    if(!image&&content.length>8000){
+      feedback.textContent='文字较长，请分段识别，也可以直接按行保存。'
+      return
+    }
+    setBusy(true);feedback.textContent='小搭正在识别…'
+    try{
+      const prompt=hwPrompt()+(image?'':'\n原文：'+JSON.stringify(content))
+      const res=await aiCallRetry(prompt,image,'',2)
+      if(box.isConnected===false)return
+      if(txt.value!==before){feedback.textContent='原文已经有改动，请重新识别。';return}
+      const found=hwParse(res&&res.ok?res.text:'').filter(item=>item&&typeof item.text==='string'&&item.text.trim())
+      if(!found.length){feedback.textContent='暂时没有识别到作业。你可以手填，也可以再试一次。';return}
+      const items=found.map(item=>({subj:MK_SUBJECTS.includes(item.subj)?item.subj:'',
+        text:item.text.trim().replace(/\s+/g,' '),kind:item.kind}))
+      if(content&&!image){
+        original.hidden=false
+        original.querySelector('pre').textContent=before
+      }
+      for(const item of items){
+        if(['written','recite','other'].includes(item.kind))recognizedKinds.set(hwKey(item),item.kind)
+      }
+      const lines=items.map(homeworkLine).join('\n')
+      txt.value=image&&content?before+'\n'+lines:lines
+      if(image&&image.startsWith('https://'))photoUrl=image
+      feedback.textContent='识别出 '+items.length+' 项，可以直接修改。请确认是哪一天的作业，再保存。'
+    }catch(e){if(box.isConnected!==false)feedback.textContent='识别未完成，请重试或手动保存。'}
+    finally{setBusy(false)}
+  }
+  const ai=h('button',{type:'button',className:'btn btn-outline',id:'hwAiBtn',onClick:()=>identify()},'让小搭识别')
+  const photo=h('button',{type:'button',className:'btn btn-outline',onClick:()=>{
+    const input=document.createElement('input')
+    input.type='file';input.accept='image/*'
+    input.onchange=()=>{
+      const file=input.files?.[0]
+      if(!file)return
+      const before=txt.value
+      setBusy(true);feedback.textContent='正在读取登记本…'
+      compressImage(file,image=>{
+        if(box.isConnected===false)return
+        if(!image){setBusy(false);feedback.textContent='照片读取失败，可以重拍或手填。';return}
+        cosPut(image,url=>{if(box.isConnected!==false)identify(url||image,before)})
+      })
+    }
+    input.click()
+  }},'拍登记本')
+  txt.addEventListener('keydown',e=>{
+    if((e.ctrlKey||e.metaKey)&&e.key==='Enter'&&!e.isComposing){e.preventDefault();submit()}
+  })
+  box.appendChild(h('label',null,h('strong',null,'这是哪一天的作业？'),day))
+  box.appendChild(h('div',{className:'homework-row'},
+    homeButton('今天',()=>setDate(td),'quiet'),homeButton('昨天',()=>setDate(previous()),'quiet'),
+    h('label',{className:'homework-source'},h('span',null,'作业来源'),source)))
+  box.appendChild(h('label',null,h('strong',null,'填写或粘贴作业'),txt))
+  box.appendChild(h('div',{className:'homework-row'},ai,photo))
+  box.appendChild(original)
+  box.appendChild(feedback)
+  box.appendChild(save)
   return box
 }
 function rckList(){

@@ -1306,6 +1306,8 @@ html[data-theme="c"] .workspace{
 .chat-heading{
   display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;flex:0 0 auto;
 }
+.chat-heading-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.chat-heading-actions .home-btn{padding-inline:8px}
 .chat-heading h1,.mem-head h1{font-size:clamp(21px,3vw,26px);line-height:1.25}
 .workspace .chat-full{height:auto;flex:1 1 auto}
 .workspace .mem-strip{cursor:default}
@@ -1316,8 +1318,10 @@ html[data-theme="c"] .workspace{
 .workspace .chat-bub.ms{border-color:var(--primary-border)}
 .workspace .chat-play.on{background:var(--primary-weak);color:var(--workspace-accent);border-color:var(--primary-border)}
 .workspace .chat-bar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center}
-.workspace .chat-bar input{
-  min-width:0;min-height:var(--control-height);border-radius:var(--control-radius);background:var(--workspace-panel-raised);
+.workspace .chat-bar #chatInput{
+  min-width:0;min-height:var(--control-height);resize:vertical;max-height:104px;padding:8px 12px;
+  border:1px solid var(--workspace-strong);border-radius:var(--control-radius);
+  background:var(--workspace-panel-raised);color:var(--workspace-ink);font:inherit;line-height:1.55;
 }
 .chat-tools{grid-column:1/-1;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
 body.workspace.chat-page .chat-tools .chat-cam{
@@ -2025,3 +2029,30 @@ body.workspace :is(.btn-success,.btn-warning,.btn-danger):hover{filter:brightnes
   background:linear-gradient(145deg,#536966,#38434d);
   border-color:var(--primary-border);
 }
+
+/* 按日期登记和查看作业 */
+.homework-ledger-tools,.homework-row{display:flex;gap:8px;align-items:end;flex-wrap:wrap}
+.homework-ledger-tools{margin-bottom:10px}
+.homework-ledger-tools input{min-width:142px}
+.homework-form{display:grid;gap:12px;margin-top:14px}
+.homework-ledger-tools label,.homework-form label{display:grid;gap:4px;min-width:0}
+.homework-ledger-tools label span,.homework-source span{font-size:13px;color:var(--workspace-muted)}
+.homework-source{margin-left:auto}
+.homework-form textarea{
+  width:100%;min-height:138px;resize:vertical;padding:10px 12px;
+  border:1px solid var(--workspace-strong);border-radius:var(--control-radius);
+  background:var(--workspace-panel-raised);color:var(--workspace-ink);font:inherit;font-size:16px;line-height:1.65;
+}
+.homework-form textarea:focus,.workspace .chat-bar #chatInput:focus{
+  outline:none;border-color:var(--primary-border);box-shadow:0 0 0 3px var(--primary-weak);
+}
+@media(max-width:520px){
+  .homework-ledger-tools label{flex-basis:100%}
+}
+.homework-form>button{justify-self:start}
+.homework-feedback:empty{display:none}
+.homework-original[hidden]{display:none}
+.homework-original>summary{cursor:pointer;color:var(--workspace-accent);padding-block:4px}
+.homework-original>pre{max-height:110px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;font-size:13px}
+.homework-category{margin-top:12px}
+.homework-category h3{font-size:15px;line-height:1.3;color:var(--workspace-accent);margin:5px 0}
