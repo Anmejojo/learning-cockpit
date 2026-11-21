@@ -2336,9 +2336,12 @@ function rwrite(){
 /* ===== 全站导航与小搭的页面说明 ===== */
 let _ctxTab=''   // 他刚刚在看哪一页（切到聊天时记下）
 const TAB_NAME={today:'今日',chat:'小搭',checkin:'作业与打卡',mistake:'错题本',write:'硬笔字',word:'单词游戏',scores:'成绩',points:'积分奖励',room:'学习房间',settings:'设置',detail:'今日详情'}
+function tabTitle(tab){
+  return tab==='settings'&&ROLE.kid?'积分规则':TAB_NAME[tab]
+}
 function chatSiteMap(){
   return ['【他能看到的网页（家里人给他做的「学习驾驶舱」）】',
-  '桌面左侧是学习导航；手机底部可直接看成绩和奖励，「更多」里有错题本、小搭、单词、硬笔字和设置。',
+  '桌面左侧是学习导航；手机底部可直接看成绩和奖励，「更多」里有错题本、小搭、单词游戏、硬笔字和积分规则。',
   '· 今日：看自己的奖励心愿，拍照打卡，查看今天的作业和家庭留言；',
   '· 小搭：就是你，他在这里跟你说话；',
   '· 打卡：拍照记录今天做的事（家长看过后加分）、习惯打勾、今天的任务清单；',
@@ -2347,7 +2350,7 @@ function chatSiteMap(){
   '· 成绩：录入考试、成绩趋势图、基准线（起点分）、薄弱科目；',
   '· 奖励：看桌搭、装机和游戏奖品，选一件心愿。积分兑换品与学习条件解锁的奖品分别显示规则；家长确认兑换。',
   '· 奖励装机台：可以点机箱里的显卡、内存等部件，也可以看旁边的桌面装备和游戏奖品。',
-  '· 孩子版设置：查看家里的规则。',
+  '· 积分规则：查看日常打卡和作业审核能拿多少积分。',
   '他问"我在哪看xxx"时，直接告诉他点哪个标签、大概在页面什么位置，别让他自己找。'
   ].join('\n')
 }
@@ -2435,7 +2438,7 @@ function chatSnapshot(){
   if(_ctxTab&&_ctxTab!=='chat'){
     let extra=''
     try{
-      const nm=TAB_NAME[_ctxTab]||_ctxTab
+      const nm=tabTitle(_ctxTab)||_ctxTab
       if(_ctxTab==='mistake'){
         const _a=mkList()
         extra=_a.length?('，里面已记 '+_a.length+' 道，常错的是 '+mkTopKp(_a,2).map(function(o){return o.key+' '+o.n+' 道'}).join('、')):'，里面还没有错题'
@@ -2445,7 +2448,7 @@ function chatSnapshot(){
       else if(_ctxTab==='scores'){extra='，那里是成绩趋势和薄弱科目'}
       else if(_ctxTab==='points'){extra='，那里是积分明细和电脑零件清单'}
       else if(_ctxTab==='today'){extra='，那里是今天的总览'}
-      else if(_ctxTab==='settings'){extra='，那里是规则和设置'}
+      else if(_ctxTab==='settings'){extra='，那里能查积分规则'}
       L.push('· 他刚刚是从「'+nm+'」页点进来的'+extra+'（可以顺着这个开头，但别硬拉；不提也行）')
     }catch(e){}
   }
@@ -4679,7 +4682,7 @@ function render(){
   if(tb!=='chat'){document.body.classList.remove('chat-page');_memOpen=false}
   if(tb!=='today'&&tb!=='chat'){
     const isReward=tb==='points'
-    const title=isReward?(_pkView==='points'?'积分账本':'我的装机台'):TAB_NAME[tb]
+    const title=isReward?(_pkView==='points'?'积分账本':'我的装机台'):tabTitle(tb)
     const headerAction=isReward
       ? homeButton(_pkView==='points'?'返回装机台':'积分账本',()=>{
           _pkView=_pkView==='points'?'catalog':'points'
@@ -4807,7 +4810,7 @@ function spaceHome(){
     const kind=_spacePanel
     const panel=h('div',{className:'space-panel',role:'dialog','aria-labelledby':'roomPanelTitle'})
     const head=h('div',{className:'sp-head'})
-    head.appendChild(h('span',{id:'roomPanelTitle'},SPACE_TITLE[kind]))
+    head.appendChild(h('span',{id:'roomPanelTitle'},kind==='set'&&ROLE.kid?tabTitle('settings'):SPACE_TITLE[kind]))
     const xb=h('button',{className:'sp-close',type:'button','aria-label':'关闭面板',onClick:close},'✕')
     head.appendChild(xb)
     panel.appendChild(head)
@@ -4848,7 +4851,7 @@ function spaceHome(){
       [['📋 今天的细节',function(){_kidMenu=false;_spacePanel='detail';render()}],
        ['📕 错题本',function(){_kidMenu=false;_spacePanel='mistake';render()}],
        ['📖 单词',function(){_kidMenu=false;_spacePanel='word';render()}],
-       ['⚙️ 设置',function(){_kidMenu=false;_spacePanel='set';render()}]]
+       [tabTitle('settings'),function(){_kidMenu=false;_spacePanel='set';render()}]]
     rows.forEach(function(r){
       sh.appendChild(h('button',{className:'kid-row',onClick:r[1]},r[0]))
     })
@@ -7132,7 +7135,7 @@ function rewardCatalog(){
 
 /* ============ ⑤ 设置（所有配置集中） ============ */
 let _setView='info'
-/* ===== 孩子端「设置」：只读的「家里的规则」（不给空白分组） ===== */
+/* ===== 孩子端只读积分规则 ===== */
 function rsetKid(){
   $c.appendChild(h('div',{className:'daily-praise'},'📋 这些是家里的规则，记不清的时候就翻一翻'))
   const TBL=function(head,rows){
@@ -8229,9 +8232,10 @@ function applyTabs(){
       if(key==='points')label.textContent=ROLE.parent?'积分奖励':'奖励'
       if(key==='today'&&!ROLE.parent)label.textContent='首页'
       if(key==='word')label.textContent=ROLE.kid?'单词游戏':'单词'
+      if(key==='settings')label.textContent=tabTitle(key)
       const prev=b.querySelector('.ico-s')
       if(prev&&prev.parentNode===b)prev.remove()
-      b.insertBefore(homeIcon(NAV_ICONS[key],19),label)
+      b.insertBefore(homeIcon(key==='settings'&&ROLE.kid?'list-checks':NAV_ICONS[key],19),label)
     }
     if(key==='more')return
     const show=set.indexOf(key)>=0
@@ -8271,7 +8275,7 @@ function updateWorkspaceNav(){
     if(actions)actions.replaceChildren()
   }
   const crumb=document.getElementById('appCurrent')
-  if(crumb)crumb.textContent=tb==='checkin'&&ROLE.parent?'审核与打卡':TAB_NAME[tb]||'今日'
+  if(crumb)crumb.textContent=tb==='checkin'&&ROLE.parent?'审核与打卡':tabTitle(tb)||'今日'
   const badge=document.getElementById('modeBadge')
   if(badge)badge.textContent=ROLE.parent?'家长版':'孩子版'
   const profile=document.getElementById('appProfile')
