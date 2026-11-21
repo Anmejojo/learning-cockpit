@@ -560,7 +560,7 @@ const ROLE={
 
 /* ===== 外观主题（只换配色，数据不受影响）===== */
 const THEMES=[
-  {id:'classic',name:'经典暗紫',bg:'#0b0d12',cl:'#6366f1'},
+  {id:'classic',name:'深蓝驾驶舱',bg:'#080f27',cl:'#83dcff'},
   {id:'a',name:'极简暗夜',bg:'#0a0b0d',cl:'#8b8cf0'},
   {id:'b',name:'深空金属',bg:'#080c10',cl:'#38bdf8'},
   {id:'c',name:'暖夜书房',bg:'#12100e',cl:'#e0a458'}
@@ -2324,7 +2324,7 @@ function rwrite(){
 }
 /* ===== 全站导航与小搭的页面说明 ===== */
 let _ctxTab=''   // 他刚刚在看哪一页（切到聊天时记下）
-const TAB_NAME={today:'今日',chat:'小搭',checkin:'作业与打卡',mistake:'错题本',write:'硬笔字',word:'单词',scores:'成绩',points:'积分奖励',room:'学习房间',settings:'设置',detail:'今日详情'}
+const TAB_NAME={today:'今日',chat:'小搭',checkin:'作业与打卡',mistake:'错题本',write:'硬笔字',word:'单词游戏',scores:'成绩',points:'积分奖励',room:'学习房间',settings:'设置',detail:'今日详情'}
 function chatSiteMap(){
   return ['【他能看到的网页（家里人给他做的「学习驾驶舱」）】',
   '桌面左侧是学习导航；手机底部可直接看成绩和奖励，「更多」里有错题本、小搭、单词、硬笔字和设置。',
@@ -4915,7 +4915,7 @@ function homeShortcuts(parent){
   const tools=parent
     ? [['录入成绩','bar-chart-3',()=>{_scView='list';_scoreReviewOnly=false;_openExamForm=true;sw('scores')}],
         ['积分账本','star',()=>{_pkView='points';sw('points')}],['小搭','bot',()=>sw('chat')]]
-    : [['小搭','bot',()=>sw('chat')],['练单词','book-open',()=>sw('word')],
+    : [['小搭','bot',()=>sw('chat')],['单词游戏','book-open',()=>sw('word')],
         ['错题本','notebook-pen',()=>sw('mistake')],['记个习惯','flame',()=>openTodayCheckin('todayHabits')]]
   for(const [label,icon,fn] of tools)box.appendChild(homeButton(label,fn,'quiet',icon))
   return box
@@ -8118,6 +8118,7 @@ function applyTabs(){
       if(key==='checkin')label.textContent=ROLE.parent?'审核与打卡':'作业与打卡'
       if(key==='points')label.textContent=ROLE.parent?'积分奖励':'奖励'
       if(key==='today'&&!ROLE.parent)label.textContent='首页'
+      if(key==='word')label.textContent=ROLE.kid?'单词游戏':'单词'
       const prev=b.querySelector('.ico-s')
       if(prev&&prev.parentNode===b)prev.remove()
       b.insertBefore(homeIcon(NAV_ICONS[key],19),label)
