@@ -2335,7 +2335,7 @@ function chatSiteMap(){
   '· 硬笔字：拍今天写的字，攒成作品墙；',
   '· 成绩：录入考试、成绩趋势图、基准线（起点分）、薄弱科目；',
   '· 奖励：看桌搭、装机和游戏奖品，选一件心愿。积分兑换品与学习条件解锁的奖品分别显示规则；家长确认兑换。',
-  '· 奖励书桌上的每样物件都能点开看条件，也可以按名称找奖品。',
+  '· 奖励装机台：可以点机箱里的显卡、内存等部件，也可以看旁边的桌面装备和游戏奖品。',
   '· 孩子版设置：查看家里的规则。',
   '他问"我在哪看xxx"时，直接告诉他点哪个标签、大概在页面什么位置，别让他自己找。'
   ].join('\n')
@@ -4634,9 +4634,9 @@ function render(){
   if(tb!=='chat'){document.body.classList.remove('chat-page');_memOpen=false}
   if(tb!=='today'&&tb!=='chat'){
     const isReward=tb==='points'
-    const title=isReward?(_pkView==='points'?'积分账本':'我的奖励书桌'):TAB_NAME[tb]
+    const title=isReward?(_pkView==='points'?'积分账本':'我的装机台'):TAB_NAME[tb]
     const headerAction=isReward
-      ? homeButton(_pkView==='points'?'返回书桌':'积分账本',()=>{
+      ? homeButton(_pkView==='points'?'返回装机台':'积分账本',()=>{
           _pkView=_pkView==='points'?'catalog':'points'
           render()
         },'quiet',_pkView==='points'?'arrow-left':'list-checks')
@@ -6791,16 +6791,13 @@ function rpk(){
   }finally{$c=host}
 }
 
-const REWARD_FILTERS=[['all','全景'],['desk','桌面'],['pc','机箱'],['game','游戏'],['owned','已获得']]
+const BUILD_COMPONENTS=[11,17,14,15,18,10,13,12]
+const BUILD_DESK=[16,4,2,1,5,7,6,3]
+const BUILD_GAMES=[9,19,20]
 const REWARD_ICONS={1:'pad',2:'mouse',3:'bolt',4:'keyboard',5:'headset',6:'camera',7:'speaker',8:'pc',
   9:'gamepad',10:'storage',11:'fan',12:'bolt',13:'storage',14:'chip',15:'chip',16:'monitor',17:'chip',18:'fan',
   19:'console',20:'gamepad'}
-let _rewardFilter='all'
-function rewardGroup(part){
-  if(part.exchange||[9,19,20].includes(Number(part.id)))return 'game'
-  if([8,10,11,12,13,14,15,17,18].includes(Number(part.id)))return 'pc'
-  return 'desk'
-}
+let _showEarned=false,_buildPowered=false
 function rewardBalance(){
   return myExp()-(D.points||[]).filter(p=>p.type==='spend').reduce((n,p)=>n+(p.points||0),0)
 }
@@ -6819,7 +6816,7 @@ function saveRewardWish(part){
     return true
   }catch(e){ts('本机无法保存心愿，请检查浏览器存储。');return false}
 }
-function openRewardCatalog(filter){_rewardFilter=typeof filter==='string'?filter:'all';_pkView='catalog';sw('points')}
+function openRewardCatalog(filter){_showEarned=filter==='owned';_pkView='catalog';sw('points')}
 function rewardState(part,balance){
   if(part.received)return '已签收'
   if(part.unlocked)return '已解锁'
@@ -6858,7 +6855,7 @@ function rewardHero(){
       h('h2',null,title),h('p',null,sub),
       hasWish&&part.exchange&&!part.unlocked&&!part.received?rewardProgress(part,balance):null,
       h('div',{className:'reward-actions'},
-        homeButton('看我的书桌',openRewardCatalog,'primary','gift'),
+        homeButton('打开装机台',openRewardCatalog,'primary','gift'),
         homeButton('拍照打卡',()=>quickShot(td),'quiet','camera'))))
 }
 function rewardDialog(part){
@@ -6910,53 +6907,81 @@ function rewardDialog(part){
   document.body.appendChild(dialog)
   dialog.showModal()
 }
+function buildModule(part,balance,scope){
+  const id=Number(part.id)
+  const state=rewardState(part,balance)
+  const owned=part.received||part.unlocked
+  const ready=part.exchange&&!owned&&balance>=rewardCost(part)
+  const model=h('span',{className:'hardware-model model-'+id,'aria-hidden':'true'},
+    homeIcon(REWARD_ICONS[id]||'gift',29))
+  if([11,14,15,18,12].includes(id)){
+    model.append(h('i'),h('i'),h('i'))
+  }
+  return h('button',{type:'button',className:'build-module module-'+id+' '+scope+(owned?' owned':ready?' ready':''),
+    'data-build-part':part.id,'aria-label':part.name+'，'+state,onClick:()=>rewardDialog(part)},
+    model,
+    h('span',{className:'module-label'},h('strong',null,part.name),
+      owned?h('small',null,state):part.exchange?h('small',null,rewardCost(part).toLocaleString()+' 积分'):null))
+}
+function buildShelf(title,parts,balance,kind){
+  return h('section',{className:'build-shelf '+kind},h('h2',null,title),
+    h('div',{className:'build-shelf-grid'},...parts.map(p=>buildModule(p,balance,'shelf-module'))))
+}
 function rewardCatalog(){
   const balance=rewardBalance()
+  const byId=new Map(D.parts.map(p=>[Number(p.id),p]))
+  const layout=ids=>ids.map(id=>byId.get(id)).filter(Boolean)
+  const chassis=byId.get(8)
+  const components=layout(BUILD_COMPONENTS)
+  const desk=layout(BUILD_DESK)
+  const games=layout(BUILD_GAMES)
+  const extras=D.parts.filter(p=>!BUILD_COMPONENTS.includes(Number(p.id))&&!BUILD_DESK.includes(Number(p.id))&&
+    !BUILD_GAMES.includes(Number(p.id))&&Number(p.id)!==8)
   const owned=D.parts.filter(p=>p.received||p.unlocked).length
-  const data=h('div',{className:'reward-catalog'})
+  const installed=components.filter(p=>p.received||p.unlocked).length
+  const bench=h('div',{className:'build-bench'+(_showEarned?' show-earned':'')})
   const wish=ROLE.kid?getRewardWish():null
   if(wish){
-    data.appendChild(h('section',{className:'reward-goal',id:'rewardGoal',tabindex:'-1'},
+    bench.appendChild(h('section',{className:'reward-goal build-wish',id:'rewardGoal',tabindex:'-1'},
       h('span',{className:'reward-dialog-art','aria-hidden':'true'},homeIcon(REWARD_ICONS[wish.id]||'gift',32)),
       h('div',{className:'reward-goal-text'},h('h2',null,'我的心愿 · '+wish.name),
         wish.exchange&&!wish.unlocked&&!wish.received?rewardProgress(wish,balance):
           h('p',null,wish.unlocked||wish.received?rewardState(wish,balance):(wish.cond||'按家里约定解锁'))),
       homeButton('详情',()=>rewardDialog(wish),'quiet')))
   }
-  const section=h('section',{className:'reward-shelf',id:'rewardShelf','aria-label':'可视化奖品书桌'},
-    h('header',{className:'reward-shelf-head'},
-      h('h2',null,'点物件看奖品'),
-      h('span',null,homeIcon('star',16),'可用积分 '+balance.toLocaleString(),h('span',null,'已获得 '+owned+' 件'))))
-  const filters=h('div',{className:'reward-filters','aria-label':'书桌取景'})
-  for(const [key,label] of REWARD_FILTERS){
-    filters.appendChild(h('button',{type:'button','data-reward-filter':key,'aria-pressed':String(_rewardFilter===key),onClick:()=>{
-      _rewardFilter=key
-      render()
-      document.querySelector('[data-reward-filter="'+key+'"]')?.focus({preventScroll:true})
-    }},label))
-  }
-  const items=D.parts.filter(p=>_rewardFilter==='all'||(_rewardFilter==='owned'?(p.received||p.unlocked):rewardGroup(p)===_rewardFilter))
-  const scene=h('div',{className:'reward-room-host'})
-  const picker=h('select',{id:'rewardPicker','aria-label':'按名称找奖品',
-    onChange:e=>{
-      const part=items.find(p=>String(p.id)===e.target.value)
-      e.target.value=''
-      if(part)rewardDialog(part)
-    }},h('option',{value:''},'按名称找奖品'))
-  for(const part of items)picker.appendChild(h('option',{value:part.id},part.name+' · '+rewardState(part,balance)))
-  picker.disabled=!items.length
-  section.appendChild(filters)
-  section.appendChild(scene)
-  section.appendChild(h('div',{className:'reward-picker'},picker))
-  if(_rewardFilter==='owned'&&!items.length)section.appendChild(h('p',{className:'reward-empty'},'已解锁或已兑换的奖品会在这里亮起。'))
-  data.appendChild(section)
-  $c.appendChild(data)
-  if(window.ROOM){
-    ROOM.mount(scene,{parts:D.parts,rate:D.rate||10,avail:balance,bare:true,rewardZone:_rewardFilter,
-      rewardIds:_rewardFilter==='all'?null:items.map(p=>Number(p.id)),onPart:rewardDialog})
-  }else{
-    scene.appendChild(h('p',{className:'reward-empty'},'书桌暂未载入，可以按名称查看奖品。'))
-  }
+  const meter=h('div',{className:'build-meter'},
+    h('span',{className:'build-balance'},homeIcon('star',18),h('strong',null,balance.toLocaleString()),'可用积分'),
+    h('button',{type:'button',className:'build-owned','aria-pressed':String(_showEarned),
+      title:'高亮已经解锁和兑换的装备',onClick:e=>{
+        _showEarned=!_showEarned
+        bench.classList.toggle('show-earned',_showEarned)
+        e.currentTarget.setAttribute('aria-pressed',String(_showEarned))
+        feedback.hidden=!_showEarned||owned!==0
+      }},'已解锁 '+owned+' / '+D.parts.length))
+  bench.appendChild(meter)
+  const feedback=h('p',{className:'build-feedback',role:'status'},'还没有解锁的装备，点任意物件可以查看条件。')
+  feedback.hidden=!_showEarned||owned!==0
+  bench.appendChild(feedback)
+
+  const board=h('section',{className:'build-chassis'+(_buildPowered?' powered':'')},
+    h('header',{className:'build-zone-head'},
+      h('div',null,h('h2',null,'主机内部'),h('p',null,installed+' / '+components.length+' 件部件已解锁')),
+      h('button',{type:'button',className:'build-power','aria-pressed':String(_buildPowered),onClick:e=>{
+        _buildPowered=!_buildPowered
+        board.classList.toggle('powered',_buildPowered)
+        e.currentTarget.setAttribute('aria-pressed',String(_buildPowered))
+        e.currentTarget.querySelector('span:last-child').textContent=_buildPowered?'关闭灯效':'开机预览'
+      }},homeIcon('bolt',16),h('span',null,_buildPowered?'关闭灯效':'开机预览'))))
+  const shell=h('div',{className:'chassis-shell'})
+  if(chassis)shell.appendChild(buildModule(chassis,balance,'case-module'))
+  const circuit=h('div',{className:'chassis-board'})
+  for(const part of components)circuit.appendChild(buildModule(part,balance,'board-module'))
+  shell.appendChild(circuit)
+  board.appendChild(shell)
+  const side=h('div',{className:'build-side'},buildShelf('桌面装备',desk,balance,'desk-shelf'),buildShelf('游戏装备',games,balance,'game-shelf'))
+  if(extras.length)side.appendChild(buildShelf('其他装备',extras,balance,'extra-shelf'))
+  bench.appendChild(h('div',{className:'build-layout'},board,side))
+  $c.appendChild(bench)
 }
 
 /* ============ ⑤ 设置（所有配置集中） ============ */
