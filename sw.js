@@ -1,8 +1,8 @@
 /* 阿勒学习驾驶舱 · Service Worker
    作用：① 安卓 Chrome 可"安装成应用" ② 断网也能打开壳 ③ 静态资源缓存加速
    注意：AI 请求、云存储图片、数据库走网络，不缓存 */
-const CACHE = 'lc-shell-v4'
-const ASSETS = ['./', './index.html', './styles.css', './manifest.json', './icon-192.png', './icon-512.png', './icon-180.png', './font-inter.woff2', './font-mono.woff2', './words-8.json', './words-zk.json', './app.js', './room.js', './wall.js']
+const CACHE = 'lc-shell-v5'
+const ASSETS = ['./', './index.html', './styles.css', './manifest.json', './icon-192.png', './icon-512.png', './icon-180.png', './font-inter.woff2', './font-mono.woff2', './words-8.json', './words-zk.json', './app.js', './room.js', './wall.js', './cockpit-hero.webp']
 
 self.addEventListener('install', function (e) {
   self.skipWaiting()
@@ -12,7 +12,7 @@ self.addEventListener('install', function (e) {
 self.addEventListener('activate', function (e) {
   e.waitUntil(
     caches.keys().then(function (ks) {
-      return Promise.all(ks.filter(function (k) { return k !== CACHE }).map(function (k) { return caches.delete(k) }))
+      return Promise.all(ks.filter(function (k) { return k.startsWith('lc-shell-') && k !== CACHE }).map(function (k) { return caches.delete(k) }))
     }).then(function () { return self.clients.claim() })
   )
 })
@@ -24,16 +24,23 @@ self.addEventListener('fetch', function (e) {
   try { u = new URL(req.url) } catch (err) { return }
   if (u.origin !== self.location.origin) return                    // 跨域（AI / 云存储 / 数据库）不拦
   const p = u.pathname
-  const isShell = (p === '/' || p.endsWith('.html') || p.endsWith('.js') || p.endsWith('.css') || p.endsWith('.json'))
+  const isShell = (req.mode === 'navigate' || p === '/' || p.endsWith('.html') || p.endsWith('.js') || p.endsWith('.css') || p.endsWith('.json'))
   if (isShell) {
     // 网络优先：保证每次都能拿到最新版；断网时回缓存
     e.respondWith(
       fetch(req).then(function (r) {
-        const cp = r.clone()
-        caches.open(CACHE).then(function (c) { c.put(req, cp) }).catch(function () {})
+        if (r.ok) {
+          const cp = r.clone()
+          caches.open(CACHE).then(function (c) { c.put(req, cp) }).catch(function () {})
+        }
         return r
       }).catch(function () {
-        return caches.match(req).then(function (m) { return m || caches.match('./index.html') })
+        return caches.open(CACHE).then(async function (cache) {
+          const match = await cache.match(req) || await cache.match(u.pathname)
+          if (match) return match
+          if (req.mode === 'navigate') return await cache.match('./index.html') || Response.error()
+          return Response.error()
+        })
       })
     )
   } else {

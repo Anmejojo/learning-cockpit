@@ -488,6 +488,11 @@ function demoData(){
   d.exams=[{id:1,date:y1,sem:'初二上',examType:'月考',scores:{chinese:105,math:96,english:78,physics:72,geo:70,bio:62,dao:66,history:74,pe:32},status:'approved',ts:Date.now()-88000000}]
   d.msgs=[{id:1,from:'p',text:'看到你这周数学错题整理了 3 道，比上周多',ts:Date.now()-7200000}]
   d.tasks=[{id:1,date:today,text:'英语单词 20 个',done:false}]
+  d.hw=[
+    {id:'demo-hw-1',date:today,subj:'英语',kind:'recite',src:'sheet',text:'朗读 Unit 3 的课文，订正听写'},
+    {id:'demo-hw-2',date:today,subj:'语文',kind:'written',src:'sheet',text:'整理课堂笔记，标出不懂的地方',recId:102},
+    {id:'demo-hw-3',date:today,subj:'数学',kind:'written',src:'sheet',text:'完成练习册上的一元一次方程',recId:101}
+  ]
   d.dailyChecks={}
   d.dailyChecks[today]={videoCall:true,onTimeStudy:true,water:true}
   d._chat=[
@@ -513,19 +518,17 @@ function demoData(){
 function demoBar(){
   if(!DEMO)return
   try{ if(document.getElementById('demoBar'))return }catch(e){}
-  const b=document.createElement('div')
-  b.id='demoBar'
-  b.style.cssText='position:fixed;left:8px;bottom:8px;z-index:99998;display:flex;gap:6px;align-items:center;background:rgba(20,22,28,0.92);border:1px solid rgba(255,255,255,0.14);border-radius:10px;padding:6px 8px;font-size:var(--fs-12);color:#ccd2de'
-  b.innerHTML='<span style="color:#fbbf24">测试台</span>'
-  const mk=function(txt,fn){const x=document.createElement('button');x.textContent=txt;x.style.cssText='background:transparent;border:1px solid rgba(255,255,255,0.18);color:#ccd2de;border-radius:8px;padding:3px 8px;font-size:var(--fs-12);cursor:pointer';x.onclick=fn;return x}
-  b.appendChild(mk('重置测试数据',function(){try{const u=new URLSearchParams(location.search);u.set('reset','1');u.set('t',String(Date.now()));location.search=u.toString()}catch(e){location.reload()}}))
-  b.appendChild(mk('清空测试数据',function(){
+  const panel=h('div',{className:'demo-actions'})
+  const b=h('details',{id:'demoBar'},h('summary',null,'测试台'),panel)
+  const mk=(label,fn)=>h('button',{type:'button',onClick:fn},label)
+  panel.appendChild(mk('重置测试数据',function(){try{const u=new URLSearchParams(location.search);u.set('reset','1');u.set('t',String(Date.now()));location.search=u.toString()}catch(e){location.reload()}}))
+  panel.appendChild(mk('清空测试数据',function(){
     /* 只清测试专用的几项（原来的 localStorage.clear() 会连同一来源下别的东西一起清） */
-    try{['lc_demo','lc_demo_v','lc_pending'].forEach(function(k){localStorage.removeItem(k)})}catch(e){}
+    try{['lc_demo','lc_demo_v','lc_demo_pending'].forEach(function(k){localStorage.removeItem(k)})}catch(e){}
     location.reload()
   }))
-  b.appendChild(mk('填口令(试小搭)',function(){const v=prompt('输入家长口令（只在本地测试用）');if(v){try{localStorage.setItem('lc_tok',hsh(v));localStorage.setItem('lc_lv','p')}catch(e){}ts('已填，刷新后小搭可用')}}))
-  document.body.appendChild(b)
+  panel.appendChild(mk('填口令(试小搭)',function(){const v=prompt('输入家长口令（只在本地测试用）');if(v){try{sessionStorage.setItem('lc_demo_tok',hsh(v))}catch(e){}ts('已填，刷新后小搭可用')}}))
+  document.querySelector('.app-status').prepend(b)
 }
 
 let VW=up.has('view')||up.has('readonly')
@@ -626,8 +629,6 @@ function applyLv(lv){
   if(lv==='c'){
     VW=true
     document.body.classList.add('view-only')
-    const b=document.getElementById('modeBadge')
-    if(b){b.textContent='👀 查看模式';b.className='badge view';b.style.display=''}
   }
 }
 let _authPending=false
@@ -665,7 +666,7 @@ function authGateAfterLoad(){
 
 /* ================= AI 助手（密钥在云函数里，网页端不存） ================= */
 const AI_URL='https://jiajia-study-d6gjyod13d77728d6-1483465315.ap-shanghai.app.tcloudbase.com/ai'
-function aiToken(){return localStorage.getItem('lc_tok')||''}
+function aiToken(){return (DEMO?sessionStorage.getItem('lc_demo_tok'):localStorage.getItem('lc_tok'))||''}
 /* ⚠️ 云函数 HTTP 通道「单次请求体积上限」（2026-09-17 实测）：
    请求体 102400 字节通过、103000 字节被网关挡回 413 EXCEED_MAX_PAYLOAD_SIZE。
    照片是转成 base64 塞进 body 的，所以 base64 必须 ≲90KB，否则整张照片传不上去
@@ -936,9 +937,10 @@ let _askCancel=null
 function _closeLayer(){
   const a=document.getElementById('askOv')
   if(a&&a.classList.contains('show')){closeAsk();try{if(_askCancel)_askCancel()}catch(e){};return true}
-  if(_moreOpen){closeMore();return true}
-  if(tb==='checkin'&&_openSubj&&Object.keys(_openSubj).some(function(k){return _openSubj[k]})){_openSubj={};render();return true}
   if(document.getElementById('lightbox')){closeLightbox();return true}
+  if(_moreOpen){closeMore(true);return true}
+  if(tb==='room'&&(_spacePanel||_kidMenu)){_spacePanel=null;_kidMenu=false;render();return true}
+  if(tb==='checkin'&&_openSubj&&Object.keys(_openSubj).some(function(k){return _openSubj[k]})){_openSubj={};render();return true}
   return false
 }
 window.addEventListener('popstate',function(){
@@ -2312,35 +2314,21 @@ function rwrite(){
   wall.appendChild(grid)
   $c.appendChild(wall)
 }
-/* ===== 全站悬浮小搭：任何页面点一下就能问它 ===== */
+/* ===== 全站导航与小搭的页面说明 ===== */
 let _ctxTab=''   // 他刚刚在看哪一页（切到聊天时记下）
-const TAB_NAME={today:'今日',chat:'小搭',checkin:'打卡',mistake:'错题本',write:'硬笔字',scores:'成绩',points:'积分奖励',settings:'设置'}
-function fabEnsure(){
-  try{
-    let b=document.getElementById('fabChat')
-    if(!b||!b.classList||!b.classList.contains('fab-chat')){
-      b=document.createElement('button')
-      b.id='fabChat';b.type='button';b.className='fab-chat'
-      b.title='问小搭'
-      b.textContent='搭'
-      b.onclick=function(){try{sw('chat')}catch(e){}}
-      document.body.appendChild(b)
-    }
-    b.style.display=(tb==='chat')?'none':''
-  }catch(e){}
-}
+const TAB_NAME={today:'今日',chat:'小搭',checkin:'作业与打卡',mistake:'错题本',write:'硬笔字',word:'单词',scores:'成绩',points:'积分奖励',room:'学习房间',settings:'设置',detail:'今日详情'}
 function chatSiteMap(){
   return ['【他能看到的网页（家里人给他做的「学习驾驶舱」）】',
-  '标签页共 8 个：今日 / 小搭 / 打卡 / 错题本 / 硬笔字 / 成绩 / 积分奖励 / 设置。',
-  '· 今日：今天做到多少、连续几天、可用积分、家长留言、这周可以聊的问题；',
+  '桌面左侧是学习导航；手机底部的「更多」里还有小搭、成绩、硬笔字、积分奖励、学习房间和设置。',
+  '· 今日：拍照提交、今日作业与状态、连续打卡、可用积分、家庭留言；',
   '· 小搭：就是你，他在这里跟你说话；',
   '· 打卡：拍照记录今天做的事（家长看过后加分）、习惯打勾、今天的任务清单；',
   '· 错题本：拍错题→你自动认科目、认题型、抓知识点；按科目存着，是「记录」不是「重做」；下面还有错题汇总、你写过的总结、你说过的提醒；',
   '· 硬笔字：拍今天写的字，攒成作品墙；',
   '· 成绩：录入考试、成绩趋势图、基准线（起点分）、薄弱科目；',
   '· 积分奖励：积分明细和规则 / 电脑零件清单（一件件解锁，攒积分兑换）；',
-  '· 设置：考试日期、学习时间、小目标、平板限时、话费、口令、数据备份。',
-  '每个页面右下角都有一个圆圆的「搭」按钮，点一下就回到你这儿。',
+  '· 学习房间：打开书桌、成绩墙和电脑配件；',
+  '· 孩子版设置：查看家里的规则。',
   '他问"我在哪看xxx"时，直接告诉他点哪个标签、大概在页面什么位置，别让他自己找。'
   ].join('\n')
 }
@@ -2716,7 +2704,6 @@ function searchBox(id,val,ph,onChange){
   return el
 }
 let _mkGroup='kp'
-let _todayMore=false
 let _memOpen=false
 let _chatShow=40
 let _aiBusy=false
@@ -3452,11 +3439,13 @@ function chatTimeLabel(ts,prevTs){
 function chatHeight(){
   try{
     const top=(document.querySelector('.topbar')||{}).offsetHeight||58
-    const tabs=(document.getElementById('tabNav')||{}).offsetHeight||46
-    document.documentElement.style.setProperty('--chat-h',(window.innerHeight-top-tabs)+'px')
+    const height=window.visualViewport?.height||window.innerHeight
+    document.documentElement.style.setProperty('--chat-h',(height-top)+'px')
   }catch(e){}
 }
-window.addEventListener('resize',function(){if(document.body.classList.contains('chat-page'))chatHeight()})
+function fitChat(){if(document.body.classList.contains('chat-page'))chatHeight()}
+window.addEventListener('resize',fitChat)
+window.visualViewport?.addEventListener('resize',fitChat)
 
 function chatUI(){
   if(ROLE.kid&&_memOpen)return memPanelUI()
@@ -4001,7 +3990,9 @@ function updateTabBadges(){
   const pendExams=(D.exams||[]).filter(function(e){return e.status==='pending'}).length
   const _mine=ROLE.firstPerson?'c':'p'
   const _aln=ROLE.kid?0:(D._alerts||[]).filter(function(a){return !a.ack}).length
-  const map={today:pendChecks+pendExams+msgUnread(_mine)+_aln,checkin:pendChecks,scores:pendExams}
+  const map=ROLE.parent
+    ? {today:msgUnread(_mine)+_aln,checkin:pendChecks,scores:pendExams}
+    : {today:msgUnread(_mine)}
   document.querySelectorAll('.tab-btn').forEach(function(b){
     const n=map[b.dataset.tab]||0
     let sp=b.querySelector('.tab-badge')
@@ -4011,7 +4002,7 @@ function updateTabBadges(){
   })
 }
 /* ================= 上传草稿：中途刷新/关页面也不会丢，回来自动接着传 ================= */
-const PEND_KEY='lc_pending'
+const PEND_KEY=DEMO?'lc_demo_pending':'lc_pending'
 let _upFailWarned=false      /* 上传失败只提示一次，别刷屏 */
 function pendList(){try{return JSON.parse(localStorage.getItem(PEND_KEY)||'[]')}catch(e){return []}}
 function pendSave(list){try{localStorage.setItem(PEND_KEY,JSON.stringify(list))}catch(e){ts('⚠️ 本机存不下草稿，请先传完别刷新')}}
@@ -4180,10 +4171,11 @@ function ckPendingCard(){
     if(!list.length)return null
     list.sort(function(a,b){return (b.ts||0)-(a.ts||0)})
     const c=h('div',{className:'card'})
+    c.id='pendingReviews';c.tabIndex=-1
     c.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'⏳'}),'待审核（'+list.length+' 条）'))
     c.appendChild(h('div',{className:'t-muted',style:'margin:-4px 0 8px;line-height:1.7'},'所有没审的都列在这里（含以前补交的、没认科目的）。点「通过」加分，点「退回」就不计。'))
     list.forEach(function(rec){
-      const row=h('div',{style:'display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)'})
+      const row=h('div',{id:'review-'+rec.id,tabindex:'-1',style:'display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)'})
       const left=h('div',{className:'grow'})
       left.appendChild(h('div',{style:'font-size:var(--fs-14);font-weight:600'},(rec.subject?rec.subject+'·':'')+(rec.typeName||rec.type||'记录')+'　'+fd(rec.date)))
       left.appendChild(h('div',{style:'font-size:var(--fs-12);color:var(--muted);margin-top:2px'},(rec.ts?('提交 '+fmtHM(rec.ts)):'')+(rec.noteSubmit?('　💬 '+rec.noteSubmit):'')))
@@ -4318,6 +4310,7 @@ function pickAndSubmit(type,subject,append){
     ts('⏳ 正在处理 '+files.length+'张照片...')
     compressAll(files,function(bs){
       if(!bs.length){ts('⚠️ 照片处理失败，请重试');return}
+      if(DEMO){submitCheck(type.id,subject||'',bs,!!append);return}
       pendAdd({id:'p'+Date.now(),kind:'check',typeId:type.id,subject:subject||'',append:!!append,imgs:bs.map(function(d){return {d:d,u:''}}),ts:Date.now()})
       ts('⏳ 正在传 '+bs.length+' 张（中途刷新也会自动接着传）')
       render();pendRun()
@@ -4339,6 +4332,11 @@ function quickShot(){
     ts('⏳ 正在处理…')
     compressAll(files,function(bs){
       if(!bs.length){ts('照片处理失败，重拍一张');return}
+      if(DEMO){
+        bs.forEach(d=>submitCheck('assignment','',[d],false,null,false,true))
+        render()
+        return
+      }
       bs.forEach(function(d,i){pendAdd({id:'q'+Date.now()+i+Math.random().toString(36).slice(2,5),kind:'check',typeId:'assignment',subject:'',append:false,quick:true,imgs:[{d:d,u:''}],ts:Date.now()})})
       ts('⏳ 正在传（传完我自动认科目和类型）')
       render();pendRun()
@@ -4648,12 +4646,18 @@ function dateRoll(){
 }
 function render(){
   if(document.getElementById('gate'))return
-  try{applyTabs()}catch(e){}    /* ④ 角色化页签（只初始化一次） */
+  try{applyTabs();updateWorkspaceNav()}catch(e){}
   try{if(dateRoll())try{sv(D)}catch(e){}}catch(e){}
-  try{document.body.classList.toggle('space-mode', tb==='today')}catch(e){}
   $c.innerHTML=''
   if(tb!=='chat'){document.body.classList.remove('chat-page');_memOpen=false}
+  if(tb!=='today'&&tb!=='chat'){
+    $c.appendChild(h('header',{className:'workspace-heading'},
+      h('h1',null,TAB_NAME[tb]),
+      tb==='detail'?homeButton('返回今日',()=>sw('today'),'text','arrow-left'):null))
+  }
   if(tb==='today')rtoday()
+  else if(tb==='room')$c.appendChild(spaceHome())
+  else if(tb==='detail')rtodayDetail()
   else if(tb==='checkin')rck()
   else if(tb==='write')rwrite()
   else if(tb==='word')rckWord()
@@ -4664,7 +4668,6 @@ function render(){
   else if(tb==='settings')rset()
   updateTabBadges()
   try{pactDailyNudge()}catch(e){}
-  try{fabEnsure()}catch(e){}
 }
 
 let _showAlerts=false,_openImg={},_examEdit=false,_openExamForm=false,_ckView='list',_scView='list',_pkView='points',_partEdit=false,_blEdit=false,_ptFilter='all',_exFilter='all'
@@ -4681,7 +4684,7 @@ function spacePanelBody(kind,host){
     else if(kind==='set') rset()
     else if(kind==='parts'){ try{_pkView='parts'}catch(e){}; rpk() }
     else if(kind==='wall'&&window.WALL){ WALL.mount(host,wallData()) }
-    else if(kind==='detail'&&_kidsBuf){ _kidsBuf.forEach(function(c){host.appendChild(c)}) }
+    else if(kind==='detail')rtodayDetail()
     else if(kind==='chat'){
       const wrapC=h('div',{className:'sp-chat'})
       const list=h('div',{className:'sp-chat-list'})
@@ -4732,14 +4735,16 @@ function spacePanelBody(kind,host){
   }finally{ $c=old }
 }
 const SPACE_TITLE={chat:'🤖 小搭',detail:'📋 今天的细节',checkin:'📓 交作业',mistake:'📕 错题本',word:'📖 单词',set:'⚙️ 设置',parts:'🎁 奖品',wall:'📊 成绩墙',stat:'🎖 我的状态'}
-/* 孩子端首页 = 空间：满屏场景 + 少量 HUD（像游戏，不像网页） */
 let _kidView='room'
 let _kidMenu=false
-function spaceHome(_kids){
-  _kidsBuf=_kids
-  try{const kv=(location.search.match(/[?&]kv=(room|wall)/)||[])[1];if(kv)_kidView=kv}catch(e){}
-  try{const sp=(location.search.match(/[?&]sp=(checkin|mistake|word|set|parts|wall|stat|chat|detail)/)||[])[1];if(sp)_spacePanel=sp}catch(e){}
+function spaceHome(){
+  const page=h('div',{className:'workspace-room'})
+  page.appendChild(h('div',{className:'room-stage-tools'},segBar([
+    {label:'书桌',on:_kidView==='room',fn:()=>{_kidView='room';render()}},
+    {label:'成绩墙',on:_kidView==='wall',fn:()=>{_kidView='wall';render()}}
+  ]),_kidView==='room'&&window.ROOM?homeButton('重置视角',()=>ROOM.fit(),'quiet'):null))
   const wrap=h('div',{className:'kid-stage'})
+  page.appendChild(wrap)
   const view=h('div',{className:'kid-scene'+( _kidView==='wall'?' scroll':'' )})
   wrap.appendChild(view)
 
@@ -4758,23 +4763,26 @@ function spaceHome(_kids){
               streak:(function(){try{return ckStreak()}catch(e){return 0}})(),
               pts:earn-spend},
         toast:function(m){ts(m)}})
+    }else{
+      view.appendChild(h('div',{className:'kid-fail'},'房间暂未载入，可以从导航继续使用学习功能。'))
     }
-  }catch(e){ view.appendChild(h('div',{className:'kid-fail'},'这里没加载出来')) }
+  }catch(e){ view.appendChild(h('div',{className:'kid-fail'},'房间暂未载入，可以从导航继续使用学习功能。')) }
 
   if(_spacePanel){
     const close=function(){ _spacePanel=null; render() }
     wrap.appendChild(h('div',{className:'kid-scrim',onClick:close}))
-    const panel=h('div',{className:'space-panel'})
+    const kind=_spacePanel
+    const panel=h('div',{className:'space-panel',role:'dialog','aria-labelledby':'roomPanelTitle'})
     const head=h('div',{className:'sp-head'})
-    head.appendChild(h('span',null,SPACE_TITLE[_spacePanel]||'面板'))
-    const xb=h('button',{className:'sp-close',onClick:close},'✕')
+    head.appendChild(h('span',{id:'roomPanelTitle'},SPACE_TITLE[kind]))
+    const xb=h('button',{className:'sp-close',type:'button','aria-label':'关闭面板',onClick:close},'✕')
     head.appendChild(xb)
     panel.appendChild(head)
     // 抓手条 + 下拉关闭（Material 抽屉那套手感：超过 90px 或快速下甩就关）
     const grab=h('div',{className:'sp-grab'})
     panel.insertBefore(grab,head)
     let _sy=0,_dy=0,_drag=false,_t0=0
-    function dStart(e){ _drag=true; _sy=e.clientY; _dy=0; _t0=Date.now(); panel.style.transition='none'; try{grab.setPointerCapture(e.pointerId)}catch(err){} }
+    function dStart(e){ if(e.target.closest('button'))return; _drag=true; _sy=e.clientY; _dy=0; _t0=Date.now(); panel.style.transition='none'; try{grab.setPointerCapture(e.pointerId)}catch(err){} }
     function dMove(e){ if(!_drag)return; _dy=Math.max(0,e.clientY-_sy); panel.style.transform='translate(-50%,'+_dy+'px)'; }
     function dEnd(){ if(!_drag)return; _drag=false; panel.style.transition=''; panel.style.transform='';
       const fast=(Date.now()-_t0)<260; if(_dy>90||(_dy>40&&fast)) close() }
@@ -4789,7 +4797,7 @@ function spaceHome(_kids){
     panel.appendChild(body)
     wrap.appendChild(panel)
     panel.tabIndex=-1;
-    setTimeout(function(){ spacePanelBody(_spacePanel,body); try{panel.focus({preventScroll:true})}catch(e){} },0)
+    setTimeout(function(){ if(!panel.isConnected)return; spacePanelBody(kind,body); panel.focus({preventScroll:true}) },0)
   }
 
   // ── 菜单 / 今日细节（同一张底部抽屉）
@@ -4811,19 +4819,12 @@ function spaceHome(_kids){
     rows.forEach(function(r){
       sh.appendChild(h('button',{className:'kid-row',onClick:r[1]},r[0]))
     })
-    if(_kidMore){
-      const box=h('div',{className:'kid-detail'})
-      _kids.forEach(function(c){box.appendChild(c)})
-      sh.appendChild(box)
-    }
+    sh.appendChild(h('button',{className:'kid-row',onClick:()=>{_kidMenu=false;render()}},'关闭菜单'))
     wrap.appendChild(sh)
   }
-  return wrap
-}let _kidMore=false
-let _kidsBuf=null
-document.addEventListener('keydown',function(e){
-  if(e.key==='Escape'&&_spacePanel){ _spacePanel=null; try{render()}catch(err){} }
-})
+  return page
+}
+
 function kidAct(k){
   try{
     if(k==='chat'){ _spacePanel='chat'; render() }
@@ -4834,23 +4835,173 @@ function kidAct(k){
   }catch(e){}
 }
 
-function rtoday(){
-  const _host=$c, _tmp=h('div',null)
-  $c=_tmp
-  try{ _rtodayBody() } finally { $c=_host }
-  const _kids=Array.prototype.slice.call(_tmp.children||[]);
-  if(window.ROOM){ $c.appendChild(spaceHome(_kids)); return }
-  const _pb=dailyBanner(); if(_pb)_pb.forEach(function(x){$c.appendChild(x)});
-  _kids.slice(0,1).forEach(function(c){$c.appendChild(c)});
-  try{$c.appendChild(chainCard())}catch(e){}
-  try{const _pc=pactCard();if(_pc)$c.appendChild(_pc)}catch(e){}
-  const btn=h('button',{className:'btn btn-outline btn-sm',style:'width:100%;margin-bottom:10px',onClick:function(){_todayMore=!_todayMore;render()}});
-  btn.innerHTML=_todayMore?'▲ 收起（只看重点）':'▼ 展开更多（考试倒计时 / 成绩 / 寄语 / 留言）';
-  $c.appendChild(btn);
-  const more=h('div',{style:_todayMore?'':'display:none'});
-  _kids.slice(1).forEach(function(c){more.appendChild(c)});
-  $c.appendChild(more);
+const HOME_STATUS={
+  todo:['未提交','neutral'],pending:['待审核','amber'],
+  approved:['已通过','mint'],rejected:['待补交','rose']
 }
+function homeIcon(name,size){
+  const el=icoEl(name,size)
+  el.setAttribute('aria-hidden','true')
+  return el
+}
+function homeButton(label,fn,kind,icon){
+  return h('button',{type:'button',className:'home-btn '+kind,onClick:fn},
+    icon?homeIcon(icon,18):null,label)
+}
+function homeListRow(icon,tone,title,meta,action){
+  return h('div',{className:'home-list-row'},
+    h('span',{className:'home-icon '+tone},homeIcon(icon,18)),
+    h('div',{className:'home-row-copy'},h('strong',null,title),meta?h('span',null,meta):null),
+    action)
+}
+function homeStatus(status){
+  const [label,tone]=HOME_STATUS[status]||HOME_STATUS.todo
+  return h('span',{className:'home-state '+tone},label)
+}
+function homeSection(title,action){
+  return h('section',{className:'home-panel'},
+    h('header',{className:'home-panel-head'},h('h2',null,title),action))
+}
+function openTodayCheckin(target){
+  _ckView='list'
+  _checkDate=null
+  sw('checkin')
+  if(typeof target==='string'){
+    const node=document.getElementById(target)
+    if(node){
+      node.focus({preventScroll:true})
+      node.scrollIntoView({block:'start'})
+    }
+  }
+}
+function openTodayScores(){
+  _scView='list'
+  sw('scores')
+}
+function rtoday(){
+  const jobs=hwToday()
+  const checks=(D.checks||[]).slice().sort((a,b)=>(b.ts||0)-(a.ts||0))
+  const waiting=checks.filter(c=>c.status==='pending')
+  const exams=(D.exams||[]).filter(e=>e.status==='pending')
+  const parent=ROLE.parent
+  const pending=waiting.length+exams.length
+  const unread=msgUnread(ROLE.firstPerson)
+  const habits=habStats(td)
+  const work=h('div',{className:'home-page'})
+  const date=new Intl.DateTimeFormat('zh-CN',{month:'long',day:'numeric',weekday:'long'}).format(new Date())
+  work.appendChild(h('header',{className:'home-heading'},
+    h('div',null,h('h1',null,parent?'家长工作台':'今日学习'),h('p',null,date)),
+    homeButton(unread?'留言 · '+unread+' 条未读':'家庭留言',()=>sw('detail'),'quiet','message-circle')))
+
+  const primary=parent
+    ? (pending?()=>waiting.length?openTodayCheckin('pendingReviews'):openTodayScores():()=>openTodayCheckin())
+    : quickShot
+  const title=parent?(pending?'有 '+pending+' 条记录待审核':'暂无待审核记录'):'拍照交作业'
+  const intro=parent?(pending?'看过照片或成绩后，就可以给孩子反馈。':'新提交会出现在这里。'):'作业、笔记、背诵，都可以拍下来。'
+  const hero=h('section',{className:'home-hero'},
+    h('img',{className:'home-hero-art',src:'cockpit-hero.webp',alt:'',width:900,height:600}),
+    h('div',{className:'home-hero-copy'},
+      h('h2',null,title),h('p',null,intro),
+      homeButton(parent?(pending?'去审核':'查看打卡'):'拍照提交',primary,'primary',parent?'list-checks':'camera')))
+  work.appendChild(hero)
+  if(parent&&(D._alerts||[]).some(a=>!a.ack)){
+    work.appendChild(homeButton('查看小搭的关注提醒',()=>sw('chat'),'quiet','bell'))
+  }
+
+  const metric=h('div',{className:'home-metrics'})
+  const available=myExp()-(D.points||[]).filter(p=>p.type==='spend').reduce((n,p)=>n+(p.points||0),0)
+  const metrics=[
+    [parent?'今日已通过':'今日提交',checks.filter(c=>c.date===td&&(parent?c.status==='approved':true)).length,'条','list-checks','lilac',()=>openTodayCheckin()],
+    ['连续打卡',ckStreak(),'天','flame','amber',()=>openTodayCheckin()],
+    ['可用积分',available,'分','star','mint',()=>{_pkView='points';sw('points')}]
+  ]
+  for(const [label,value,unit,icon,tone,fn] of metrics){
+    metric.appendChild(h('button',{type:'button',className:'home-metric',onClick:fn},
+      h('span',{className:'home-icon '+tone},homeIcon(icon,20)),
+      h('span',{className:'home-metric-copy'},h('span',null,label),h('strong',null,value,h('small',null,unit)))))
+  }
+  work.appendChild(metric)
+
+  const grid=h('div',{className:'home-grid'})
+  const list=parent
+    ? homeSection('待审核',homeButton('查看打卡',()=>openTodayCheckin('pendingReviews'),'text','arrow-right'))
+    : homeSection('今日作业',homeButton('看清单',()=>openTodayCheckin('todayHomework'),'text','arrow-right'))
+  if(parent){
+    for(const c of waiting.slice(0,3)){
+      list.appendChild(homeListRow('notebook-pen','lilac',(c.subject?c.subject+' · ':'')+(c.typeName||'打卡记录'),
+        fd(c.date),homeButton('审核',()=>openTodayCheckin('review-'+c.id),'quiet')))
+    }
+    if(exams.length)list.appendChild(homeListRow('bar-chart-3','mint','成绩待审核',exams.length+' 条成绩记录',
+      homeButton('查看',openTodayScores,'quiet')))
+    if(!pending)list.appendChild(h('p',{className:'home-empty'},'暂时没有待审核的记录。'))
+  }else{
+    for(const job of jobs.slice(0,4)){
+      const st=hwStatus(job)
+      const action=st==='todo'||st==='rejected'
+        ? homeButton(st==='rejected'?'补交':(job.kind==='recite'?'交草稿本':'交照片'),()=>hwPick(job),'quiet')
+        : homeStatus(st)
+      list.appendChild(homeListRow(job.kind==='recite'?'book-open':'notebook-pen','lilac',
+        job.text||'作业',(job.subj||'其他')+' · '+(job.kind==='recite'?'背诵':'书面'),action))
+    }
+    if(!jobs.length)list.appendChild(h('div',{className:'home-empty'},h('p',null,'今天还没有录入作业。'),
+      homeButton('添加作业清单',()=>openTodayCheckin('todayHomework'),'quiet','notebook-pen')))
+  }
+
+  const tools=homeSection('常用工具')
+  const shortcuts=[
+    ['小搭','问问题、聊一会儿','bot','lilac',()=>sw('chat')],
+    ['单词闯关','练单词、听发音','book-open','mint',()=>sw('word')],
+    ['错题本','拍下来，留着查','notebook-pen','rose',()=>sw('mistake')],
+    [parent?'成绩记录':'学习房间',parent?'录入与周报':'看看你的书桌',parent?'bar-chart-3':'house','amber',
+      parent?openTodayScores:()=>sw('room')]
+  ]
+  const tiles=h('div',{className:'home-tools'})
+  for(const [label,desc,icon,tone,fn] of shortcuts){
+    tiles.appendChild(h('button',{type:'button',className:'home-tool',onClick:fn},
+      h('span',{className:'home-icon '+tone},homeIcon(icon,18)),
+      h('strong',null,label),h('span',{className:'home-tool-desc'},desc)))
+  }
+  tools.appendChild(tiles)
+  grid.appendChild(list)
+  grid.appendChild(tools)
+  work.appendChild(grid)
+
+  const recent=homeSection('最近提交',homeButton('查看记录',()=>openTodayCheckin(),'text','arrow-right'))
+  for(const c of checks.slice(0,3)){
+    recent.appendChild(homeListRow('camera','neutral',(c.subject?c.subject+' · ':'')+(c.typeName||'打卡记录'),
+      fd(c.date),homeStatus(c.status||'pending')))
+  }
+  if(!checks.length)recent.appendChild(h('p',{className:'home-empty'},'拍照提交后，记录会出现在这里。'))
+  const habitPanel=homeSection('习惯打卡',homeButton('去打卡',()=>openTodayCheckin('todayHabits'),'text','arrow-right'))
+  const habitList=h('div',{className:'home-habits'})
+  habitList.appendChild(h('p',null,'今天已记下 '+habits.done+' 项'))
+  for(const it of habits.ci.filter(it=>habits.tchk[it.key]).slice(0,4)){
+    habitList.appendChild(h('span',{className:'home-state mint'},it.label))
+  }
+  habitPanel.appendChild(habitList)
+  work.appendChild(h('div',{className:'home-grid'},recent,habitPanel))
+  work.appendChild(homeButton('查看今日详情',()=>sw('detail'),'text','arrow-right'))
+  const upload=pendBanner()
+  if(upload)work.insertBefore(upload,hero)
+  $c.appendChild(work)
+  encEnsure()
+  if(parent){ensureAsks();ensureSurprise()}
+}
+function rtodayDetail(){
+  $c.appendChild(msgCardUI())
+  if(ROLE.kid){
+    const cards=dailyBanner()
+    if(cards)cards.forEach(card=>$c.appendChild(card))
+    $c.appendChild(chainCard())
+    const pact=pactCard()
+    if(pact)$c.appendChild(pact)
+    const review=reviewCardUI()
+    if(review)$c.appendChild(review)
+    return
+  }
+  _rtodayBody()
+}
+
 /* ===== 我的舱：等级 / 称号 / 经验 / 装机进度 ===== */
 const LV_TITLES=['见习机长','启动引擎','稳定巡航','熟练操作','老练机长','王牌驾驶员','精英机长','王牌教官','传奇机长','驾驶舱长']
 function nickName(){try{return (D&&D.nick)||'乐乐'}catch(e){return '乐乐'}}
@@ -5751,6 +5902,10 @@ function wQuit(){_wg=null;render();ts('已退出（进度已存）')}
 
 /* ===== 线性图标（Lucide，MIT，内联 SVG，不依赖 CDN）===== */
 const ICON={
+  'arrow-right':'<path d="M4 12h15m-6-6 6 6-6 6"/>',
+  'arrow-left':'<path d="M20 12H5m6-6-6 6 6 6"/>',
+  'more':'<g fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></g>',
+  'monitor':'<g><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M12 17v4m-4 0h8"/></g>',
   'sun':'<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></g>',
   'house':'<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></g>',
   'camera':'<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></g>',
@@ -5785,10 +5940,12 @@ function icoEl(name,size){
 }
 
 /* ===== 新手引导（三步，手写探照灯，不引入 driver.js —— 它自带样式会和主题打架） ===== */
+const NAV_ICONS={today:'house',checkin:'list-checks',scores:'bar-chart-3',mistake:'notebook-pen',
+  word:'book-open',write:'pen-tool',chat:'bot',points:'gift',room:'monitor',settings:'settings',more:'more'}
 const GUIDE=[
-  {tab:'today',sel:'.todo-card',t:'这是你的驾驶舱',d:'上面是今天的进度；最下面是积分积到哪了、电脑装到几件了。没有人拿这个评价你。'},
+  {tab:'today',sel:'.home-hero',t:'从交一张开始',d:'在今日页拍照交作业，也可以看作业清单和提交状态。'},
   {tab:'checkin',sel:'.tabs [data-tab="checkin"]',t:'想记一笔就点这里',d:'拍张照就算记下来了。不用一次做完，也不用写得多好。'},
-  {tab:'chat',sel:'.tabs [data-tab="chat"]',t:'有不会的就找小搭',d:'点这个，或者右下角那个圆圆的「搭」。题不会、心情不好，都能跟它说。'}
+  {tab:'chat',sel:'#chatInput',t:'有不会的就找小搭',d:'在今日页的常用工具或导航里点「小搭」。题不会、心情不好，都能跟它说。'}
 ]
 function guideEnd(){
   try{
@@ -5837,7 +5994,7 @@ function guideShow(i){
 }
 function guideMaybe(){
   try{
-    if(_lv!=='c'&&!DEMO)return
+    if(!ROLE.kid||DEMO||tb!=='today')return
     if(document.getElementById('gate'))return
     const g=D._guideInfo||{}
     if(!D._guide){guideShow(0);return}        // 第一次
@@ -5915,45 +6072,6 @@ function _rtodayBody(){
   // 今日寄语
   $c.appendChild(h('div',{className:'daily-praise',style:'font-size:var(--fs-15);line-height:1.75'},'💬 '+encToday()))
   encEnsure()
-
-  // 孩子端：我的今日
-  if(ROLE.kid){
-    const _earn=(D.points||[]).filter(function(pp){return pp.type==='earn'}).reduce(function(a,pp){return a+pp.points},0)
-    const _spend=(D.points||[]).filter(function(pp){return pp.type==='spend'}).reduce(function(a,pp){return a+pp.points},0)
-    const avail=_earn-_spend
-    const krate=D.rate||1
-    let nx=null
-    for(const pp of D.parts){if(pp.unlocked)continue;const cost=Math.round(pp.value*krate);if(!nx||cost<nx.cost)nx={icon:pp.icon,name:pp.name,cost:cost}}
-    let sd=0
-    ;(function(){
-      const has=function(d){return (D.checks||[]).some(function(c){return c.date===d&&c.status==='approved'})}
-      const dd=new Date()
-      if(!has(ymd(dd)))dd.setDate(dd.getDate()-1)
-      for(let i=0;i<400;i++){const d=ymd(dd);if(has(d)){sd++;dd.setDate(dd.getDate()-1)}else break}
-    })()
-    const kd=ds.done+hs.done,kt=ds.total+hs.total
-    const kc=h('div',{className:'card'})
-    kc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🌟'}),'我的今日'))
-    const kg=h('div',{className:'stat-grid mini-grid'})
-    kg.appendChild(h('div',{className:'stat-card primary'},h('div',{className:'sv',style:'font-size:var(--fs-22)'},kd+'/'+kt),h('div',{className:'sl'},'今日完成')))
-    kg.appendChild(h('div',{className:'stat-card success'},h('div',{className:'sv',style:'font-size:var(--fs-22)'},'⭐ '+avail),h('div',{className:'sl'},'我的积分')))
-    kg.appendChild(h('div',{className:'stat-card warning'},h('div',{className:'sv',style:'font-size:var(--fs-22)'},'🔥 '+sd),h('div',{className:'sl'},'连续打卡')))
-    kc.appendChild(kg)
-    const kpb=h('div',{className:'progress-bar'})
-    const kpf=h('div',{className:'fill '+(kd>=kt?'success':kd*2>=kt?'primary':'warning')})
-    kpf.style.width=(kt?Math.round(kd/kt*100):0)+'%'
-    kpb.appendChild(kpf);kc.appendChild(kpb)
-    if(kd>=kt&&kt>0)kc.appendChild(h('div',{className:'alert success'},'🎉 今天的任务全部完成，你真棒！'))
-    else kc.appendChild(h('div',{style:'font-size:var(--fs-15);margin-top:8px'},'今天还剩 '+(kt-kd)+' 项没完成，加油～'))
-    if(nx){
-      const need=Math.max(0,nx.cost-avail)
-      kc.appendChild(h('div',{style:'margin-top:10px;padding:10px 12px;background:var(--primary-weak);border:1px solid var(--primary-border);border-radius:8px;font-size:var(--fs-15)'},'🎁 再攒 '+need+' 积分，就能解锁 '+nx.icon+' '+nx.name+'（需要 ⭐'+nx.cost+'）'))
-    }
-    $c.appendChild(kc)
-  }
-
-  // 留言板
-  $c.appendChild(msgCardUI())
 
   // 每周 3 问 / 他问的问题（家长端）
   if(ROLE.parent){
@@ -6291,7 +6409,7 @@ function rckList(){
   const _pb=pendBanner();if(_pb)$c.appendChild(_pb);
   if(_offline)$c.appendChild(h('div',{className:'alert warning',style:'margin-bottom:10px'},'📴 现在没连上网：拍照打卡照旧能用，先存在本机，联网后自动传上去。'));
   const _pc=ckPendingCard();if(_pc)$c.appendChild(_pc);
-  const _hc=hwCard();if(_hc)$c.appendChild(_hc);
+  const _hc=hwCard();if(_hc){_hc.id='todayHomework';_hc.tabIndex=-1;$c.appendChild(_hc)};
   const ckd=ckDate()
   const cq=h('div',{className:'card'})
   cq.appendChild(h('div',{className:'card-header'},icoEl('camera',18),'记录今天（拍张照给家长看，通过后加分）'))
@@ -6390,7 +6508,7 @@ function rckList(){
 
   // 习惯打卡
   const hs=habStats(td)
-  const cc=h('div',{className:'card'})
+  const cc=h('div',{className:'card',id:'todayHabits',tabindex:'-1'})
   cc.appendChild(h('div',{className:'card-header'},icoEl('flame',18),'习惯打卡（打勾即可，不用拍照）'))
   const grid=h('div',{className:'check-grid'})
   for(const item of hs.ci){
@@ -7735,8 +7853,16 @@ function applyTabs(){
   const btns=Array.prototype.slice.call(nav.querySelectorAll('.tab-btn'))
   const hidden=[]
   btns.forEach(function(b){
-    if(b.dataset.tab==='more')return
-    const show=set.indexOf(b.dataset.tab)>=0
+    const key=b.dataset.tab
+    const label=b.querySelector('.tab-label')
+    if(label){
+      if(key==='checkin')label.textContent=ROLE.parent?'审核与打卡':'作业与打卡'
+      const prev=b.querySelector('.ico-s')
+      if(prev&&prev.parentNode===b)prev.remove()
+      b.insertBefore(homeIcon(NAV_ICONS[key],19),label)
+    }
+    if(key==='more')return
+    const show=set.indexOf(key)>=0
     b.style.display=show?'':'none'
     if(!show)hidden.push(b)
   })
@@ -7745,28 +7871,78 @@ function applyTabs(){
   sheet.innerHTML=''
   const grid=h('div',{className:'more-grid'})
   hidden.forEach(function(b){
-    const it=h('div',{className:'more-item'})
-    it.innerHTML=b.innerHTML
-    it.onclick=function(){closeMore();sw(b.dataset.tab)}
+    const it=h('button',{className:'more-item',type:'button',innerHTML:b.innerHTML,'data-section':b.dataset.tab,
+      onClick:()=>{closeMore();sw(b.dataset.tab)}})
     grid.appendChild(it)
   })
+  grid.setAttribute('aria-label','更多功能')
   sheet.appendChild(grid)
+  sheet.appendChild(h('button',{className:'more-scrim',type:'button',tabindex:'-1','aria-label':'关闭更多功能',onClick:()=>closeMore(true)}))
 }
-function toggleMore(){_moreOpen=!_moreOpen;const s=document.getElementById('moreSheet');if(s)s.classList.toggle('show',_moreOpen)}
-function closeMore(){_moreOpen=false;const s=document.getElementById('moreSheet');if(s)s.classList.remove('show')}
+function updateWorkspaceNav(){
+  const current=tb==='detail'?'today':tb
+  const crumb=document.getElementById('appCurrent')
+  if(crumb)crumb.textContent=tb==='checkin'&&ROLE.parent?'审核与打卡':TAB_NAME[tb]||'今日'
+  const badge=document.getElementById('modeBadge')
+  if(badge)badge.textContent=ROLE.parent?'家长版':'孩子版'
+  const profile=document.getElementById('appProfile')
+  if(profile){
+    const name=nickName()
+    profile.replaceChildren(h('div',{className:'profile-avatar','aria-hidden':'true'},Array.from(name)[0]||'乐'),
+      h('div',{className:'profile-copy'},h('strong',null,name),h('span',{id:'lvBadge'})))
+  }
+  const mobileMore=!tabsFor(ROLE.parent).includes(current)
+  document.querySelectorAll('.tab-btn').forEach(b=>{
+    const selected=b.dataset.tab===current
+    b.classList.toggle('active',selected||(b.dataset.tab==='more'&&mobileMore))
+    b.setAttribute('aria-current',selected?'page':'false')
+  })
+  document.querySelectorAll('#moreSheet .more-item').forEach(b=>{
+    b.setAttribute('aria-current',b.dataset.section===current?'page':'false')
+  })
+}
+function toggleMore(){
+  if(_moreOpen){closeMore(true);return}
+  _moreOpen=true
+  const sheet=document.getElementById('moreSheet')
+  sheet.classList.add('show')
+  document.querySelector('.app-shell').inert=true
+  document.querySelector('[data-tab="more"]').setAttribute('aria-expanded','true')
+  sheet.querySelector('.more-item').focus()
+}
+function closeMore(restoreFocus){
+  if(!_moreOpen)return
+  _moreOpen=false
+  const sheet=document.getElementById('moreSheet')
+  if(sheet)sheet.classList.remove('show')
+  const shell=document.querySelector('.app-shell')
+  if(shell)shell.inert=false
+  const button=document.querySelector('[data-tab="more"]')
+  if(button){
+    button.setAttribute('aria-expanded','false')
+    if(restoreFocus)button.focus()
+  }
+}
 const _scrollPos={}      /* 切页签时记着刚才滚到哪（2026-09-19） */
 function sw(tab){
   const _prev=tb
   try{_scrollPos[_prev]=window.scrollY||window.pageYOffset||0}catch(e){}
+  if(_prev==='room'&&tab!=='room'){_spacePanel=null;_kidMenu=false}
+  closeMore()
   tb=tab
-  document.querySelectorAll('.tab-btn').forEach(b=>{const on=b.dataset.tab===tab;b.classList.toggle('active',on);if(on){try{b.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'})}catch(e){}}})
   render()
+  if(_prev!==tab)$c.focus({preventScroll:true})
   /* 记录型页面（错题本/积分/成绩）切回来还停在原处；操作型页面回顶部 */
   const _keep=['mistake','points','scores'].indexOf(tab)>=0
   const _y=_keep?(_scrollPos[tab]||0):0
   if(_y>0)setTimeout(function(){try{window.scrollTo({top:_y})}catch(e){}},0)
-  else window.scrollTo({top:0,behavior:'smooth'});try{const ac=document.getElementById('appContent');if(ac){ac.classList.remove('switching');void ac.offsetWidth;ac.classList.add('switching');setTimeout(function(){try{ac.classList.remove('switching')}catch(e){}},420)}}catch(e){}if(_prev&&_prev!=='chat'&&tab==='chat')_ctxTab=_prev;if(tab==='chat'){try{ensureChatOpener()}catch(e){}}}
+  else window.scrollTo(0,0)
+  if(_prev&&_prev!=='chat'&&tab==='chat')_ctxTab=_prev
+  if(tab==='chat'){try{ensureChatOpener()}catch(e){}}
+}
 document.getElementById('tabNav').addEventListener('click',(e)=>{const btn=e.target.closest('.tab-btn');if(!btn)return;if(btn.dataset.tab==='more'){toggleMore();return}closeMore();sw(btn.dataset.tab)})
+document.querySelectorAll('[data-home]').forEach(b=>b.addEventListener('click',()=>sw('today')))
+window.addEventListener('resize',()=>{if(_moreOpen&&window.innerWidth>=900)closeMore()})
 var _cb=document.getElementById('cloudBadge')
 if(_cb){_cb.style.cursor='pointer';_cb.addEventListener('click',function(){if(_dirty||!cloudReady){syncNow()}else{ts('☁️ 数据已同步（'+fmtHM(_syncT)+'）')}})}
 async function checkCloudNewer(){
@@ -7919,17 +8095,17 @@ async function checkNewVersion(){
   }catch(e){}
 }
 
+const startTab=up.get('tab')
+const startScene=up.get('kv')
+const startPanel=up.get('sp')
+if(Object.hasOwn(TAB_NAME,startTab)&&startTab!=='today')tb=startTab
+else if(startScene==='room'||startScene==='wall'||Object.hasOwn(SPACE_TITLE,startPanel)){
+  tb='room'
+  _kidView=startScene==='wall'?'wall':'room'
+  if(Object.hasOwn(SPACE_TITLE,startPanel))_spacePanel=startPanel
+}
 initAuth()
 ;(async function boot(){
-  /* ④ 深链接：?tab=checkin 直接落到那一页（发链接给家里人用） */
-  try{
-    const _t=up.get('tab')
-    if(_t&&document.querySelector('.tab-btn[data-tab="'+_t+'"]')){
-      tb=_t
-      document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.toggle('active',b.dataset.tab===_t)})
-      try{_tabsSig=''}catch(e){}
-    }
-  }catch(e){}
   /* ① 返回键接管：给页面垫一个 history 状态，这样「返回」能先关弹窗 */
   try{if(window.top===window)history.pushState({lcApp:1},'')}catch(e){}
   const _tip=document.createElement('div');_tip.id='bootTip';_tip.textContent='☁️ 正在同步云端数据…';document.body.appendChild(_tip)
@@ -7954,7 +8130,7 @@ initAuth()
       await saveCloud(D)
     }
   }else{
-    setCloudStatus('📴 本地模式（未连云端）',false)
+    setCloudStatus(DEMO?'演示数据':'📴 本地模式（未连云端）',false)
   }
   const _t2=document.getElementById('bootTip');if(_t2)_t2.remove()
   await authTokenSync()
