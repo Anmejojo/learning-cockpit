@@ -2,52 +2,79 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title>本地测试台 · 阿勒学习驾驶舱</title>
+<title>驾驶舱对照预览</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-  html,body{margin:0;height:100%;background:#0b0d12;color:#ccd2de;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
-  header{display:flex;gap:10px;align-items:center;padding:8px 14px;border-bottom:1px solid rgba(255,255,255,.08);flex-wrap:wrap}
-  h1{font-size:15px;margin:0;font-weight:600}
-  .tag{font-size:12px;color:#7d8799;line-height:1.5}
-  button{background:transparent;border:1px solid rgba(255,255,255,.18);color:#ccd2de;border-radius:8px;padding:5px 10px;font-size:13px;cursor:pointer;font-family:inherit}
-  button:hover{border-color:rgba(129,140,248,.6);color:#fff}
-  .wrap{display:flex;height:calc(100% - 50px);gap:10px;padding:10px;box-sizing:border-box}
-  .pane{flex:1;min-width:0;display:flex;flex-direction:column;border:1px solid rgba(255,255,255,.08);border-radius:12px;overflow:hidden;background:#000}
-  .pane h2{font-size:13px;margin:0;padding:7px 10px;background:#15181f;border-bottom:1px solid rgba(255,255,255,.08);font-weight:600;display:flex;gap:8px;align-items:center}
-  .pane h2 span.tip{font-weight:400;color:#7d8799;font-size:12px}
-  .pane iframe{flex:1;border:0;width:100%;background:#0b0d12}
+  :root{color-scheme:dark;background:#1b1a20;color:#efeae1}
+  *,*::before,*::after{box-sizing:border-box}
+  body{
+    margin:0;min-height:100dvh;display:grid;grid-template-rows:auto minmax(0,1fr);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  }
+  .toolbar{
+    display:flex;align-items:center;justify-content:space-between;gap:8px 16px;flex-wrap:wrap;
+    padding:8px 14px;border-bottom:1px solid #4a4452;background:#222128;
+  }
+  h1{font-size:16px;margin:0;font-weight:650}
+  .actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .actions :is(button,a){
+    min-height:36px;display:inline-flex;align-items:center;padding:4px 9px;border:1px solid #4a4452;
+    border-radius:8px;color:#efeae1;background:#29262e;font:inherit;font-size:13px;
+    cursor:pointer;text-decoration:none;white-space:nowrap;
+  }
+  .actions :is(button,a):hover{background:#34413f}
+  .actions :is(button,a):focus-visible{outline:2px solid #a9d0c5;outline-offset:2px}
+  .wrap{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:10px;min-width:0}
+  .wrap iframe{width:100%;height:100%;min-height:0;border:1px solid #4a4452;border-radius:12px;background:#1b1a20}
+  .wrap[data-layout="stack"]{grid-template-columns:minmax(0,1fr)}
+  .wrap[data-layout="stack"] iframe{min-height:min(650px,78dvh)}
+  @media(max-width:760px){
+    .wrap{grid-template-columns:minmax(0,1fr);padding:7px;gap:8px}
+    .wrap iframe{min-height:min(650px,78dvh)}
+    .wrap[data-layout="split"]{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .toolbar{padding-inline:8px}
+  }
 </style>
 </head>
 <body>
-<header>
-  <h1>本地测试台</h1>
-  <span class="tag">本机测试数据，<b>不影响线上</b>（哥哥版 / 家长版都不动）</span>
-  <button onclick="reloadFrames(true)">♻️ 重置测试数据</button>
-  <button onclick="toggleDir()">⇅ 左右 / 上下</button>
-  <button onclick="reloadFrames(false)">🔄 刷新两个窗口</button>
-  <button onclick="window.open('https://anmejojo.github.io/learning-cockpit/','_blank')">🌐 打开线上版对比</button>
+<header class="toolbar">
+  <h1>驾驶舱对照预览</h1>
+  <nav class="actions" aria-label="预览工具">
+    <button type="button" onclick="toggleDir()">左右／上下</button>
+    <button type="button" onclick="reloadFrames(false)">刷新两端</button>
+    <button type="button" onclick="reloadFrames(true)">重置演示</button>
+    <a href="https://anmejojo.github.io/learning-cockpit/" target="_blank" rel="noopener noreferrer">打开线上版</a>
+  </nav>
 </header>
-<div class="wrap" id="wrap">
-  <div class="pane">
-    <h2>👩 家长版 <span class="tip">可审核、可改设置、看小搭聊天</span></h2>
-    <iframe id="f1" src="index.html?demo"></iframe>
-  </div>
-  <div class="pane">
-    <h2>🧒 孩子版 <span class="tip">?view：只能看 + 打卡</span></h2>
-    <iframe id="f2" src="index.html?view&demo"></iframe>
-  </div>
-</div>
+<main class="wrap" id="wrap">
+  <iframe id="f1" title="家长版演示" src="index.html?demo"></iframe>
+  <iframe id="f2" title="孩子版演示" src="index.html?view&demo"></iframe>
+</main>
 <script>
-function src(setup, reset){
-  return 'index.html?' + (setup ? 'view&' : '') + 'demo' + (reset ? '&reset=1' : '') + '&t=' + Date.now();
+const parentFrame=document.getElementById('f1')
+const childFrame=document.getElementById('f2')
+let refreshId=0
+
+function frameSrc(kid,reset,stamp){
+  return 'index.html?'+(kid?'view&':'')+'demo'+(reset?'&reset=1':'')+'&t='+stamp
 }
 function reloadFrames(reset){
-  document.getElementById('f1').src = src(false, reset);
-  document.getElementById('f2').src = src(true, reset);
+  const id=++refreshId
+  const stamp=Date.now()
+  if(reset){
+    // 等第一端完成初始化后，第二端读取这一份演示数据。
+    parentFrame.addEventListener('load',()=>{
+      if(id===refreshId)childFrame.src=frameSrc(true,false,stamp)
+    },{once:true})
+  }else{
+    childFrame.src=frameSrc(true,false,stamp)
+  }
+  parentFrame.src=frameSrc(false,reset,stamp)
 }
 function toggleDir(){
-  var w = document.getElementById('wrap');
-  w.style.flexDirection = (w.style.flexDirection === 'column' ? 'row' : 'column');
+  const wrap=document.getElementById('wrap')
+  const current=wrap.dataset.layout||(matchMedia('(max-width:760px)').matches?'stack':'split')
+  wrap.dataset.layout=current==='stack'?'split':'stack'
 }
 </script>
 </body>

@@ -527,7 +527,10 @@ function demoBar(){
   if(!DEMO)return
   try{ if(document.getElementById('demoBar'))return }catch(e){}
   const panel=h('div',{className:'demo-actions'})
-  const b=h('details',{id:'demoBar'},h('summary',null,'测试台'),panel)
+  const role=ROLE.parent?'家长版':'孩子版'
+  const b=h('details',{id:'demoBar'},
+    h('summary',{'aria-label':role+' · 演示数据操作'},
+      h('span',{className:'demo-role'},role),h('span',{className:'demo-mode'},'演示')),panel)
   const mk=(label,fn)=>h('button',{type:'button',onClick:fn},label)
   panel.appendChild(mk('重置测试数据',function(){try{const u=new URLSearchParams(location.search);u.set('reset','1');u.set('t',String(Date.now()));location.search=u.toString()}catch(e){location.reload()}}))
   panel.appendChild(mk('清空测试数据',function(){
@@ -536,6 +539,10 @@ function demoBar(){
     location.reload()
   }))
   panel.appendChild(mk('填口令(试小搭)',function(){const v=prompt('输入家长口令（只在本地测试用）');if(v){try{sessionStorage.setItem('lc_demo_tok',hsh(v))}catch(e){}ts('已填，刷新后小搭可用')}}))
+  for(const id of ['modeBadge','cloudBadge']){
+    const badge=document.getElementById(id)
+    if(badge)badge.hidden=true
+  }
   document.querySelector('.app-status').prepend(b)
 }
 
@@ -582,7 +589,7 @@ function setTheme(id){
 }
 
 const NOCLOUD=up.has('local')||DEMO   // ?demo 时强制本地：绝不读写云端真实数据   // 加 ?local 可强制本地模式（排查问题/离线演示用）
-if(VW){document.body.classList.add('view-only');const b=document.getElementById('modeBadge');b.textContent='👀 查看模式';b.className='badge view';b.style.display=''}
+if(VW)document.body.classList.add('view-only')
 
 /* ================= 访问口令（家长 / 孩子） ================= */
 let _lv=''
@@ -4994,12 +5001,7 @@ function parentReviewPanel(checks){
 function rtoday(){
   const checks=(D.checks||[]).slice().sort((a,b)=>(b.ts||0)-(a.ts||0))
   const parent=ROLE.parent
-  const unread=msgUnread(ROLE.firstPerson)
   const work=h('div',{className:'home-page '+(parent?'parent-home':'kid-home')})
-  const date=new Intl.DateTimeFormat('zh-CN',{month:'long',day:'numeric',weekday:'long'}).format(new Date())
-  work.appendChild(h('header',{className:'home-heading'},
-    h('div',null,h('h1',null,parent?'家长工作台':'我的驾驶舱'),h('p',null,date)),
-    homeButton(unread?'留言 · '+unread+' 条未读':'留言',()=>sw('detail'),'quiet','message-circle')))
   const upload=pendBanner()
   if(upload)work.appendChild(upload)
   if(parent){
@@ -8251,6 +8253,23 @@ function applyTabs(){
 }
 function updateWorkspaceNav(){
   const current=tb==='detail'?'today':tb
+  const isHome=tb==='today'
+  document.body.classList.toggle('workspace-home',isHome)
+  const heading=document.getElementById('appHomeTitle')
+  const actions=document.getElementById('appHomeActions')
+  if(isHome){
+    const date=new Intl.DateTimeFormat('zh-CN',{month:'long',day:'numeric',weekday:'long'}).format(new Date())
+    const unread=msgUnread(ROLE.firstPerson)
+    const label=unread?'留言 · '+unread+' 条未读':'留言'
+    if(heading)heading.replaceChildren(h('h1',null,ROLE.parent?'家长工作台':'我的驾驶舱'),h('p',null,date))
+    if(actions)actions.replaceChildren(h('button',{type:'button',className:'home-btn quiet app-message',
+      'aria-label':label,title:label,onClick:()=>sw('detail')},
+      homeIcon('message-circle',18),h('span',{className:'app-message-label'},'留言'),
+      unread?h('span',{className:'app-message-count','aria-hidden':'true'},unread>99?'99+':unread):null))
+  }else{
+    if(heading)heading.replaceChildren()
+    if(actions)actions.replaceChildren()
+  }
   const crumb=document.getElementById('appCurrent')
   if(crumb)crumb.textContent=tb==='checkin'&&ROLE.parent?'审核与打卡':TAB_NAME[tb]||'今日'
   const badge=document.getElementById('modeBadge')
