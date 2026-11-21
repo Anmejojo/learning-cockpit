@@ -4913,16 +4913,36 @@ function openCheckHistory(id){
 function recordTitle(rec){
   return (rec.subject?rec.subject+' · ':'')+(rec.typeName||rec.type||'学习记录')
 }
+function homeHomeworkRow(entry){
+  const {job,status}=entry
+  const needsPhoto=status==='todo'||status==='rejected'
+  const label=status==='rejected'?'补交':job.kind==='recite'?'交草稿本':'交照片'
+  const action=needsPhoto?homeButton(label,()=>hwPick(job),'quiet','camera'):homeStatus(status)
+  if(needsPhoto)action.setAttribute('aria-label',label+' · '+(job.text||'作业'))
+  return homeListRow(job.kind==='recite'?'book-open':'notebook-pen','neutral',
+    job.text||'作业',(job.subj||'其他')+' · '+(job.kind==='recite'?'背诵':'书面'),action)
+}
 function todayHomeworkPanel(jobs){
-  const list=homeSection('作业清单',homeButton('查看清单',()=>openTodayCheckin('todayHomework'),'text','arrow-right'))
-  for(const job of jobs.slice(0,3)){
-    const st=hwStatus(job)
-    const action=st==='todo'||st==='rejected'
-      ? homeButton(st==='rejected'?'补交':(job.kind==='recite'?'交草稿本':'交照片'),()=>hwPick(job),'quiet')
-      : homeStatus(st)
-    list.appendChild(homeListRow(job.kind==='recite'?'book-open':'notebook-pen','lilac',
-      job.text||'作业',(job.subj||'其他')+' · '+(job.kind==='recite'?'背诵':'书面'),action))
+  const order=['rejected','todo','pending','approved']
+  const entries=jobs.map(job=>({job,status:hwStatus(job)}))
+  entries.sort((a,b)=>order.indexOf(a.status)-order.indexOf(b.status))
+  const next=entries.find(entry=>entry.status==='rejected'||entry.status==='todo')
+  const list=homeSection('作业清单')
+  list.classList.add('home-homework')
+  const progress=h('div',{className:'home-work-progress'})
+  if(!next)progress.appendChild(h('strong',null,'今天的作业都已提交'))
+  for(const status of order){
+    const count=entries.filter(entry=>entry.status===status).length
+    if(count)progress.appendChild(homeStatus(status,count))
   }
+  list.appendChild(progress)
+  if(next)list.appendChild(h('div',{className:'home-next-work'},homeHomeworkRow(next)))
+  const rest=entries.filter(entry=>entry!==next)
+  if(!rest.length)return list
+  const more=h('details',{className:'home-work-details'},
+    h('summary',null,next?'查看其余 '+rest.length+' 项':'查看 '+rest.length+' 项作业'))
+  rest.forEach(entry=>more.appendChild(homeHomeworkRow(entry)))
+  list.appendChild(more)
   return list
 }
 function recentFeedback(checks){
@@ -4932,7 +4952,7 @@ function recentFeedback(checks){
   return h('section',{className:'home-feedback'},
     h('span',{className:'home-icon '+(st==='approved'?'mint':st==='rejected'?'rose':'amber')},homeIcon('list-checks',19)),
     h('div',{className:'home-feedback-copy'},
-      h('span',null,'最近反馈'),
+      h('span',null,'最近反馈'+(latest.date&&latest.date!==td?' · '+fd(latest.date):'')),
       h('h2',null,recordTitle(latest)),
       st==='approved'&&latest.note?h('p',null,latest.note):null),
     h('div',{className:'home-feedback-actions'},homeStatus(st),
@@ -4988,10 +5008,10 @@ function rtoday(){
     work.appendChild(homeButton('查看今日详情',()=>sw('detail'),'text','arrow-right'))
   }else{
     work.appendChild(rewardHero())
-    const latest=recentFeedback(checks)
-    if(latest)work.appendChild(latest)
     const jobs=hwToday()
     if(jobs.length)work.appendChild(todayHomeworkPanel(jobs))
+    const latest=recentFeedback(checks)
+    if(latest)work.appendChild(latest)
     work.appendChild(homeShortcuts(false))
   }
   $c.appendChild(work)
