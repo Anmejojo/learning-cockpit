@@ -1691,21 +1691,49 @@ body.workspace.chat-page .chat-tools .chat-cam.rec{
 .reward-goal-text p{margin:3px 0 0;color:var(--workspace-muted);font-size:13px}
 .reward-goal-text .reward-progress{margin:5px 0 0}
 
-.scores-frame{
+.tab-frame{
   min-width:0;border:1px solid var(--workspace-line);border-radius:14px;background:var(--workspace-panel);
 }
-.workspace .scores-tabs.seg{
+.workspace .attached-tabs.seg{
   gap:3px;margin:0;padding:4px 5px 0;border:0;border-bottom:1px solid var(--workspace-line);
   border-radius:13px 13px 0 0;background:var(--workspace-panel-raised);
 }
-.workspace .scores-tabs .seg-btn{
-  margin-bottom:-1px;border:1px solid transparent;border-radius:8px 8px 0 0;
+.workspace .attached-tabs .seg-btn{
+  margin-bottom:-1px;border:1px solid transparent;border-radius:8px 8px 0 0;transition:none;
 }
-.workspace .scores-tabs .seg-btn.on{
+.workspace .attached-tabs .seg-btn.on{
   background:var(--workspace-panel);border-color:var(--workspace-line);border-bottom-color:var(--workspace-panel);
 }
 .scores-page{display:grid;gap:13px;min-width:0;padding:clamp(12px,2.4vw,23px)}
 .scores-page>.home-btn{justify-self:start}
+.workspace :is(.settings-page,.checkin-page){min-width:0;padding:clamp(12px,2.4vw,23px)}
+.workspace :is(.settings-page,.checkin-page)>.card:not(.check-tools){
+  margin:0 0 14px;padding:0 0 14px;border:0;border-bottom:1px solid var(--workspace-line);
+  border-radius:0;background:none;
+}
+.workspace :is(.settings-page,.checkin-page)>.card:not(.check-tools):last-child{
+  margin-bottom:0;padding-bottom:0;border-bottom:0;
+}
+.checkin-page #pendingReviews>.review-row:last-child{padding-bottom:0;border-bottom:0}
+.habit-edit-table{table-layout:fixed}
+.habit-edit-table :is(th,td){padding:8px 5px}
+.habit-edit-table th:first-child{width:clamp(48px,15vw,76px)}
+.habit-edit-table th:nth-child(3){width:clamp(54px,16vw,84px)}
+.habit-edit-table th:last-child{width:clamp(54px,15vw,70px)}
+.habit-edit-table input,.habit-add-fields input{width:100%;min-width:0;min-height:44px;padding-inline:6px}
+.habit-edit-table [data-field=icon],.habit-add-fields #ni{text-align:center}
+.workspace .habit-edit-table .btn{width:100%;min-height:44px;padding-inline:0;justify-content:center;text-align:center}
+.habit-add-fields{
+  display:grid;grid-template-columns:52px minmax(0,1fr) 58px auto;gap:8px;
+  align-items:center;margin-top:10px;
+}
+@media(max-width:420px){
+  .habit-add-fields{grid-template-columns:48px minmax(0,1fr) 54px}
+  .habit-add-fields button{grid-column:1/-1;justify-self:end}
+}
+@media(max-width:350px){
+  .workspace .checkin-tabs .seg-btn{font-size:12px}
+}
 .score-week-range{margin:0 0 12px;color:var(--workspace-muted);font-size:14px}
 .score-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .score-panel-head h2{font-size:19px;margin:0;line-height:1.35}
@@ -1809,13 +1837,13 @@ body.workspace.chat-page .chat-tools .chat-cam.rec{
 .build-ledger-label{display:inline-flex;align-items:center;gap:3px;color:var(--workspace-accent);font-size:12px;white-space:nowrap}
 .build-ledger-label>span{font-size:18px;line-height:1}
 .build-balance:hover{background:var(--primary-weak)}
-.build-jumps.seg{position:sticky;top:calc(var(--workspace-anchor-top) + 6px);z-index:2;margin:0 0 10px}
+.build-jumps.seg{position:sticky;top:var(--workspace-anchor-top);z-index:2}
 .build-equipment{
-  padding:10px;min-width:0;border:1px solid var(--build-border);border-radius:16px;background:var(--workspace-surface);
   scroll-margin-top:calc(var(--workspace-anchor-top) + 8px);
 }
-.build-drawer{max-width:980px;margin:0 auto}
+.build-drawer{min-width:0;padding:clamp(12px,2.4vw,23px)}
 .build-drawer[hidden]{display:none}
+.build-drawer>:is(.build-chassis,.build-shelf){max-width:980px;margin-inline:auto}
 .build-wish{background:var(--workspace-surface);border-color:var(--build-border)}
 .build-chassis{min-width:0;padding:2px}
 .build-shelf{min-width:0}
@@ -1905,7 +1933,8 @@ body.workspace.chat-page .chat-tools .chat-cam.rec{
 .powered .chassis-board{border-color:#80947e}
 .powered :is(.module-11,.module-17,.module-18) .hardware-model{border-color:#b5dccf;box-shadow:0 0 7px #a9cbb55e}
 .powered .module-14 .hardware-model{border-color:#d2bf9b;box-shadow:0 0 7px #cbb78d54}
-.build-shelf{padding:12px}
+.build-drawer>.build-shelf{padding:0}
+.build-drawer>.build-shelf+.build-shelf{padding-top:12px;border-radius:0}
 .build-shelf h2{font-size:16px;margin-bottom:9px}
 .build-shelf-grid{
   display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;
@@ -1940,7 +1969,7 @@ body.workspace.chat-page .chat-tools .chat-cam.rec{
   .chassis-board{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(max-width:480px){
-  .build-chassis,.build-shelf{padding:9px;border-radius:13px}
+  .build-chassis{border-radius:13px}
   .build-zone-head{margin-bottom:9px}
   .build-zone-head h2{font-size:17px}
   .build-zone-head p{font-size:12px}
@@ -2063,6 +2092,19 @@ body.workspace :is(.btn-success,.btn-warning,.btn-danger):hover{filter:brightnes
   display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:8px 12px;
   padding:11px 0;border-bottom:1px solid var(--workspace-line);
 }
+.review-queue-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.review-queue-head h2{display:flex;align-items:center;gap:8px;margin:0;font-size:17px}
+.review-queue-head .ico-s{color:var(--workspace-accent)}
+.review-queue .review-row{align-items:center}
+.review-queue-copy{display:grid;gap:4px;min-width:0}
+.workspace .review-queue-copy .work-item-title{margin:0;color:var(--workspace-ink);font-weight:600}
+.review-submit-note{
+  margin:2px 0 0;padding:4px 8px;border-inline-start:2px solid var(--workspace-strong);
+  background:var(--workspace-panel-raised);border-radius:4px;white-space:pre-wrap;
+}
+.review-queue-photos{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+.review-queue .review-row .review-actions{justify-content:flex-end;gap:6px}
+.review-queue .review-actions .btn{min-width:72px}
 .work-item-title{color:var(--workspace-copy);font-size:15px;font-weight:500;line-height:1.5;overflow-wrap:anywhere}
 .work-note{font-size:13px;color:var(--workspace-muted);line-height:1.5}
 .work-meta,.work-actions,.review-actions{display:flex;gap:6px 8px;flex-wrap:wrap;align-items:center}

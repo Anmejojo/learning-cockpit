@@ -4238,19 +4238,20 @@ function ckPendingCard(){
     const list=(D.checks||[]).filter(function(c){return c.status==='pending'})
     if(!list.length)return null
     list.sort(function(a,b){return (b.ts||0)-(a.ts||0)})
-    const c=h('div',{className:'card'})
+    const c=h('section',{className:'card review-queue','aria-labelledby':'reviewQueueTitle'})
     c.id='pendingReviews';c.tabIndex=-1
-    c.appendChild(h('h2',{className:'card-header'},homeIcon('list-checks',18),'待审核 · '+list.length+' 条'))
-    c.appendChild(h('p',{className:'work-note'},'包含补交记录。通过后计入积分。'))
+    c.appendChild(h('header',{className:'review-queue-head'},
+      h('h2',{id:'reviewQueueTitle'},homeIcon('list-checks',18),'待审核'),
+      h('span',{className:'home-state amber'},list.length+' 条')))
     list.forEach(function(rec){
       const row=h('div',{id:'review-'+rec.id,tabindex:'-1',className:'review-row'})
-      const left=h('div',{className:'grow'})
-      left.appendChild(h('div',{className:'work-item-title'},recordTitle(rec)))
-      left.appendChild(h('div',{className:'work-note'},fd(rec.date)+(rec.ts?' · '+fmtHM(rec.ts):'')))
-      if(rec.noteSubmit)left.appendChild(h('p',{className:'work-note'},rec.noteSubmit))
+      const left=h('div',{className:'review-queue-copy'})
+      left.appendChild(h('h3',{className:'work-item-title'},recordTitle(rec)))
+      left.appendChild(h('time',{className:'work-note',datetime:rec.date},fd(rec.date)+(rec.ts?' · '+fmtHM(rec.ts):'')))
+      if(rec.noteSubmit)left.appendChild(h('p',{className:'review-submit-note work-note'},rec.noteSubmit))
       const _im=checkImgs(rec)
       if(_im.length){
-        const ir=h('div',{style:'display:flex;gap:4px;flex-wrap:wrap;margin-top:6px'})
+        const ir=h('div',{className:'review-queue-photos'})
         _im.slice(0,4).forEach(function(b){ir.appendChild(photoImg(b,_im,'width:52px;height:52px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer'))})
         left.appendChild(ir)
       }
@@ -4617,6 +4618,21 @@ function segBar(items){
   const seg=h('div',{className:'seg'})
   for(const it of items)seg.appendChild(h('button',{type:'button',className:'seg-btn'+(it.on?' on':''),'aria-pressed':String(!!it.on),onClick:it.fn},it.label))
   return seg
+}
+function attachTabs(kind,label,modes,active,onSelect){
+  const tabs=segBar(modes.map(([key,name])=>({
+    label:name,on:key===active,fn:()=>{
+      onSelect(key)
+      render()
+      document.querySelector('.'+kind+'-tabs .seg-btn.on')?.focus({preventScroll:true})
+    }
+  })))
+  tabs.classList.add('attached-tabs',kind+'-tabs')
+  tabs.setAttribute('role','group')
+  tabs.setAttribute('aria-label',label)
+  const panel=h('section',{className:kind+'-page','aria-label':modes.find(([key])=>key===active)?.[1]||label})
+  $c.appendChild(h('div',{className:'tab-frame '+kind+'-frame'},tabs,panel))
+  return panel
 }
 function gs(sem){return SUB[sem]||SUB['初二上']}
 function ct(sc,sem){const subs=gs(sem);let t=0,f=0;for(const s of subs){f+=s.full*s.rate;const v=sc[s.id];if(v!=null&&typeof v==='number')t+=v*s.rate}return{total:Math.round(t*10)/10,fullTotal:Math.round(f*10)/10,pct:f>0?Math.round(t/f*1000)/10:0}}
@@ -6284,15 +6300,9 @@ function rchat(){
 }
 
 function rck(){
-  const _segs=[
-    {label:'记录今天',on:_ckView==='list',fn:function(){_ckView='list';render()}},
-    {label:ROLE.kid?'我的记录':'已通过记录',on:_ckView==='done',fn:function(){_ckView='done';render()}},
-    {label:'日历',on:_ckView==='cal',fn:function(){_ckView='cal';render()}}
-  ]
-  if(ROLE.parent)_segs.push({label:'各科统计',on:_ckView==='stat',fn:function(){_ckView='stat';render()}})
-  $c.appendChild(segBar(_segs))
-  const box=h('div',null)
-  $c.appendChild(box)
+  const modes=[['list','记录今天'],['done',ROLE.kid?'我的记录':'已通过记录'],['cal','日历']]
+  if(ROLE.parent)modes.push(['stat','各科统计'])
+  const box=attachTabs('checkin','打卡视图',modes,_ckView,key=>{_ckView=key})
   const host=$c; $c=box
   try{
     if(_ckView==='cal')rcal()
@@ -6834,15 +6844,9 @@ function rckList(){
 let _scoreSubject='all',_scoreFocus=null,_scoreReviewOnly=false
 function rsc(){
   const modes=[['trend','变化趋势'],['list','考试明细'],['weekly','学习周报']]
-  const tabs=segBar(modes.map(([key,label])=>({label,on:_scView===key,fn:()=>{
-    _scView=key;_scoreReviewOnly=false;render()
-    document.querySelector('.scores-tabs .seg-btn.on')?.focus({preventScroll:true})
-  }})))
-  tabs.classList.add('scores-tabs')
-  tabs.setAttribute('role','group')
-  tabs.setAttribute('aria-label','成绩视图')
-  const box=h('section',{className:'scores-page','aria-label':modes.find(([key])=>key===_scView)?.[1]||'成绩'})
-  $c.appendChild(h('div',{className:'scores-frame'},tabs,box))
+  const box=attachTabs('scores','成绩视图',modes,_scView,key=>{
+    _scView=key;_scoreReviewOnly=false
+  })
   const host=$c; $c=box
   try{
     if(_scView==='weekly')rwk()
@@ -7398,8 +7402,8 @@ function rewardCatalog(){
     ['desk','桌面',[desktop,...(extras.length?[buildShelf('其他装备',extras,balance,'extra-shelf')]:[])]],
     ['games','游戏',[gaming,switchCatalog(balance)]]
   ]
-  const tabs=h('div',{className:'seg build-jumps',role:'tablist','aria-label':'装备抽屉'})
-  const equipment=h('div',{className:'build-equipment'},tabs)
+  const tabs=h('div',{className:'seg attached-tabs build-jumps',role:'tablist','aria-label':'装备抽屉'})
+  const equipment=h('div',{className:'tab-frame build-equipment'},tabs)
   const options=drawers.map(([key,label,contents])=>{
     const id='build-tab-'+key,panelId='build-drawer-'+key
     const button=h('button',{type:'button',className:'seg-btn',id,role:'tab','aria-controls':panelId},label)
@@ -7514,12 +7518,8 @@ function rsetKid(){
 
 function rset(){
   if(ROLE.kid){ rsetKid(); return }   // 孩子端：只看得到「家里的规则」，不要空白分组
-  // 三大分组：孩子信息 / 规则与积分 / 系统与数据
-  $c.appendChild(segBar([
-    {label:'👦 孩子信息',on:_setView==='info',fn:function(){_setView='info';render()}},
-    {label:'📋 规则与积分',on:_setView==='rules',fn:function(){_setView='rules';render()}},
-    {label:'🔧 系统与数据',on:_setView==='sys',fn:function(){_setView='sys';render()}}
-  ]))
+  const modes=[['info','孩子信息'],['rules','规则与积分'],['sys','系统与数据']]
+  const pane=attachTabs('settings','设置分类',modes,_setView,key=>{_setView=key})
   const _host=$c, _tmp=h('div',null)
   $c=_tmp
   try{ _rsetBody() } finally { $c=_host }
@@ -7536,13 +7536,11 @@ function rset(){
     if(!ch||typeof ch.className!=='string')return;
     let t='';
     try{ t=String(ch.textContent||ch.innerText||'').slice(0,60) }catch(e){}
-    if(grpOf(t)===_setView){$c.appendChild(ch);_shown++}
+    if(grpOf(t)===_setView){pane.appendChild(ch);_shown++}
   });
-  if(!_shown){const e=h('div',{className:'card'});e.appendChild(h('div',{style:'text-align:center;color:var(--muted);font-size:var(--fs-14);padding:16px'},'这一组暂时没有可设置的项'));$c.appendChild(e)}
+  if(!_shown){const e=h('div',{className:'card'});e.appendChild(h('div',{style:'text-align:center;color:var(--muted);font-size:var(--fs-14);padding:16px'},'这一组暂时没有可设置的项'));pane.appendChild(e)}
 }
 function _rsetBody(){
-  $c.appendChild(h('div',{className:'daily-praise'},'⚙️ 这些设置改一次就行，平时不用管'))
-
   // 考试信息
   const ec=h('div',{className:'card edit-only'})
   ec.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📅'}),'下次大考信息'))
@@ -7643,19 +7641,20 @@ function _rsetBody(){
   const ci=D.dci||defData().dci
   const hc=h('div',{className:'card edit-only'})
   hc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔁'}),'管理习惯打卡项'))
-  const ht=h('table')
+  const ht=h('table',{className:'habit-edit-table'})
   ht.innerHTML='<thead><tr><th scope="col">图标</th><th scope="col">名称</th><th scope="col">积分</th><th scope="col">操作</th></tr></thead><tbody></tbody>'
   const htb=ht.querySelector('tbody')
   for(let i=0;i<ci.length;i++){
     const item=ci[i]
     const tr=h('tr')
-    const t1=h('td');t1.appendChild(h('input',{value:item.icon,'data-idx':i,'data-field':'icon',style:'width:56px;text-align:center'}));tr.appendChild(t1)
-    const t2=h('td');t2.appendChild(h('input',{value:item.label,'data-idx':i,'data-field':'label',style:'width:130px'}));tr.appendChild(t2)
-    const t3=h('td');t3.appendChild(h('input',{type:'number',inputmode:'numeric',value:item.pts,'data-idx':i,'data-field':'pts',style:'width:64px'}));tr.appendChild(t3)
-    const t4=h('td');t4.appendChild(h('button',{className:'btn btn-danger btn-sm','data-del':i},'✕'));tr.appendChild(t4)
+    const t1=h('td',null,h('input',{value:item.icon,'data-idx':i,'data-field':'icon','aria-label':item.label+'的图标'}))
+    const t2=h('td',null,h('input',{value:item.label,'data-idx':i,'data-field':'label','aria-label':item.label+'的名称'}))
+    const t3=h('td',null,h('input',{type:'number',inputmode:'numeric',value:item.pts,'data-idx':i,'data-field':'pts','aria-label':item.label+'的积分'}))
+    const t4=h('td',null,h('button',{type:'button',className:'btn btn-danger btn-sm','data-del':i,'aria-label':'移除'+item.label},'✕'))
+    tr.appendChild(t1);tr.appendChild(t2);tr.appendChild(t3);tr.appendChild(t4)
     htb.appendChild(tr)
   }
-  const hw=h('div',{className:'table-scroll'});hw.appendChild(ht);hc.appendChild(hw)
+  hc.appendChild(ht)
   /* 即时保存：改哪个格就存哪个 */
   hc.querySelectorAll('input[data-idx]').forEach(function(inp){
     autosave(inp,function(){
@@ -7663,8 +7662,8 @@ function _rsetBody(){
       if(!isNaN(idx)&&f){if(f==='pts')D.dci[idx][f]=parseInt(inp.value)||1;else D.dci[idx][f]=inp.value}
     },'✅ 已更新')
   })
-  const har=h('div',{style:'display:flex;gap:8px;margin-top:10px;alignItems:center;flexWrap:wrap'})
-  har.innerHTML='<input id="ni" placeholder="图标" style="width:60px" value="⭐"><input id="nl" placeholder="名称" style="width:130px"><input id="np" type="number" placeholder="积分" style="width:70px" value="2">'
+  const har=h('div',{className:'habit-add-fields'})
+  har.innerHTML='<input id="ni" aria-label="新习惯的图标" placeholder="图标" value="⭐"><input id="nl" aria-label="新习惯的名称" placeholder="名称"><input id="np" type="number" inputmode="numeric" aria-label="新习惯的积分" placeholder="积分" value="2">'
   har.appendChild(h('button',{className:'btn btn-success btn-sm',onClick:function(){const icon=hc.querySelector('#ni').value||'⭐';const label=hc.querySelector('#nl').value.trim();const pts=parseInt(hc.querySelector('#np').value)||2;if(!label){ts('⚠️ 请输入名称');return}D.dci.push({key:'c_'+Date.now(),icon:icon,label:label,pts:pts});sv(D);render();ts('✅ 已添加：'+label)}},'➕ 添加项目'))
   hc.appendChild(har)
   hc.addEventListener('click',function(e){const db=e.target.closest('[data-del]');if(db){const idx=parseInt(db.dataset.del);const nm=D.dci[idx].label;
