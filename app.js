@@ -38,7 +38,12 @@ let _syncT=0,_cloudTs=0,_cloudVer=null,_dirty=false,_retryTimer=null,_offline=fa
 function fmtHM(t){const d=new Date(t||Date.now());return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)}
 function setCloudStatus(txt,ok){
   const el=document.getElementById('cloudBadge')
-  if(el){el.innerHTML=txt;el.style.color=ok?'#6ee7b7':'#fbbf24'}
+  if(el){
+    const label=el.querySelector('.cloud-label')
+    if(label)label.textContent=txt
+    el.setAttribute('aria-label',txt)
+    el.style.color=ok?'#6ee7b7':'#fbbf24'
+  }
 }
 function _saveWarn(msg){
   try{
@@ -4734,7 +4739,7 @@ function render(){
   try{pactDailyNudge()}catch(e){}
 }
 
-let _showAlerts=false,_openImg={},_examEdit=false,_openExamForm=false,_ckView='list',_scView='trend',_pkView='catalog',_partEdit=false,_blEdit=false,_ptFilter='all',_exFilter='all'
+let _showAlerts=false,_openImg={},_examEdit=false,_openExamForm=false,_ckView='',_scView='trend',_pkView='catalog',_partEdit=false,_blEdit=false,_ptFilter='all',_exFilter='all'
 
 /* ============ ① 今日（概览 + 快捷操作） ============ */
 /* 空间里的"面板"：点物件后，在场景里展开一块，而不是跳页面 */
@@ -4926,8 +4931,13 @@ function homeSection(title,action,detail=null){
   return h('section',{className:'home-panel'},
     h('header',{className:'home-panel-head'},h('h2',null,title),detail,action))
 }
+function defaultCheckinView(){
+  return ROLE.parent&&(D.checks||[]).some(c=>c.status==='pending')?'review':'list'
+}
 function openTodayCheckin(target,homeworkDate){
-  _ckView='list'
+  const reviewTarget=typeof target==='string'&&(target==='pendingReviews'||target.startsWith('review-'))
+  if(ROLE.parent&&reviewTarget)_ckView='review'
+  else _ckView=target||homeworkDate?'list':defaultCheckinView()
   if(tb!=='checkin')_checkToolsOpen=false
   if(target==='checkTools')_checkToolsOpen=true
   _checkDate=null
@@ -6244,7 +6254,7 @@ function _rtodayBody(){
     qr.appendChild(h('button',{className:'btn btn-outline',onClick:()=>openTodayCheckin('checkTools')},'📷 去打卡'))
     const pendN=(D.checks||[]).filter(function(c){return c.status==='pending'}).length
     const pendE=(D.exams||[]).filter(function(e){return e.status==='pending'}).length
-    if(pendN+pendE)qr.appendChild(h('button',{className:'btn btn-success',onClick:function(){if(pendN){_ckView='list';sw('checkin')}else{_scView='list';sw('scores')}}},'✅ 待审核 '+(pendN+pendE)+' 条'))
+    if(pendN+pendE)qr.appendChild(h('button',{className:'btn btn-success',onClick:function(){if(pendN){openTodayCheckin('pendingReviews')}else{_scView='list';sw('scores')}}},'✅ 待审核 '+(pendN+pendE)+' 条'))
     qr.appendChild(h('button',{className:'btn btn-outline',onClick:function(){_pkView='parts';sw('points')}},'🎁 积分兑换'))
     qa.appendChild(qr)
     $c.appendChild(qa)
@@ -6300,12 +6310,20 @@ function rchat(){
 }
 
 function rck(){
-  const modes=[['list','记录今天'],['done',ROLE.kid?'我的记录':'已通过记录'],['cal','日历']]
-  if(ROLE.parent)modes.push(['stat','各科统计'])
-  const box=attachTabs('checkin','打卡视图',modes,_ckView,key=>{_ckView=key})
+  const modes=ROLE.parent
+    ?[['review','待审核'],['list','作业清单'],['done','已通过'],['cal','日历'],['stat','各科统计']]
+    :[['list','记录今天'],['done','我的记录'],['cal','日历']]
+  if(!modes.some(([key])=>key===_ckView))_ckView=defaultCheckinView()
+  const box=attachTabs('checkin','打卡视图',modes,_ckView,key=>{
+    _ckView=key
+    workspaceScroller().scrollTo(0,0)
+  })
+  if(ROLE.parent)box.parentElement.classList.add('parent-checkin-frame')
   const host=$c; $c=box
   try{
-    if(_ckView==='cal')rcal()
+    if(_ckView==='review'){
+      $c.appendChild(ckPendingCard()||h('p',{className:'review-empty work-note'},'暂时没有待审核的作业。'))
+    }else if(_ckView==='cal')rcal()
     else if(_ckView==='done')rckDone()
     else if(_ckView==='stat'){const _st=ckStatCard();if(_st)$c.appendChild(_st)}
     else rckList()
@@ -6466,20 +6484,52 @@ function setHomeworkPriority(item,on){
     {id:item.date,jobId:on?item.id:null,at:Math.max(Date.now(),(prior?.at||0)+1)}]
   sv(D)
   render()
-  document.getElementById('hwPriority-'+item.id)?.focus({preventScroll:true})
+  document.getElementById('hwActions-'+item.id)?.focus({preventScroll:true})
   ts(on?'已设为优先作业':'已取消优先提示')
+}
+function homeworkSubmitLabel(it,st){
+  return it.kind==='recite'?'交草稿本':st==='rejected'?'补交':'交这项'
+}
+function openHomeworkActions(it,st,selected){
+  const dialog=h('dialog',{className:'reward-dialog homework-action-dialog','aria-labelledby':'homeworkActionTitle'})
+  const source=hwSrcLabel(it.src)
+  dialog.appendChild(h('header',null,
+    h('h2',{id:'homeworkActionTitle'},it.text),
+    h('button',{type:'button',className:'reward-close','aria-label':'关闭作业操作',onClick:()=>dialog.close()},'×')))
+  dialog.appendChild(h('div',{className:'homework-action-status'},homeStatus(st),
+    source?h('span',{className:'work-note'},source):null))
+  const actions=h('div',{className:'homework-action-list'})
+  if(isHomeworkDue(st)){
+    actions.appendChild(homeButton(homeworkSubmitLabel(it,st),()=>{
+      dialog.close()
+      hwPick(it)
+    },'quiet','camera'))
+    actions.appendChild(homeButton(selected?'取消优先':'设为优先',()=>{
+      dialog.close()
+      setHomeworkPriority(it,!selected)
+    },'quiet','star'))
+  }
+  actions.appendChild(h('button',{type:'button',className:'btn btn-danger',onClick:()=>{
+    dialog.close()
+    removeWithUndo(D.hw,it,String(it.text||'').slice(0,20))
+    document.getElementById('todayHomework')?.focus({preventScroll:true})
+  }},'移除作业'))
+  dialog.appendChild(actions)
+  dialog.addEventListener('close',()=>dialog.remove(),{once:true})
+  document.body.appendChild(dialog)
+  dialog.showModal()
 }
 function hwRow(it,st=hwStatus(it),priority=false){
   const r=hwRec(it)
   const due=isHomeworkDue(st)
   const marker=priority?' homework-priority':due?' homework-due':''
-  const row=h('div',{className:'work-item homework-item'+marker})
+  const selected=ROLE.parent&&due&&homeworkPriorityChoice(it.date)?.jobId===it.id
+  const showPriority=priority||selected
+  const row=h('div',{className:'work-item homework-item'+marker+(ROLE.parent?' parent-homework-item':'')})
   const L=h('div',{className:'grow'})
   L.appendChild(h('div',{className:'work-item-title'},
-    (it.subj&&it.subj!=='其他'?it.subj+' · ':'')+String(it.text||''),priority?' ':null,priority?homeworkPriorityLabel():null))
-  const source=ROLE.parent?hwSrcLabel(it.src):''
-  if(source||st==='rejected')L.appendChild(h('div',{className:'work-meta'},
-    st==='rejected'?homeStatus(st):null,source?h('span',{className:'work-note'},source):null))
+    (it.subj&&it.subj!=='其他'?it.subj+' · ':'')+String(it.text||''),showPriority?' ':null,showPriority?homeworkPriorityLabel():null))
+  if(!ROLE.parent&&st==='rejected')L.appendChild(h('div',{className:'work-meta'},homeStatus(st)))
   const im=checkImgs(r)
   if(im.length){
     const ir=h('div',{style:'display:flex;gap:4px;flex-wrap:wrap;margin-top:5px'})
@@ -6488,28 +6538,17 @@ function hwRow(it,st=hwStatus(it),priority=false){
   }
   row.appendChild(L)
   const btns=h('div',{className:'homework-item-actions'})
-  if(due){
-    const label=it.kind==='recite'?'交草稿本':st==='rejected'?'补交':'交这项'
+  if(ROLE.parent){
+    btns.appendChild(homeStatus(st))
+    btns.appendChild(h('button',{type:'button',id:'hwActions-'+it.id,className:'home-btn quiet homework-action-trigger',
+      title:'更多操作','aria-label':'管理作业 · '+it.text,'aria-haspopup':'dialog',
+      onClick:()=>openHomeworkActions(it,st,selected)},h('span',{'aria-hidden':'true'},'⋯')))
+  }else if(due){
+    const label=homeworkSubmitLabel(it,st)
     const submit=homeButton(label,()=>hwPick(it),'quiet','camera')
     submit.setAttribute('aria-label',label+' · '+it.text)
     btns.appendChild(submit)
   }else btns.appendChild(homeStatus(st))
-  if(ROLE.parent){
-    const d=h('button',{type:'button',className:'home-btn text','aria-label':'移除作业 · '+it.text,onClick:function(){
-      if(!D.hw)D.hw=[]
-      removeWithUndo(D.hw,it,String(it.text||'').slice(0,20))
-    }})
-    d.textContent='移除'
-    if(due){
-      const selected=homeworkPriorityChoice(it.date)?.jobId===it.id
-      const label=selected?'取消优先':'设为优先'
-      const mark=homeButton(label,()=>setHomeworkPriority(it,!selected),'text')
-      mark.id='hwPriority-'+it.id
-      mark.setAttribute('aria-label',label+' · '+it.text)
-      mark.setAttribute('aria-pressed',String(selected))
-      btns.appendChild(h('div',{className:'homework-item-tools'},mark,d))
-    }else btns.appendChild(d)
-  }
   row.appendChild(btns)
   return row
 }
@@ -6669,7 +6708,6 @@ let _checkToolsOpen=false
 function rckList(){
   const _pb=pendBanner();if(_pb)$c.appendChild(_pb);
   if(_offline)$c.appendChild(h('div',{className:'alert warning',style:'margin-bottom:10px'},'📴 现在没连上网：拍照打卡照旧能用，先存在本机，联网后自动传上去。'));
-  const _pc=ckPendingCard();if(_pc)$c.appendChild(_pc);
   const ckd=ckDate()
   const quick=h('section',{className:'card check-capture'},
     h('div',null,h('h2',null,ckd===td?'拍一张，记一项':'补记 '+fd(ckd)),h('p',null,'作业、笔记或背诵草稿都可以拍。')),
@@ -7544,12 +7582,15 @@ function _rsetBody(){
   // 考试信息
   const ec=h('div',{className:'card edit-only'})
   ec.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📅'}),'下次大考信息'))
-  const erow=h('div',{className:'form-row'})
-  erow.innerHTML='<div><label>考试日期</label><input type="date" id="examDateInput" value="'+(D.examDate||'')+'"></div><div><label>考什么</label><input type="text" id="examTopicInput" placeholder="如：英语 Unit5-6、数学一次函数" value="'+(D.examTopic||'')+'"></div>'
-  ec.appendChild(erow)
-  const _saveExam=function(){const _d=document.getElementById('examDateInput'),_t=document.getElementById('examTopicInput');if(_d)D.examDate=_d.value||null;if(_t)D.examTopic=_t.value.trim()}
-  autosave(erow.querySelector('#examDateInput'),_saveExam,'✅ 考试信息已保存')
-  autosave(erow.querySelector('#examTopicInput'),_saveExam,'✅ 考试信息已保存')
+  const examDate=h('input',{type:'date',id:'examDateInput'})
+  const examTopic=h('input',{type:'text',id:'examTopicInput',placeholder:'如：英语 Unit5-6、数学一次函数'})
+  examDate.value=D.examDate||''
+  examTopic.value=D.examTopic||''
+  ec.appendChild(h('div',{className:'form-row'},
+    h('div',null,h('label',{for:examDate.id},'考试日期'),examDate),
+    h('div',null,h('label',{for:examTopic.id},'考什么'),examTopic)))
+  autosave(examDate,()=>{D.examDate=examDate.value||null},'✅ 考试信息已保存')
+  autosave(examTopic,()=>{D.examTopic=examTopic.value.trim()},'✅ 考试信息已保存')
   $c.appendChild(ec)
 
   // 小搭怎么称呼他
@@ -8656,9 +8697,12 @@ function closeMore(restoreFocus){
   }
 }
 const _scrollPos={}      /* 切页签时记着刚才滚到哪（2026-09-19） */
+function workspaceScroller(){
+  return window.matchMedia?.('(max-width:899px) and (orientation:portrait)')?.matches?document.getElementById('appContent'):window
+}
 function sw(tab,resetScroll){
   const _prev=tb
-  const scroller=window.matchMedia?.('(max-width:899px) and (orientation:portrait)')?.matches?$c:window
+  const scroller=workspaceScroller()
   try{_scrollPos[_prev]=(scroller===window?window.scrollY:scroller.scrollTop)||0}catch(e){}
   if(_prev==='room'&&tab!=='room'){_spacePanel=null;_kidMenu=false}
   closeMore()
