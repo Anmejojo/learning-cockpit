@@ -653,6 +653,7 @@ function initAuth(){
   const saved=localStorage.getItem('lc_lv')||''
   if(DEMO){
     if(VW)applyLv('c'); else applyLv('p')
+    if(up.has('reset'))setHomeReceipt(null)
     D=ld()
     render();demoBar();return
   }
@@ -1648,7 +1649,7 @@ function pactCard(){
       :(sd.days>0?('你说要 '+sd.days+' 天，做到了 '+a+' 天，差 '+(sd.days-a)+' 天。'):('现在到周末了，这件事你自己说怎么算。'))))
     if(ROLE.kid){
       const bs=h('div',{className:'pact-btns'})
-      if(!met)bs.appendChild(h('button',{className:'pact-btn',onClick:function(){pactSettle(1);sw('checkin')}},'今天补一张'))
+      if(!met)bs.appendChild(h('button',{className:'pact-btn',onClick:function(){pactSettle(1);openTodayCheckin('checkTools')}},'今天补一张'))
       bs.appendChild(h('button',{className:'pact-btn ghost',onClick:function(){pactSettle();render()}},'这周就这样'))
       c.appendChild(bs)
       c.appendChild(h('div',{className:'pact-note'},'补不补都行，你自己定。'))
@@ -4911,6 +4912,8 @@ function homeSection(title,action,detail=null){
 }
 function openTodayCheckin(target,homeworkDate){
   _ckView='list'
+  if(tb!=='checkin')_checkToolsOpen=false
+  if(target==='checkTools')_checkToolsOpen=true
   _checkDate=null
   _hwDate=homeworkDate||''
   sw('checkin')
@@ -4954,11 +4957,27 @@ function homeworkPriority(entries,date){
   if(date===td)return nextHomework(entries)
 }
 function homeworkPriorityLabel(){return h('span',{className:'homework-priority-label'},'优先')}
-function homeHomeworkRow(entry,primary=false,priority=false){
+const HOME_RECEIPT_KEY=DEMO?'lc_demo_home_receipt':'lc_home_receipt'
+let _homeReceiptId
+function homeReceiptId(){
+  if(_homeReceiptId===undefined){
+    try{_homeReceiptId=sessionStorage.getItem(HOME_RECEIPT_KEY)||''}catch(e){_homeReceiptId=''}
+  }
+  return _homeReceiptId
+}
+function setHomeReceipt(id){
+  _homeReceiptId=id==null?'':String(id)
+  try{sessionStorage.setItem(HOME_RECEIPT_KEY,_homeReceiptId)}catch(e){}
+}
+function homeHomeworkRow(entry,primary=false,priority=false,showReceipt=false){
   const {job,status}=entry
   const needsPhoto=isHomeworkDue(status)
   const label=status==='rejected'?'补交':job.kind==='recite'?'交草稿本':'交照片'
-  const action=needsPhoto?homeButton(label,()=>hwPick(job),primary?'primary':'quiet','camera'):homeStatus(status)
+  const receiptLabel=status==='pending'?'已提交 · 待审核':HOME_STATUS[status]?.[0]
+  const action=needsPhoto?homeButton(label,()=>hwPick(job,()=>setHomeReceipt(job.id)),primary?'primary':'quiet','camera'):
+    showReceipt&&status!=='uploading'&&job.recId!=null?h('button',{type:'button',className:'home-receipt-link home-state '+HOME_STATUS[status][1],
+      'aria-label':receiptLabel+'，查看记录',onClick:()=>openCheckHistory(job.recId)},receiptLabel,
+      h('span',{'aria-hidden':'true'},'›')):homeStatus(status)
   if(needsPhoto)action.setAttribute('aria-label',label+' · '+(job.text||'作业'))
   const title=priority?h('span',null,job.text||'作业',' ',homeworkPriorityLabel()):job.text||'作业'
   const row=homeListRow(job.kind==='recite'?'book-open':'notebook-pen','neutral',
@@ -4974,7 +4993,9 @@ function todayHomeworkPanel(entries,checks){
   const waiting=entries.filter(entry=>entry.status==='uploading').length
   const submitted=entries.filter(entry=>entry.status==='pending'||entry.status==='approved').length
   const left=entries.length-waiting-submitted
-  const visible=next||entries.find(entry=>entry.status==='uploading')
+  const pin=homeReceiptId()
+  const pinned=pin?entries.find(entry=>String(entry.job.id)===pin&&!isHomeworkDue(entry.status)):null
+  const visible=pinned||next||entries.find(entry=>entry.status==='uploading')
   const progress=[
     left?'待交 '+left:'',
     waiting?'待传 '+waiting:'',
@@ -4989,9 +5010,15 @@ function todayHomeworkPanel(entries,checks){
     homeButton(firstCapture?'拍照打卡':'随手拍一张',()=>quickShot(td),firstCapture?'primary':'text','camera'))
   if(!entries.length)list.appendChild(h('p',{className:'home-work-empty work-note'},'今天还没有登记作业'))
   if(firstCapture)list.appendChild(capture)
-  if(visible)list.appendChild(h('div',{className:'home-next-work'+(priority?' homework-priority':'')},
-    homeHomeworkRow(visible,!!next,!!priority)))
-  const receipt=recentFeedback(checks,visible?.job.recId)
+  if(visible)list.appendChild(h('div',{className:'home-next-work'+(visible===priority?' homework-priority':'')},
+    homeHomeworkRow(visible,visible===next,visible===priority,!!pinned)))
+  if(pinned&&next)list.appendChild(h('div',{className:'home-next-action'},
+    homeButton('下一项',()=>{
+      setHomeReceipt(null)
+      render()
+      document.querySelector('.home-next-work .home-btn.primary')?.focus({preventScroll:true})
+    },'text','arrow-right')))
+  const receipt=pinned?null:recentFeedback(checks,visible?.job.recId)
   if(receipt)list.appendChild(receipt)
   const rest=entries.filter(entry=>entry!==visible)
   if(rest.length){
@@ -5024,8 +5051,8 @@ function homeShortcuts(parent){
   const box=h('nav',{className:'home-shortcuts','aria-label':'常用功能'})
   const tools=parent
     ? [['录入成绩','bar-chart-3',()=>{_scView='list';_scoreReviewOnly=false;_openExamForm=true;sw('scores')}],
-        ['积分账本','star',()=>{_pkView='points';sw('points')}],['小搭','bot',()=>sw('chat')]]
-    : [['小搭','bot',()=>sw('chat')],['单词游戏','book-open',()=>sw('word')],
+        ['积分账本','star',()=>{_pkView='points';sw('points')}]]
+    : [['单词游戏','book-open',()=>sw('word')],
         ['错题本','notebook-pen',()=>sw('mistake')],['记个习惯','flame',()=>openTodayCheckin('todayHabits')]]
   for(const [label,icon,fn] of tools)box.appendChild(homeButton(label,fn,'quiet',icon))
   return box
@@ -6141,7 +6168,7 @@ function _rtodayBody(){
   for(const subj of SUBJECTS){
     const st=subjStats(subj,td)
     const full=st.total>0&&st.done===st.total
-    const b=h('button',{className:'q-btn'+(full?' done':(st.pending?' pending':'')),onClick:function(){_openSubj={};_openSubj[subj]=true;_ckView='list';sw('checkin');setTimeout(function(){var el=document.getElementById('subj_'+subj);if(el)el.scrollIntoView({behavior:'smooth',block:'center'})},120)}})
+    const b=h('button',{className:'q-btn'+(full?' done':(st.pending?' pending':'')),onClick:function(){_openSubj={};_openSubj[subj]=true;_checkToolsOpen=true;_ckView='list';sw('checkin');setTimeout(function(){var el=document.getElementById('subj_'+subj);if(el)el.scrollIntoView({behavior:'smooth',block:'center'})},120)}})
     b.innerHTML=subj+' '+st.done+'/'+st.total+(st.pending?' ⏳':'')
     qrow.appendChild(b)
   }
@@ -6198,7 +6225,7 @@ function _rtodayBody(){
     qa.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'⚡'}),'快捷操作'))
     const qr=h('div',{className:'row'})
     qr.appendChild(h('button',{className:'btn btn-primary',onClick:function(){_openExamForm=true;_scView='list';sw('scores')}},'＋ 录成绩'))
-    qr.appendChild(h('button',{className:'btn btn-outline',onClick:function(){_ckView='list';sw('checkin')}},'📷 去打卡'))
+    qr.appendChild(h('button',{className:'btn btn-outline',onClick:()=>openTodayCheckin('checkTools')},'📷 去打卡'))
     const pendN=(D.checks||[]).filter(function(c){return c.status==='pending'}).length
     const pendE=(D.exams||[]).filter(function(e){return e.status==='pending'}).length
     if(pendN+pendE)qr.appendChild(h('button',{className:'btn btn-success',onClick:function(){if(pendN){_ckView='list';sw('checkin')}else{_scView='list';sw('scores')}}},'✅ 待审核 '+(pendN+pendE)+' 条'))
@@ -6395,7 +6422,7 @@ function hwCanPick(it){
   const status=hwDisplayStatus(current,hwUploadIds())
   return status==='todo'||status==='rejected'
 }
-function hwPick(it){
+function hwPick(it,onAccepted){
   if(!hwCanPick(it)){ts('这项已有提交或照片正在等待上传');return}
   const inp=document.createElement('input')
   inp.type='file';inp.accept='image/*';inp.multiple=true
@@ -6406,6 +6433,7 @@ function hwPick(it){
     compressAll(files,function(bs){
       if(!bs.length){ts('⚠️ 照片处理失败，重试一次');return}
       if(!hwCanPick(it)){ts('这项已有提交或照片正在等待上传');return}
+      onAccepted?.()
       if(DEMO){hwItemCommit(it.id,bs);return}   /* 本地测试台：直接落地，不上云 */
       pendAdd({id:'h'+Date.now(),kind:'hwitem',hwId:it.id,imgs:bs.map(function(d){return {d:d,u:''}}),ts:Date.now()})
       render();pendRun()
@@ -6627,6 +6655,7 @@ function hwAddRow({text='',category='school',date='',onSaved=()=>render()}={}){
   box.appendChild(save)
   return box
 }
+let _checkToolsOpen=false
 function rckList(){
   const _pb=pendBanner();if(_pb)$c.appendChild(_pb);
   if(_offline)$c.appendChild(h('div',{className:'alert warning',style:'margin-bottom:10px'},'📴 现在没连上网：拍照打卡照旧能用，先存在本机，联网后自动传上去。'));
@@ -6637,8 +6666,7 @@ function rckList(){
     homeButton('拍照打卡',()=>quickShot(ckd),'primary','camera'))
   const ledger=hwCard()
   ledger.id='todayHomework';ledger.tabIndex=-1
-  if(ROLE.kid){$c.appendChild(ledger);$c.appendChild(quick)}
-  else{$c.appendChild(quick);$c.appendChild(ledger)}
+  $c.appendChild(ledger)
   const cq=h('section',{className:'card','aria-labelledby':'check-subject-title'})
   const subjects=SUBJECTS.map(subj=>[subj,subjStats(subj,ckd)])
     .filter(([,st])=>!_onlyTodo||!st.total||st.done<st.total)
@@ -6749,7 +6777,13 @@ function rckList(){
   for(const type of CHECK_TYPES.filter(function(t){return !t.subject}))ggrid.appendChild(makeCheckCard(type,''))
   cq.appendChild(ggrid)
   cq.appendChild(h('div',{className:'work-actions'},homeButton('去错题本',()=>sw('mistake'),'text','notebook-pen')))
-  $c.appendChild(cq)
+  const tools=h('details',{className:'card check-tools',id:'checkTools',tabindex:'-1'},h('summary',null,
+    homeIcon('camera',18),h('strong',null,'拍照与按科目补记'),
+    h('span',{className:'check-tools-chevron','aria-hidden':'true'},'›')),
+    h('div',{className:'check-tools-body'},quick,cq))
+  tools.open=_checkToolsOpen
+  tools.addEventListener('toggle',()=>{if(tools.isConnected)_checkToolsOpen=tools.open})
+  $c.appendChild(tools)
 
   // 习惯打卡
   const hs=habStats(td)
@@ -7177,30 +7211,34 @@ function rewardState(part,balance){
   if(!part.exchange)return part.switchGame?'待定价':'条件解锁'
   return balance>=rewardCost(part)?'可兑换':'积分兑换'
 }
-function rewardProgress(part,balance){
+function rewardProgress(part,balance,showRemaining=false){
   const need=Math.max(0,rewardCost(part))
   const have=Math.max(0,balance)
   const done=Math.min(have,need)
+  const short=Math.max(0,need-balance)
   const progress=h('progress',{value:done,max:need||1,'aria-label':'心愿积分进度'})
-  return h('div',{className:'reward-progress'},
-    h('div',null,h('span',null,'积分进度'),h('strong',null,have.toLocaleString()+' / '+need.toLocaleString())),
+  return h('div',{className:'reward-progress'+(showRemaining?' remaining':'')},
+    showRemaining?h('div',null,h('span',null,short?'还差':'积分已攒够'),
+      short?h('strong',null,short.toLocaleString()+' 积分'):null):
+      h('div',null,h('span',null,'积分进度'),h('strong',null,have.toLocaleString()+' / '+need.toLocaleString())),
     progress)
 }
 function rewardHero(){
   const part=getRewardWish()
   const balance=rewardBalance()
   const showProgress=part&&part.exchange&&!part.unlocked&&!part.received
+  const preview=part?rewardStudioPreview(part):null
   return h('section',{className:'home-hero reward-hero',id:'rewardGoal',tabindex:'-1'},
-    h('img',{className:'reward-art',src:'build-hero.webp',alt:'',decoding:'async',fetchpriority:'high'}),
+    preview?h('span',{className:'reward-wish-art','aria-hidden':'true'},preview):
+      h('img',{className:'reward-art',src:'build-hero.webp',alt:'',decoding:'async',fetchpriority:'high'}),
     h('div',{className:'home-hero-copy'},
-      h('h2',null,'我的装机台'),
-      h('div',{className:'reward-actions'},
-        homeButton('看装备',openRewardCatalog,'quiet','gift')),
+      h('h2',null,part?'我的心愿':'我的装机台'),
       part?h('div',{className:'hero-wish'},
-        homeButton('我的心愿 · '+part.name,()=>rewardDialog(part),'text','star'),
-        showProgress?rewardProgress(part,balance):
-          h('p',null,part.received||part.unlocked?rewardState(part,balance):(part.cond||'条件解锁')),
-        showProgress&&balance>=rewardCost(part)?h('p',null,'积分已攒够，可请家长兑换。'):null):null))
+        homeButton(part.name,()=>rewardDialog(part),'text','star'),
+        showProgress?rewardProgress(part,balance,true):
+          h('p',null,part.received||part.unlocked?rewardState(part,balance):(part.cond||'条件解锁'))):null,
+      h('div',{className:'reward-actions'},
+        homeButton('看装备',openRewardCatalog,'quiet','gift'))))
 }
 function rewardDialog(part){
   const balance=rewardBalance()
