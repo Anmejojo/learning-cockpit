@@ -7008,28 +7008,28 @@ function rpk(){
 const BUILD_COMPONENTS=[11,17,14,15,18,10,13,12]
 const BUILD_DESK=[16,4,2,1,5,7,6,3]
 const BUILD_GAMES=[9,19,20]
-// 累计公开销量，单位万套。按初代 Switch 的版本统计，各作品的公开日期不同。
+// 累计公开销量（万套）、统计月份、图集位置。图集位置随游戏固定，不随销量变化。
 const SWITCH_SALES=[
-  ['sw-kart8','马力欧卡丁车 8 豪华版',7200,'2026-09'],
-  ['sw-animal','集合啦！动物森友会',5063,'2026-09'],
-  ['sw-smash','任天堂明星大乱斗 特别版',3850,'2026-09'],
-  ['sw-botw','塞尔达传说 旷野之息',3428,'2026-09'],
-  ['sw-odyssey','超级马力欧 奥德赛',3106,'2026-09'],
-  ['sw-sv','宝可梦 朱／紫',2866,'2026-09'],
-  ['sw-swsh','宝可梦 剑／盾',2736,'2026-09'],
-  ['sw-totk','塞尔达传说 王国之泪',2290,'2026-09'],
-  ['sw-party','超级马力欧派对',2139,'2026-09'],
-  ['sw-mariou','新 超级马力欧兄弟 U 豪华版',1922,'2026-09'],
-  ['sw-sports','Nintendo Switch 运动',1832,'2026-03'],
-  ['sw-wonder','超级马力欧兄弟 惊奇',1744,'2026-03'],
-  ['sw-ringfit','健身环大冒险',1538,'2023-03'],
-  ['sw-letsgo','宝可梦 Let’s Go！皮卡丘／伊布',1507,'2022-12'],
-  ['sw-bdsp','宝可梦 晶灿钻石／明亮珍珠',1506,'2022-12'],
-  ['sw-arceus','宝可梦传说 阿尔宙斯',1483,'2023-03'],
-  ['sw-luigi3','路易吉洋馆 3',1425,'2024-03'],
-  ['sw-superstars','马力欧派对 超级巨星',1400,'2025-03'],
-  ['sw-splatoon2','斯普拉遁 2',1360,'2022-12'],
-  ['sw-3dworld','超级马力欧 3D 世界 ＋ 狂怒世界',1347,'2024-03']
+  ['sw-kart8','马力欧卡丁车 8 豪华版',7200,'2026-09',0],
+  ['sw-animal','集合啦！动物森友会',5063,'2026-09',1],
+  ['sw-smash','任天堂明星大乱斗 特别版',3850,'2026-09',2],
+  ['sw-botw','塞尔达传说 旷野之息',3428,'2026-09',3],
+  ['sw-odyssey','超级马力欧 奥德赛',3106,'2026-09',4],
+  ['sw-sv','宝可梦 朱／紫',2866,'2026-09',5],
+  ['sw-swsh','宝可梦 剑／盾',2736,'2026-09',6],
+  ['sw-totk','塞尔达传说 王国之泪',2290,'2026-09',7],
+  ['sw-party','超级马力欧派对',2139,'2026-09',8],
+  ['sw-mariou','新 超级马力欧兄弟 U 豪华版',1922,'2026-09',9],
+  ['sw-sports','Nintendo Switch 运动',1832,'2026-03',10],
+  ['sw-wonder','超级马力欧兄弟 惊奇',1744,'2026-03',11],
+  ['sw-ringfit','健身环大冒险',1538,'2023-03',12],
+  ['sw-letsgo','宝可梦 Let’s Go！皮卡丘／伊布',1507,'2022-12',13],
+  ['sw-bdsp','宝可梦 晶灿钻石／明亮珍珠',1506,'2022-12',14],
+  ['sw-arceus','宝可梦传说 阿尔宙斯',1483,'2023-03',15],
+  ['sw-luigi3','路易吉洋馆 3',1425,'2024-03',16],
+  ['sw-superstars','马力欧派对 超级巨星',1400,'2025-03',17],
+  ['sw-splatoon2','斯普拉遁 2',1360,'2022-12',18],
+  ['sw-3dworld','超级马力欧 3D 世界 ＋ 狂怒世界',1347,'2024-03',19]
 ]
 const REWARD_ICONS={1:'pad',2:'mouse',3:'bolt',4:'keyboard',5:'headset',6:'camera',7:'speaker',8:'pc',
   9:'gamepad',10:'storage',11:'fan',12:'bolt',13:'storage',14:'chip',15:'chip',16:'monitor',17:'chip',18:'fan',
@@ -7062,13 +7062,19 @@ const REWARD_PHOTO_CREDITS={
 }
 const REWARD_STUDIO_ORDER=[8,11,17,14,15,18,10,13,12,16,4,2,1,5,7,6,3,9,19,20]
 function rewardStudioPreview(part){
-  const slot=REWARD_STUDIO_ORDER.indexOf(part.switchGame?20:Number(part.id))
+  if(part.switchGame){
+    const game=SWITCH_SALES.find(item=>item[0]===part.id)
+    if(!game)return null
+    const slot=game[4],x=(slot%5)*25,y=Math.floor(slot/5)*100/3
+    return h('span',{className:'reward-studio switch-cartridge-art',style:'--studio-x:'+x+'%;--studio-y:'+y+'%'})
+  }
+  const slot=REWARD_STUDIO_ORDER.indexOf(Number(part.id))
   if(slot<0)return null
   const x=(slot%4)*100/3,y=Math.floor(slot/4)*25
   return h('span',{className:'reward-studio',style:'--studio-x:'+x+'%;--studio-y:'+y+'%'})
 }
 function rewardPhoto(part){
-  const id=part.switchGame?20:Number(part.id)
+  const id=Number(part.id)
   const credit=REWARD_PHOTO_CREDITS[id]
   return credit?{src:'reward-photos/'+String(id).padStart(2,'0')+'.webp',...credit}:null
 }
@@ -7146,9 +7152,10 @@ function rewardDialog(part){
   const selected=ownWish&&ownWish.id===part.id
   const photo=rewardPhoto(part)
   const sale=part.switchGame?SWITCH_SALES.find(game=>game[0]===part.id):null
+  const cartridge=sale?rewardStudioPreview(part):null
   const dialog=h('dialog',{className:'reward-dialog','aria-labelledby':'rewardDialogTitle'})
   const hide=()=>dialog.close()
-  const header=h('header',null,photo?null:h('span',{className:'reward-dialog-art','aria-hidden':'true'},
+  const header=h('header',null,photo||cartridge?null:h('span',{className:'reward-dialog-art','aria-hidden':'true'},
     homeIcon(REWARD_ICONS[part.id]||'gift',44)),
     h('div',null,h('h2',{id:'rewardDialogTitle'},part.name),h('span',{className:'reward-tag'},rewardState(part,balance))),
     h('button',{type:'button',className:'reward-close','aria-label':'关闭详情',onClick:hide},'×'))
@@ -7164,7 +7171,7 @@ function rewardDialog(part){
     if(!owned||selected)actions.appendChild(homeButton(selected?'取消心愿':'设为我的心愿',()=>{
       if(!saveRewardWish(selected?null:part))return
       hide();render()
-      const target=document.getElementById('rewardGoal')||document.querySelector('[data-build-part="'+Number(part.id)+'"]')
+      const target=document.getElementById('rewardGoal')||document.querySelector('[data-build-part="'+CSS.escape(String(part.id))+'"]')
       target?.focus()
       ts(selected?'已取消心愿':'已设为我的心愿')
     },selected?'quiet':'primary','star'))
@@ -7185,6 +7192,9 @@ function rewardDialog(part){
   }
   dialog.appendChild(header)
   if(photo)dialog.appendChild(rewardPhotoFigure(photo))
+  if(cartridge)dialog.appendChild(h('figure',{className:'reward-photo-detail switch-cartridge-detail'},
+    h('span',{className:'hardware-model has-photo','aria-hidden':'true'},cartridge),
+    h('figcaption',null,'AI 卡匣示意')))
   dialog.append(details,actions)
   dialog.addEventListener('close',()=>dialog.remove(),{once:true})
   dialog.addEventListener('click',e=>{
@@ -7195,19 +7205,20 @@ function rewardDialog(part){
   document.body.appendChild(dialog)
   dialog.showModal()
 }
-function buildModule(part,balance,scope){
+function buildModule(part,balance,scope,isWish=false){
   const id=Number(part.id)
   const state=rewardState(part,balance)
   const owned=part.received||part.unlocked
   const ready=part.exchange&&!owned&&balance>=rewardCost(part)
+  const label=owned?state:isWish?'我的心愿':part.exchange?rewardCost(part).toLocaleString()+' 积分':state
   const preview=rewardStudioPreview(part)
   const model=h('span',{className:'hardware-model'+(preview?' has-photo':''),'aria-hidden':'true'},
     preview||homeIcon(REWARD_ICONS[id]||'gift',29))
-  return h('button',{type:'button',className:'build-module module-'+id+' '+scope+(owned?' owned':ready?' ready':''),
-    'data-build-part':part.id,'aria-label':part.name+'，'+state,onClick:()=>rewardDialog(part)},
+  return h('button',{type:'button',className:'build-module '+(part.switchGame?'':'module-'+id+' ')+scope+(owned?' owned':ready?' ready':''),
+    'data-build-part':part.id,'aria-label':part.name+'，'+label+(label===state?'':'，'+state),onClick:()=>rewardDialog(part)},
     model,
     h('span',{className:'module-label'},h('strong',null,part.name),
-      h('small',null,owned||!part.exchange?state:rewardCost(part).toLocaleString()+' 积分')))
+      h('small',null,label)))
 }
 function buildShelf(title,parts,balance,kind){
   return h('section',{className:'build-shelf '+kind},h('h2',null,title),
@@ -7216,19 +7227,12 @@ function buildShelf(title,parts,balance,kind){
 }
 function switchCatalog(balance){
   const wish=getRewardWish()
-  const rows=SWITCH_SALES.map((game,index)=>{
+  const cards=SWITCH_SALES.map(game=>{
     const part=switchReward(game)
-    const label=part.received||part.unlocked?rewardState(part,balance):
-      (wish?.id===part.id?'我的心愿':part.exchange?rewardCost(part).toLocaleString()+' 积分':'')
-    return h('li',null,h('button',{type:'button',className:'switch-game',onClick:()=>rewardDialog(part)},
-      h('span',{className:'switch-rank'},index+1),
-      h('span',{className:'switch-game-name'},h('strong',null,part.name),
-        label?h('small',null,label):null),
-      h('span',{className:'switch-sales'},game[2].toLocaleString('zh-CN')+' 万套')))
+    return h('li',null,buildModule(part,balance,'shelf-module switch-game',wish?.id===part.id))
   })
   return h('section',{className:'build-shelf switch-catalog'},h('h2',null,'Switch 热销游戏'),
-    h('p',{className:'work-note'},'初代 Switch · 全球公开累计销量。点游戏可查看统计时间和兑换条件。'),
-    h('ol',{className:'switch-game-list'},...rows),
+    h('ol',{className:'switch-game-list'},...cards),
     h('div',{className:'switch-sources'},h('a',{href:'https://www.nintendo.co.jp/ir/en/finance/software/switch.html',target:'_blank',rel:'noopener noreferrer'},'任天堂销量'),
       h('a',{href:'https://en.wikipedia.org/wiki/List_of_best-selling_Nintendo_Switch_video_games',target:'_blank',rel:'noopener noreferrer'},'公开销量汇总')))
 }

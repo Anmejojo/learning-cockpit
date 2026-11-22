@@ -1876,25 +1876,23 @@ body.workspace.chat-page .chat-tools .chat-cam.rec{
 .game-shelf .shelf-module{background:linear-gradient(#3d333e,#302932);border-color:#74606a}
 .game-shelf .shelf-module.owned{border-color:#759754}
 .game-shelf .hardware-model{color:#dfbd99}
-.switch-catalog>p{margin:0 0 8px}
+.reward-studio.switch-cartridge-art{background-image:url('reward-photos/switch-cartridges.webp');background-size:500% 400%}
+.switch-cartridge-detail{display:grid;justify-items:center;gap:3px}
+.switch-cartridge-detail .hardware-model.has-photo{width:min(100%,220px,32dvh)}
 .switch-game-list{
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:6px 10px;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,144px),1fr));gap:8px;
   list-style:none;margin:0;padding:0;
 }
 .switch-game-list li{min-width:0}
-.switch-game{
-  display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:center;gap:8px;width:100%;
-  min-height:47px;padding:6px 8px;border:1px solid var(--workspace-line);border-radius:8px;
-  background:var(--workspace-panel);color:var(--workspace-ink);font:inherit;text-align:left;cursor:pointer;
-}
-.switch-game:hover{border-color:var(--primary-border);background:var(--primary-weak)}
-.switch-rank,.switch-sales{font-size:12px;font-variant-numeric:tabular-nums;color:var(--workspace-muted)}
-.switch-rank{text-align:center}
-.switch-sales{white-space:nowrap}
-.switch-game-name{display:grid;gap:2px;line-height:1.4;overflow-wrap:anywhere}
-.switch-game-name strong{font-size:14px;font-weight:650}
-.switch-game-name small,.switch-sources a{font-size:12px;color:var(--workspace-accent)}
+.switch-game{width:100%;height:100%;justify-content:flex-start}
+.switch-game .hardware-model.has-photo{width:min(100%,164px)}
+.switch-game .module-label{flex:1;width:100%;grid-template-rows:1fr auto}
+.switch-game .module-label strong{align-self:center}
+.switch-sources a{font-size:12px;color:var(--workspace-accent)}
 .switch-sources{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
+@media(max-width:560px){
+  .switch-game-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
 @media(max-width:480px){
   .build-chassis,.build-shelf{padding:9px;border-radius:13px}
   .build-zone-head{margin-bottom:9px}
