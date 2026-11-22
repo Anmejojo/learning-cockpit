@@ -544,7 +544,7 @@ function demoBar(){
     const badge=document.getElementById(id)
     if(badge)badge.hidden=true
   }
-  document.querySelector('.app-status').prepend(b)
+  document.querySelector('.app-status').insertBefore(b,document.getElementById('modeBadge'))
 }
 
 let VW=up.has('view')||up.has('readonly')
@@ -4904,9 +4904,9 @@ function homeStatus(status,count){
   const [label,tone]=HOME_STATUS[status]||HOME_STATUS.todo
   return h('span',{className:'home-state '+tone},count===undefined?label:label+' '+count)
 }
-function homeSection(title,action){
+function homeSection(title,action,detail=null){
   return h('section',{className:'home-panel'},
-    h('header',{className:'home-panel-head'},h('h2',null,title),action))
+    h('header',{className:'home-panel-head'},h('h2',null,title),detail,action))
 }
 function openTodayCheckin(target,homeworkDate){
   _ckView='list'
@@ -4957,18 +4957,19 @@ function todayHomeworkPanel(entries,checks){
   const submitted=entries.filter(entry=>entry.status==='pending'||entry.status==='approved').length
   const left=entries.length-waiting-submitted
   const visible=next||entries.find(entry=>entry.status==='uploading')
-  const list=homeSection('今日作业',homeButton('登记作业',()=>openHomeworkRegistration(),'text'))
+  const progress=[
+    left?'待交 '+left:'',
+    waiting?'待传 '+waiting:'',
+    submitted?(left||waiting?'已交 '+submitted:'已交齐 · '+submitted+' 项'):''
+  ].filter(Boolean).join(' · ')
+  const list=homeSection('今日作业',homeButton('登记作业',()=>openHomeworkRegistration(),'text'),
+    progress?h('p',{className:'home-work-progress'},progress):null)
   list.classList.add('home-homework')
-  const heading=!entries.length?'今天还没有登记作业':
-    left?'还有 '+left+' 项要交':waiting?'只剩照片待传':'今天的作业都已提交'
   const hasRecordedToday=checks.some(c=>c.date===td&&c.status!=='rejected')
   const firstCapture=!entries.length&&!hasRecordedToday
   const capture=h('div',{className:'home-work-actions'},
     homeButton(firstCapture?'拍照打卡':'随手拍一张',()=>quickShot(td),firstCapture?'primary':'text','camera'))
-  list.appendChild(h('div',{className:'home-work-progress'},
-    h('strong',null,heading),
-    waiting?homeStatus('uploading',waiting+' 项'):null,
-    submitted?h('span',{className:'home-state mint'},'已提交 '+submitted+' 项'):null))
+  if(!entries.length)list.appendChild(h('p',{className:'home-work-empty work-note'},'今天还没有登记作业'))
   if(firstCapture)list.appendChild(capture)
   if(visible)list.appendChild(h('div',{className:'home-next-work'},homeHomeworkRow(visible,!!next)))
   const receipt=recentFeedback(checks,visible?.job.recId)
@@ -8498,6 +8499,7 @@ function updateWorkspaceNav(){
   }else{
     if(heading)heading.replaceChildren()
     if(actions)actions.replaceChildren()
+    document.getElementById('demoBar')?.removeAttribute('open')
     const title=tb==='points'?(_pkView==='points'?'积分账本':'我的装机台'):
       tb==='checkin'&&ROLE.parent?'审核与打卡':tabTitle(tb)
     if(pageTitle)pageTitle.replaceChildren(h('h1',{id:'appCurrent'},title||'学习驾驶舱'))
