@@ -1147,7 +1147,7 @@ html[data-polish="1"] *{transition-timing-function:var(--ease)}
   --workspace-safe:calc(env(safe-area-inset-top,0px) + var(--top-pad,0px));
   --workspace-anchor-top:calc(var(--workspace-top) + var(--workspace-safe));
   --workspace-dock:0px;
-  --workspace-bg:#1b1a20;
+  --workspace-bg:#101014;
   --workspace-chrome:#222128;
   --workspace-panel:#29262e;
   --workspace-panel-raised:#322e38;

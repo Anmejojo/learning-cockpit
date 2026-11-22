@@ -5,7 +5,7 @@
 <title>驾驶舱对照预览</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-  :root{color-scheme:dark;background:#1b1a20;color:#efeae1;scrollbar-gutter:stable}
+  :root{color-scheme:dark;background:#0d0c10;color:#efeae1;scrollbar-gutter:stable}
   *,*::before,*::after{box-sizing:border-box}
   body{
     margin:0;min-height:100dvh;
@@ -40,14 +40,14 @@
   .pane{min-width:0;display:flex;justify-content:center;align-items:flex-start}
   .screen{
     position:relative;width:var(--fit-w);height:var(--fit-h);overflow:hidden;
-    border-radius:12px;outline:1px solid #716473;background:#1b1a20;
+    border-radius:12px;outline:1px solid #716473;background:#101014;
     box-shadow:0 12px 30px #100d147d;
   }
   .screen iframe{
     position:absolute;inset:0 auto auto 0;display:block;
     width:var(--screen-w);height:var(--screen-h);padding:0;border:0;
     transform:scale(var(--fit-scale));transform-origin:top left;
-    background:#1b1a20;
+    background:#101014;
   }
   @media(max-width:760px){
     .wrap{padding:8px;gap:10px}
