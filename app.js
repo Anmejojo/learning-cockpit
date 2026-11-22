@@ -2747,7 +2747,7 @@ let _speakId=null
 let _srPrev='',_srTimer=null
 function memPanelUI(){
   const full=h('div',{className:'mem-panel'})
-  const head=h('div',{className:'mem-head'},h('h1',null,'小搭记得的事'),
+  const head=h('div',{className:'mem-head'},h('h2',null,'小搭记得的事'),
     h('button',{className:'mem-x',onClick:function(){_memOpen=false;render();document.getElementById('chatMemToggle')?.focus()}},'关闭'))
   full.appendChild(head)
   full.appendChild(h('div',{className:'mem-tip'},'这些是小搭记住的关于你的事。说得不对、或者你不想让它记的，直接删掉就行。'))
@@ -3488,8 +3488,7 @@ function chatHeading(){
   const registration=ROLE.kid?homeButton('登记作业',()=>openHomeworkRegistration({
     text:document.getElementById('chatInput')?.value||_draft
   }),'quiet'):null
-  return h('header',{className:'chat-heading'},h('h1',null,AI_NAME),
-    ROLE.kid?h('div',{className:'chat-heading-actions'},registration,memory):null)
+  return ROLE.kid?h('div',{className:'chat-heading-actions'},registration,memory):null
 }
 function chatUI(){
   if(ROLE.kid&&_memOpen)return memPanelUI()
@@ -4693,16 +4692,12 @@ function render(){
   try{if(dateRoll())try{sv(D)}catch(e){}}catch(e){}
   $c.innerHTML=''
   if(tb!=='chat'){document.body.classList.remove('chat-page');_memOpen=false}
-  if(tb!=='today'&&tb!=='chat'){
-    const isReward=tb==='points'
-    const title=isReward?(_pkView==='points'?'积分账本':'我的装机台'):tabTitle(tb)
-    const headerAction=isReward
-      ? homeButton(_pkView==='points'?'返回装机台':'积分账本',()=>{
+  if(tb==='points'){
+    $c.appendChild(h('div',{className:'workspace-page-actions'},
+      homeButton(_pkView==='points'?'返回装机台':'积分账本',()=>{
           _pkView=_pkView==='points'?'catalog':'points'
           render()
-        },'quiet',_pkView==='points'?'arrow-left':'list-checks')
-      : tb==='detail'?homeButton('返回今日',()=>sw('today'),'text','arrow-left'):null
-    $c.appendChild(h('header',{className:'workspace-heading'},h('h1',null,title),headerAction))
+        },'quiet',_pkView==='points'?'arrow-left':'list-checks')))
   }
   if(tb==='today')rtoday()
   else if(tb==='room')$c.appendChild(spaceHome())
@@ -6234,7 +6229,7 @@ function rchat(){
   if(!_aiBusy&&D._chat&&D._chat.some(function(m){return m.pending})){D._chat=D._chat.filter(function(m){return !m.pending});sv(D)}
   setTimeout(function(){try{ensureChatSummary()}catch(e){}},2500)
   chatHeight()
-  if(!(ROLE.kid&&_memOpen))$c.appendChild(chatHeading())
+  if(ROLE.kid&&!_memOpen)$c.appendChild(chatHeading())
   $c.appendChild(chatUI())
   setTimeout(function(){const el=document.getElementById('chatScroll');if(el)el.scrollTop=el.scrollHeight},60)
 }
@@ -6833,7 +6828,7 @@ function scoreSummary(row){
 function scoreOverview(){
   const rows=scoreTimeline()
   const subjects=[...new Map(Object.values(SUB).flat().map(sb=>[sb.id,sb.name])).entries()]
-  const panel=h('section',{className:'score-panel'},
+  const panel=h('section',{className:'score-panel score-overview'},
     h('header',{className:'score-panel-head'},
       h('div',null,h('h2',null,'我的成绩变化'),h('p',null,'按学期设定的满分换算得分率。')),
       h('label',{className:'score-select'},h('span',null,'查看科目'),
@@ -8359,8 +8354,10 @@ function updateWorkspaceNav(){
   const isHome=tb==='today'
   document.body.classList.toggle('workspace-home',isHome)
   const heading=document.getElementById('appHomeTitle')
+  const pageTitle=document.getElementById('appPageTitle')
   const actions=document.getElementById('appHomeActions')
   if(isHome){
+    if(pageTitle)pageTitle.replaceChildren()
     const date=new Intl.DateTimeFormat('zh-CN',{month:'long',day:'numeric',weekday:'long'}).format(new Date())
     const unread=msgUnread(ROLE.firstPerson)
     const label=unread?'留言 · '+unread+' 条未读':'留言'
@@ -8372,9 +8369,10 @@ function updateWorkspaceNav(){
   }else{
     if(heading)heading.replaceChildren()
     if(actions)actions.replaceChildren()
+    const title=tb==='points'?(_pkView==='points'?'积分账本':'我的装机台'):
+      tb==='checkin'&&ROLE.parent?'审核与打卡':tabTitle(tb)
+    if(pageTitle)pageTitle.replaceChildren(h('h1',{id:'appCurrent'},title||'学习驾驶舱'))
   }
-  const crumb=document.getElementById('appCurrent')
-  if(crumb)crumb.textContent=tb==='checkin'&&ROLE.parent?'审核与打卡':tabTitle(tb)||'今日'
   const badge=document.getElementById('modeBadge')
   if(badge)badge.textContent=ROLE.parent?'家长版':'孩子版'
   const profile=document.getElementById('appProfile')

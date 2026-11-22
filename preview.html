@@ -5,55 +5,174 @@
 <title>驾驶舱对照预览</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-  :root{color-scheme:dark;background:#1b1a20;color:#efeae1}
+  :root{color-scheme:dark;background:#1b1a20;color:#efeae1;scrollbar-gutter:stable}
   *,*::before,*::after{box-sizing:border-box}
   body{
-    margin:0;min-height:100dvh;display:grid;grid-template-rows:auto minmax(0,1fr);
+    margin:0;min-height:100dvh;
     font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
   }
   .toolbar{
+    position:sticky;top:0;z-index:1;display:grid;gap:8px;
+    padding:10px 16px;border-bottom:1px solid #4a4452;background:#222128;
+  }
+  .toolbar-head,.toolbar-controls{
     display:flex;align-items:center;justify-content:space-between;gap:8px 16px;flex-wrap:wrap;
-    padding:8px 14px;border-bottom:1px solid #4a4452;background:#222128;
   }
   h1{font-size:16px;margin:0;font-weight:650}
-  .actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-  .actions :is(button,a){
-    min-height:36px;display:inline-flex;align-items:center;padding:4px 9px;border:1px solid #4a4452;
+  .toolbar-controls{justify-content:flex-start;gap:7px 10px}
+  .actions,.options{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+  .toolbar :is(button,a){
+    min-height:38px;display:inline-flex;align-items:center;justify-content:center;padding:4px 10px;border:1px solid #4a4452;
     border-radius:8px;color:#efeae1;background:#29262e;font:inherit;font-size:13px;
     cursor:pointer;text-decoration:none;white-space:nowrap;
   }
-  .actions :is(button,a):hover{background:#34413f}
-  .actions :is(button,a):focus-visible{outline:2px solid #a9d0c5;outline-offset:2px}
-  .wrap{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:10px;min-width:0}
-  .wrap iframe{width:100%;height:100%;min-height:0;border:1px solid #4a4452;border-radius:12px;background:#1b1a20}
-  .wrap[data-layout="stack"]{grid-template-columns:minmax(0,1fr)}
-  .wrap[data-layout="stack"] iframe{min-height:min(650px,78dvh)}
+  .toolbar :is(button,a):hover{background:#35313b}
+  .toolbar button[aria-pressed="true"]{background:#45382d;border-color:#b38d65;color:#fff0db}
+  .toolbar :is(button,a):focus-visible{outline:2px solid #a9d0c5;outline-offset:2px}
+  .options{gap:2px;padding:2px;border:1px solid #4a4452;border-radius:10px;background:#1b1a20}
+  .options button{min-height:34px;padding-inline:9px;border-color:transparent;background:transparent}
+  [hidden]{display:none!important}
+  .dimensions{color:#c9c0cf;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .wrap{--screen-w:390px;--screen-h:844px;display:grid;grid-template-columns:minmax(0,1fr);gap:15px;padding:12px 16px}
+  .wrap[data-show="both"][data-layout="split"]{grid-template-columns:repeat(2,minmax(0,1fr))}
+  html:has(.wrap[data-landscape="true"]){scrollbar-gutter:auto;scrollbar-width:none}
+  html:has(.wrap[data-landscape="true"])::-webkit-scrollbar{display:none}
+  .pane{min-width:0;display:flex;justify-content:center;align-items:flex-start}
+  .screen{
+    position:relative;width:var(--fit-w);height:var(--fit-h);overflow:hidden;
+    border-radius:12px;outline:1px solid #716473;background:#1b1a20;
+    box-shadow:0 12px 30px #100d147d;
+  }
+  .screen iframe{
+    position:absolute;inset:0 auto auto 0;display:block;
+    width:var(--screen-w);height:var(--screen-h);padding:0;border:0;
+    transform:scale(var(--fit-scale));transform-origin:top left;
+    background:#1b1a20;
+  }
   @media(max-width:760px){
-    .wrap{grid-template-columns:minmax(0,1fr);padding:7px;gap:8px}
-    .wrap iframe{min-height:min(650px,78dvh)}
-    .wrap[data-layout="split"]{grid-template-columns:repeat(2,minmax(0,1fr))}
-    .toolbar{padding-inline:8px}
+    .wrap{padding:8px;gap:10px}
+    .toolbar{padding:8px;gap:6px}
+    .toolbar-head,.toolbar-controls{gap:6px 8px}
+    .toolbar :is(button,a){min-height:36px}
   }
 </style>
 </head>
 <body>
 <header class="toolbar">
-  <h1>驾驶舱对照预览</h1>
-  <nav class="actions" aria-label="预览工具">
-    <button type="button" onclick="toggleDir()">左右／上下</button>
-    <button type="button" onclick="reloadFrames(false)">刷新两端</button>
-    <button type="button" onclick="reloadFrames(true)">重置演示</button>
-    <a href="https://anmejojo.github.io/learning-cockpit/" target="_blank" rel="noopener noreferrer">打开线上版</a>
-  </nav>
+  <div class="toolbar-head">
+    <h1>驾驶舱设备预览</h1>
+    <nav class="actions" aria-label="演示工具">
+      <button type="button" onclick="reloadFrames(false)">刷新预览</button>
+      <button type="button" onclick="reloadFrames(true)">重置演示</button>
+      <a href="https://anmejojo.github.io/learning-cockpit/" target="_blank" rel="noopener noreferrer">打开线上版</a>
+    </nav>
+  </div>
+  <div class="toolbar-controls">
+    <div class="options" role="group" aria-label="设备">
+      <button type="button" data-device="phone">手机</button>
+      <button type="button" data-device="tablet">平板</button>
+      <button type="button" data-device="desktop">桌面</button>
+    </div>
+    <div class="options" role="group" aria-label="屏幕方向" id="orientation">
+      <button type="button" data-orientation="portrait">竖屏</button>
+      <button type="button" data-orientation="landscape">横屏</button>
+    </div>
+    <div class="options" role="group" aria-label="预览版本">
+      <button type="button" data-show="both">对照</button>
+      <button type="button" data-show="child">孩子版</button>
+      <button type="button" data-show="parent">家长版</button>
+    </div>
+    <button type="button" id="arrange">上下排列</button>
+    <output class="dimensions" id="dimensions" aria-label="视口尺寸"></output>
+  </div>
 </header>
 <main class="wrap" id="wrap">
-  <iframe id="f1" title="家长版演示" src="index.html?demo"></iframe>
-  <iframe id="f2" title="孩子版演示" src="index.html?view&demo"></iframe>
+  <div class="pane" data-role="parent"><div class="screen">
+    <iframe id="f1" title="家长版演示" src="index.html?demo"></iframe>
+  </div></div>
+  <div class="pane" data-role="child"><div class="screen">
+    <iframe id="f2" title="孩子版演示" src="index.html?view&demo"></iframe>
+  </div></div>
 </main>
 <script>
 const parentFrame=document.getElementById('f1')
 const childFrame=document.getElementById('f2')
+const wrap=document.getElementById('wrap')
+const toolbar=document.querySelector('.toolbar')
+const controls=document.querySelector('.toolbar-controls')
+const arrange=document.getElementById('arrange')
+const dimensions=document.getElementById('dimensions')
+const orientation=document.getElementById('orientation')
+const panes=[...wrap.querySelectorAll('.pane')]
+const narrow=matchMedia('(max-width:760px)')
+const presets={phone:[390,844],tablet:[820,1180],desktop:[1440,900]}
+const params=new URLSearchParams(location.search)
+const usable=(key,values,fallback)=>values.includes(params.get(key))?params.get(key):fallback
+const state={
+  device:usable('device',Object.keys(presets),'phone'),
+  orientation:usable('orientation',['portrait','landscape'],'portrait'),
+  show:usable('show',['both','child','parent'],'both'),
+  layout:usable('layout',['split','stack'],'')
+}
+let width,height
 let refreshId=0
+
+function fitScreens(){
+  const style=getComputedStyle(wrap)
+  const padding=parseFloat(style.paddingTop)+parseFloat(style.paddingBottom)
+  const available=window.innerHeight-toolbar.getBoundingClientRect().height-padding-2
+  const stacked=wrap.dataset.landscape==='true'&&wrap.dataset.layout==='stack'&&state.show==='both'
+  const room=Math.max(24,stacked?(available-parseFloat(style.rowGap))/2:available)
+  for(const pane of panes){
+    if(pane.hidden)continue
+    const scale=Math.min(1,Math.max(1,pane.clientWidth-2)/width,room/height)
+    const style=pane.firstElementChild.style
+    style.setProperty('--fit-w',width*scale+'px')
+    style.setProperty('--fit-h',height*scale+'px')
+    style.setProperty('--fit-scale',scale)
+  }
+}
+
+function updatePreview(){
+  [width,height]=presets[state.device]
+  if(state.device!=='desktop'&&state.orientation==='landscape')[width,height]=[height,width]
+  wrap.style.setProperty('--screen-w',width+'px')
+  wrap.style.setProperty('--screen-h',height+'px')
+  wrap.dataset.landscape=String(width>height)
+  wrap.dataset.layout=state.layout||(narrow.matches?'stack':'split')
+  wrap.dataset.show=state.show
+  for(const pane of panes)pane.hidden=state.show!=='both'&&pane.dataset.role!==state.show
+  orientation.hidden=state.device==='desktop'
+  arrange.hidden=state.show!=='both'
+  arrange.textContent=wrap.dataset.layout==='split'?'上下排列':'左右排列'
+  dimensions.textContent=width+' × '+height
+  for(const button of controls.querySelectorAll('[data-device],[data-orientation],[data-show]')){
+    const [key,value]=Object.entries(button.dataset)[0]
+    button.setAttribute('aria-pressed',String(state[key]===value))
+  }
+  fitScreens()
+}
+
+controls.addEventListener('click',event=>{
+  const button=event.target.closest('button')
+  if(!button)return
+  if(button===arrange)state.layout=wrap.dataset.layout==='split'?'stack':'split'
+  else{
+    const [key,value]=Object.entries(button.dataset)[0]
+    state[key]=value
+  }
+  const url=new URL(location.href)
+  for(const [key,value] of Object.entries(state)){
+    if(value)url.searchParams.set(key,value)
+  }
+  if(url.protocol!=='file:')history.replaceState(null,'',url)
+  updatePreview()
+})
+
+narrow.addEventListener('change',updatePreview)
+window.addEventListener('resize',fitScreens)
+new ResizeObserver(fitScreens).observe(toolbar)
+updatePreview()
 
 function frameSrc(kid,reset,stamp){
   return 'index.html?'+(kid?'view&':'')+'demo'+(reset?'&reset=1':'')+'&t='+stamp
@@ -70,11 +189,6 @@ function reloadFrames(reset){
     childFrame.src=frameSrc(true,false,stamp)
   }
   parentFrame.src=frameSrc(false,reset,stamp)
-}
-function toggleDir(){
-  const wrap=document.getElementById('wrap')
-  const current=wrap.dataset.layout||(matchMedia('(max-width:760px)').matches?'stack':'split')
-  wrap.dataset.layout=current==='stack'?'split':'stack'
 }
 </script>
 </body>
