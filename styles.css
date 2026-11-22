@@ -1709,12 +1709,42 @@ body.workspace.chat-page .chat-tools .chat-cam.rec{
 .scores-page>.home-btn{justify-self:start}
 .workspace :is(.settings-page,.checkin-page){min-width:0;padding:clamp(12px,2.4vw,23px)}
 .workspace .form-row>div{min-width:0}
-.workspace .form-row input[type=date]{
+.workspace :is(.form-row input[type=date],.settings-field input:is([type=date],[type=time])){
   -webkit-appearance:none;appearance:none;display:block;box-sizing:border-box;
   width:100%;min-width:0;max-width:100%;min-height:44px;
 }
-.workspace .form-row input[type=date]::-webkit-date-and-time-value{min-height:1.25em;margin:0;text-align:start}
+.workspace :is(.form-row input[type=date],.settings-field input:is([type=date],[type=time]))::-webkit-date-and-time-value{
+  min-height:1.25em;margin:0;text-align:start;
+}
 @media(max-width:520px){.workspace .form-row{grid-template-columns:minmax(0,1fr)}}
+.settings-info-section h2{margin:0 0 9px;font-size:16px;line-height:1.4}
+.settings-info-section+.settings-info-section{margin-top:16px;padding-top:14px;border-top:1px solid var(--workspace-line)}
+.settings-fields,.settings-goal-form{display:grid;gap:9px}
+.daily-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+.settings-field{display:grid;align-content:start;gap:4px;min-width:0}
+.settings-field>span{color:var(--workspace-muted);font-size:13px;font-weight:600}
+.settings-field input{width:100%;min-width:0;min-height:44px;padding-inline:9px}
+.settings-disclosures{margin-top:16px}
+.settings-disclosure>summary{padding:0 3px;color:var(--workspace-copy)}
+.settings-disclosure-value{margin-inline-start:auto;color:var(--workspace-muted);font-weight:500;font-variant-numeric:tabular-nums}
+.settings-disclosure-body{padding:0 3px 12px;min-width:0}
+.settings-disclosure-body .work-note{margin:5px 0}
+.settings-goal-list:empty{display:none}
+.settings-goal-row{
+  display:grid;grid-template-columns:minmax(0,1fr) auto 44px;gap:6px;align-items:center;
+  padding:7px 0;border-bottom:1px solid var(--workspace-line);overflow-wrap:anywhere;
+}
+.settings-goal-row .work-note{margin:0}
+.workspace .settings-goal-remove{padding:0;width:44px;justify-content:center}
+.settings-goal-form{grid-template-columns:minmax(0,1.4fr) repeat(2,minmax(0,1fr));margin-top:9px}
+.settings-goal-form>button{grid-column:1/-1;justify-self:end}
+.settings-tablet-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:8px}
+.settings-phone-actions{display:flex;flex-wrap:wrap;gap:6px}
+.settings-plan-table{width:100%;table-layout:fixed;font-size:12px}
+.settings-plan-table :is(th,td){padding:5px 3px;overflow-wrap:anywhere}
+.settings-plan-table :is(th,td):nth-child(2){width:33%}
+.settings-plan-table :is(th,td):nth-child(n+3){width:17%}
+@media(min-width:720px){.exam-fields{grid-template-columns:minmax(0,1fr) minmax(0,2fr)}}
 .workspace :is(.settings-page,.checkin-page)>.card:not(.check-tools){
   margin:0 0 14px;padding:0 0 14px;border:0;border-bottom:1px solid var(--workspace-line);
   border-radius:0;background:none;

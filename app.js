@@ -1010,13 +1010,13 @@ function skelCard(n,label){
   c.appendChild(skelLines(n,label))
   return c
 }
-function autosave(el,apply,msg){
+function autosave(el,apply,msg,refresh=true){
   if(!el||!el.addEventListener)return
   el.addEventListener('change',function(){
     try{apply()}catch(e){}
     try{sv(D)}catch(e){}
     try{ts(typeof msg==='function'?msg():(msg||'✅ 已保存'))}catch(e){}
-    setTimeout(function(){try{if(document.activeElement!==el)render()}catch(e){}},0)
+    if(refresh)setTimeout(function(){try{if(document.activeElement!==el)render()}catch(e){}},0)
   })
 }
 /* 反馈要说「你做了什么」，不是「你真棒」（Kluger & DeNisi 1996：指向人的泛泛表扬，约三分之一的情况反而降表现）。 */
@@ -7483,6 +7483,7 @@ function rewardCatalog(){
 
 /* ============ ⑤ 设置（所有配置集中） ============ */
 let _setView='info'
+const openInfoSettings=new Set()
 /* ===== 孩子端只读积分规则 ===== */
 function rsetKid(){
   $c.appendChild(h('div',{className:'daily-praise'},'📋 这些是家里的规则，记不清的时候就翻一翻'))
@@ -7557,13 +7558,12 @@ function rset(){
   if(ROLE.kid){ rsetKid(); return }   // 孩子端：只看得到「家里的规则」，不要空白分组
   const modes=[['info','孩子信息'],['rules','规则与积分'],['sys','系统与数据']]
   const pane=attachTabs('settings','设置分类',modes,_setView,key=>{_setView=key})
+  if(_setView==='info'){renderChildInfo(pane);return}
   const _host=$c, _tmp=h('div',null)
   $c=_tmp
   try{ _rsetBody() } finally { $c=_host }
-  const _g1=['下次大考','固定学习时间','小目标','平板','话费','称呼'];
   const _g2=['积分兑换率','习惯打卡项','零件清单','学习方法'];
   const grpOf=function(t){
-    for(const k of _g1)if(t.indexOf(k)>=0)return 'info';
     for(const k of _g2)if(t.indexOf(k)>=0)return 'rules';
     return 'sys';
   };
@@ -7577,95 +7577,149 @@ function rset(){
   });
   if(!_shown){const e=h('div',{className:'card'});e.appendChild(h('div',{style:'text-align:center;color:var(--muted);font-size:var(--fs-14);padding:16px'},'这一组暂时没有可设置的项'));pane.appendChild(e)}
 }
-function _rsetBody(){
-  // 考试信息
-  const ec=h('div',{className:'card edit-only'})
-  ec.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📅'}),'下次大考信息'))
+function settingsField(label,control){
+  return h('label',{className:'settings-field'},h('span',null,label),control)
+}
+function childInfoDetails(key,title,value,content){
+  const details=h('details',{className:'home-work-details settings-disclosure'},
+    h('summary',{onClick:event=>{
+      event.preventDefault()
+      details.open=!details.open
+      if(details.open)openInfoSettings.add(key)
+      else openInfoSettings.delete(key)
+    }},h('span',null,title),h('span',{className:'settings-disclosure-value'},value)),
+    h('div',{className:'settings-disclosure-body'},content))
+  details.open=openInfoSettings.has(key)
+  return details
+}
+function renderChildInfo(pane){
+  pane.classList.add('child-info-settings')
+  const nick=h('input',{type:'text',id:'nickInput',maxlength:8,placeholder:'如：乐乐'})
+  const ritual=h('input',{type:'time',id:'ritualTime'})
+  nick.value=nickName()
+  ritual.value=D.ritualTime||'20:00'
+  autosave(nick,()=>{
+    D.nick=nick.value.trim().slice(0,8)||'乐乐'
+    nick.value=D.nick
+    updateWorkspaceNav()
+  },'小搭称呼已保存',false)
+  autosave(ritual,()=>{
+    if(ritual.value)D.ritualTime=ritual.value
+    ritual.value=D.ritualTime||'20:00'
+  },'学习时间已保存',false)
+  pane.appendChild(h('section',{className:'settings-info-section', 'aria-labelledby':'dailySettingsTitle'},
+    h('h2',{id:'dailySettingsTitle'},'日常设置'),
+    h('div',{className:'settings-fields daily-fields'},settingsField('小搭称呼',nick),settingsField('固定学习时间',ritual))))
+
   const examDate=h('input',{type:'date',id:'examDateInput'})
-  const examTopic=h('input',{type:'text',id:'examTopicInput',placeholder:'如：英语 Unit5-6、数学一次函数'})
+  const examTopic=h('input',{type:'text',id:'examTopicInput',placeholder:'如：英语 Unit 5–6'})
   examDate.value=D.examDate||''
   examTopic.value=D.examTopic||''
-  ec.appendChild(h('div',{className:'form-row'},
-    h('div',null,h('label',{for:examDate.id},'考试日期'),examDate),
-    h('div',null,h('label',{for:examTopic.id},'考什么'),examTopic)))
-  autosave(examDate,()=>{D.examDate=examDate.value||null},'✅ 考试信息已保存')
-  autosave(examTopic,()=>{D.examTopic=examTopic.value.trim()},'✅ 考试信息已保存')
-  $c.appendChild(ec)
-
-  // 小搭怎么称呼他
-  const nk=h('div',{className:'card edit-only'})
-  nk.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🏷️'}),'小搭怎么称呼他'))
-  nk.appendChild(h('div',{className:'t-muted mb8'},'小搭聊天时偶尔会叫他名字（不会叫名字叫上瘾，也不会每句都叫）。'))
-  const nrow=h('div',{className:'row-mid'})
-  nrow.innerHTML='<input type="text" id="nickInput" maxlength="8" placeholder="如：乐乐" style="width:140px" value="'+(D.nick||'乐乐')+'">'
-  autosave(nrow.querySelector('#nickInput'),function(){
-    const v=(document.getElementById('nickInput').value||'').trim().slice(0,8)
-    D.nick=v||'乐乐'
-  },function(){return '✅ 小搭会叫他「'+D.nick+'」'})
-  nk.appendChild(nrow)
-  $c.appendChild(nk)
-
-  // 固定学习时间
-  const rt=D.ritualTime||'20:00'
-  const rc=h('div',{className:'card edit-only'})
-  rc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🕗'}),'固定学习时间'))
-  rc.appendChild(h('div',{style:'font-size:var(--fs-15);color:var(--muted);margin-bottom:8px'},'固定时间比临时起意更省力，孩子不用纠结"要不要学"，到点就做'))
-  const rrow=h('div',{className:'row-mid'})
-  rrow.innerHTML='<input type="time" id="ritualTime" value="'+rt+'" style="width:130px">'
-  autosave(rrow.querySelector('#ritualTime'),function(){var v=document.getElementById('ritualTime').value;if(v)D.ritualTime=v},function(){return '✅ 学习时间已设为 '+(D.ritualTime||'20:00')})
-  rc.appendChild(rrow)
-  $c.appendChild(rc)
-
-  // 小目标
+  autosave(examDate,()=>{D.examDate=examDate.value||null},'考试日期已保存',false)
+  autosave(examTopic,()=>{
+    D.examTopic=examTopic.value.trim()
+    examTopic.value=D.examTopic
+  },'考试范围已保存',false)
+  pane.appendChild(h('section',{className:'settings-info-section','aria-labelledby':'examSettingsTitle'},
+    h('h2',{id:'examSettingsTitle'},'下次考试'),
+    h('div',{className:'settings-fields exam-fields'},settingsField('考试日期',examDate),settingsField('考试范围',examTopic))))
+  pane.appendChild(h('div',{className:'settings-disclosures'},childInfoGoals(),childInfoTablet(),childInfoPhone()))
+}
+function childInfoGoals(){
   const goals=D.smallGoals||[]
-  const gcard=h('div',{className:'card edit-only'})
-  gcard.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🎯'}),'小目标阶梯（达成 +10 分）'))
-  gcard.appendChild(h('div',{style:'font-size:var(--fs-14);color:var(--muted);margin-bottom:8px'},'够得着，别定太高。每次只提一点点（如英语70→75）'))
-  if(!goals.length)gcard.appendChild(h('div',{style:'color:var(--muted);font-size:var(--fs-15)'},'还没有小目标，在下面添加'))
-  for(const g of goals){
-    const row=h('div',{className:'mistake-item'})
-    row.innerHTML='<strong>'+g.subject+'</strong> '+g.from+'→'+g.to+(g.done?' <span style="color:var(--success)">✅ 已达成</span>':'')
-    const btn=h('button',{className:'btn btn-sm '+(g.done?'btn-outline':'btn-success'),style:'margin-top:4px;margin-left:8px',onClick:function(){g.done=!g.done;if(g.done){D.points.push({date:td,source:'小目标达成',points:10,type:'earn'});try{ptBurst(10,'小目标达成')}catch(e){};ts('🎉 小目标达成 +10分 · '+praise('goal'))}else{const idx=D.points.findIndex(function(x){return x.date===td&&x.source==='小目标达成'&&x.type==='earn'});if(idx>=0)D.points.splice(idx,1);ts('已取消')}sv(D);render()}})
-    btn.innerHTML=g.done?'✅ 已达成':'✔ 标记达成 +10分'
-    row.appendChild(btn)
-    const del=h('button',{className:'btn btn-danger btn-sm',style:'margin-top:4px;margin-left:4px',onClick:function(){D.smallGoals=D.smallGoals.filter(function(x){return x.id!==g.id});sv(D);render()}})
-    del.innerHTML='✕';row.appendChild(del)
-    gcard.appendChild(row)
+  const current=goals.filter(g=>!g.done).length
+  const list=h('div',{className:'settings-goal-list'})
+  for(const goal of goals){
+    const done=homeButton(goal.done?'已达成':'标记达成',()=>{
+      goal.done=!goal.done
+      if(goal.done){
+        D.points.push({date:td,source:'小目标达成',points:10,type:'earn'})
+        try{ptBurst(10,'小目标达成')}catch(e){}
+        ts('🎉 小目标达成 +10分 · '+praise('goal'))
+      }else{
+        const index=D.points.findIndex(item=>item.date===td&&item.source==='小目标达成'&&item.type==='earn')
+        if(index>=0)D.points.splice(index,1)
+        ts('已取消')
+      }
+      sv(D)
+      render()
+    },'quiet')
+    done.setAttribute('aria-pressed',String(!!goal.done))
+    const remove=h('button',{type:'button',className:'btn btn-danger settings-goal-remove',
+      'aria-label':'移除目标 · '+goal.subject,onClick:()=>{
+        D.smallGoals=D.smallGoals.filter(item=>item.id!==goal.id)
+        sv(D)
+        render()
+      }},'×')
+    list.appendChild(h('div',{className:'settings-goal-row'},h('div',null,
+      h('strong',null,goal.subject),h('p',{className:'work-note'},goal.from+' → '+goal.to)),done,remove))
   }
-  const arow=h('div',{style:'display:flex;gap:8px;margin-top:10px;flex-wrap:wrap'})
-  arow.innerHTML='<input id="goalSubject" placeholder="科目" style="width:80px"><input id="goalFrom" type="number" placeholder="现在分" style="width:80px"><input id="goalTo" type="number" placeholder="目标分" style="width:80px">'
-  arow.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){const sb=document.getElementById('goalSubject').value.trim();const f=parseFloat(document.getElementById('goalFrom').value);const t=parseFloat(document.getElementById('goalTo').value);if(!sb||isNaN(f)||isNaN(t)){ts('⚠️ 请填写完整');return}D.smallGoals.push({id:Date.now(),subject:sb,from:f,to:t,done:false});sv(D);render();ts('✅ 小目标已添加')}},'➕ 添加目标'))
-  gcard.appendChild(arow)
-  $c.appendChild(gcard)
-
-  // 平板使用
-  const tabCard=h('div',{className:'card edit-only'})
-  tabCard.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'💻'}),'平板使用'))
-  tabCard.appendChild(h('div',{style:'font-size:var(--fs-15)',innerHTML:'状态：'+(D.tabUnlock?'✅ 已发放':'⬜ 未发放')+' | 每天限时 <strong>'+(D.tabDailyMinutes||60)+' 分钟</strong>'}))
-  const limitRow=h('div',{style:'display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap'})
-  limitRow.innerHTML='<span style="font-size:var(--fs-15)">限时：</span><input type="number" inputmode="numeric" id="tabLimit" value="'+(D.tabDailyMinutes||60)+'" min="10" max="240" step="10" style="width:80px"><span style="font-size:var(--fs-15)">分钟</span>'
-  autosave(limitRow.querySelector('#tabLimit'),function(){var v=parseInt(document.getElementById('tabLimit').value);if(v>0)D.tabDailyMinutes=v},function(){return '✅ 平板限时已设为 '+(D.tabDailyMinutes||60)+' 分钟'})
-  tabCard.appendChild(limitRow)
-  const tgl=h('button',{className:'btn '+(D.tabUnlock?'btn-outline':'btn-success')+' btn-sm',style:'margin-top:8px',onClick:function(){D.tabUnlock=!D.tabUnlock;sv(D);render();ts(D.tabUnlock?'✅ 已标记发放':'已标记未发放')}})
-  tgl.innerHTML=D.tabUnlock?'标记为未发放':'✅ 标记为已发放'
-  tabCard.appendChild(tgl)
-  tabCard.appendChild(h('div',{style:'font-size:var(--fs-14);color:var(--muted);margin-top:6px'},'提示：网页只记录规则，实际锁屏请在平板系统的"屏幕使用时间/家长控制"里设置'))
-  $c.appendChild(tabCard)
-
-  // 话费
-  const plc=D.pl||0
-  const pc=h('div',{className:'card edit-only'})
-  pc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📞'}),'话费套餐'))
-  pc.innerHTML+='<div class="table-scroll"><table><thead><tr><th scope="col">套餐</th><th scope="col">内容</th><th scope="col">月费</th><th scope="col">当前</th></tr></thead><tbody>'+PLANS.map(function(pp,i){return '<tr><td>'+pp.name+'</td><td>'+pp.data+'</td><td>¥'+pp.cost+'</td><td>'+(i<=plc?'✅':'⬜')+'</td></tr>'}).join('')+'</tbody></table></div>'
-  const pcost=PLANS.slice(0,Math.min(plc+1,PLANS.length)).reduce(function(a,pp){return a+pp.cost},0)
-  pc.appendChild(h('div',{style:'margin-top:10px;font-size:var(--fs-15)',innerHTML:'💰 月费：<strong>¥'+pcost+'</strong> | 📱：'+(D.phone?'✅ '+(D.phDate?'已发放('+D.phDate+')':'待发放'):'⬜ 待达标')}))
-  const pbr=h('div',{style:'display:flex;gap:8px;margin-top:10px;flex-wrap:wrap'})
-  if(plc<PLANS.length-1)pbr.appendChild(h('button',{className:'btn btn-success btn-sm',onClick:function(){D.pl=Math.min(plc+1,PLANS.length-1);sv(D);render();ts('📈 已升级')}},'📈 升级'))
-  if(plc>0)pbr.appendChild(h('button',{className:'btn btn-warning btn-sm',onClick:function(){D.pl=Math.max(plc-1,0);sv(D);render();ts('📉 已降级')}},'📉 降级'))
-  if(D.phone&&!D.phDate)pbr.appendChild(h('button',{className:'btn btn-primary btn-sm',onClick:function(){D.phDate=td;sv(D);render();ts('✅ 已标记手机发放')}},'📱 标记手机已发放'))
-  pc.appendChild(pbr)
-  $c.appendChild(pc)
-
+  const subject=h('input',{id:'goalSubject',placeholder:'如：英语'})
+  const from=h('input',{id:'goalFrom',type:'number',step:'any',inputmode:'decimal',placeholder:'70'})
+  const to=h('input',{id:'goalTo',type:'number',step:'any',inputmode:'decimal',placeholder:'75'})
+  const form=h('form',{className:'settings-goal-form',onSubmit:e=>{
+    e.preventDefault()
+    const label=subject.value.trim(), start=parseFloat(from.value), target=parseFloat(to.value)
+    if(!label||!Number.isFinite(start)||!Number.isFinite(target)){ts('请填写科目、当前分和目标分');return}
+    D.smallGoals.push({id:Date.now(),subject:label,from:start,to:target,done:false})
+    sv(D)
+    render()
+    ts('小目标已添加')
+  }},settingsField('科目',subject),settingsField('当前分',from),settingsField('目标分',to),
+    h('button',{type:'submit',className:'home-btn primary'},'添加目标'))
+  const summary=current?current+' 项进行中':goals.length?goals.length+' 项已达成':'未设置'
+  return childInfoDetails('goals','小目标',summary,
+    h('div',null,h('p',{className:'work-note'},'每项目标达成后可获得 10 积分。'),list,form))
+}
+function childInfoTablet(){
+  const limit=h('input',{type:'number',inputmode:'numeric',id:'tabLimit',min:10,max:240,step:10})
+  limit.value=D.tabDailyMinutes||60
+  const status=D.tabUnlock?'已发放':'未发放'
+  const panel=childInfoDetails('tablet','平板使用','每天 '+limit.value+' 分钟',
+    h('div',null,h('div',{className:'settings-tablet-row'},
+      settingsField('每日限时（分钟）',limit),
+      homeButton(D.tabUnlock?'标记为未发放':'标记为已发放',()=>{
+        D.tabUnlock=!D.tabUnlock
+        sv(D)
+        render()
+        ts(D.tabUnlock?'已标记发放':'已标记未发放')
+      },'quiet')),
+      h('p',{className:'work-note'},'平板'+status+'。实际使用时长由平板的系统设置管理。')))
+  autosave(limit,()=>{
+    const value=parseInt(limit.value,10)
+    if(value>0)D.tabDailyMinutes=value
+    limit.value=D.tabDailyMinutes||60
+    panel.querySelector('.settings-disclosure-value').textContent='每天 '+limit.value+' 分钟'
+  },'平板限时已保存',false)
+  return panel
+}
+function childInfoPhone(){
+  const plan=Math.max(0,Math.min(PLANS.length-1,parseInt(D.pl,10)||0))
+  const cost=PLANS.slice(0,plan+1).reduce((sum,item)=>sum+item.cost,0)
+  const table=h('table',{className:'settings-plan-table'},
+    h('thead',null,h('tr',null,...['套餐','内容','月费','当前'].map(label=>h('th',{scope:'col'},label)))),
+    h('tbody',null,...PLANS.map((item,index)=>h('tr',null,
+      h('td',null,item.name),h('td',null,item.data),h('td',null,'¥'+item.cost),h('td',null,index<=plan?'已含':'—')))))
+  const changePlan=step=>{
+    D.pl=plan+step
+    sv(D)
+    render()
+    ts(step>0?'套餐已升级':'套餐已降级')
+  }
+  const controls=h('div',{className:'settings-phone-actions'},
+    plan>0?homeButton('降级',()=>changePlan(-1),'quiet'):null,
+    plan<PLANS.length-1?homeButton('升级',()=>changePlan(1),'quiet'):null,
+    D.phone&&!D.phDate?homeButton('标记手机已发放',()=>{
+      D.phDate=td
+      sv(D)
+      render()
+      ts('已标记手机发放')
+    },'quiet'):null)
+  const status=D.phone?(D.phDate?'手机于 '+fd(D.phDate)+' 发放':'手机待发放'):'手机待达标'
+  return childInfoDetails('phone','话费套餐','¥'+cost+' / 月',
+    h('div',null,table,h('p',{className:'work-note'},status),controls))
+}
+function _rsetBody(){
   // 积分兑换率
   const rate=D.rate||1
   const rt2=h('div',{className:'card edit-only'})
