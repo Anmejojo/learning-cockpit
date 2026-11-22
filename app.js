@@ -23,7 +23,7 @@ function defData(){
     exams:[],parts:JSON.parse(JSON.stringify(PT)),switchRewards:[],dailyChecks:{},checkImgs:{},checks:[],points:[],sem:'初二上',
     rate:10,nick:'乐乐',_vcloud:'david',
     bl:{chinese:99,math:115,english:70,geo:67,history:81,dao:63,bio:58,physics:null,pe:null,chem:null},
-    handwritings:[],_noGate:false,phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,examDate:null,examTopic:'',mistakes:[],tasks:[],hw:[],ritualTime:'20:00',smallGoals:[],mistakeMilestones:[],mistakeLog:{},wrd:{},wdD:null,
+    handwritings:[],_noGate:false,phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,examDate:null,examTopic:'',mistakes:[],tasks:[],hw:[],hwPriorities:[],ritualTime:'20:00',smallGoals:[],mistakeMilestones:[],mistakeLog:{},wrd:{},wdD:null,
     dci:[{key:'videoCall',icon:'📞',label:'视频通话',pts:1},{key:'askTeacher',icon:'🙋',label:'主动问老师',pts:1},{key:'noSkipStep',icon:'✅',label:'解题不跳步',pts:1},{key:'reciteMethod',icon:'🧠',label:'背英语用方法',pts:1},{key:'onTimeStudy',icon:'⏰',label:'按时开始学习',pts:1},{key:'water',icon:'💧',label:'喝水',pts:1},{key:'sport',icon:'🏃',label:'运动',pts:1},{key:'sleep',icon:'🌙',label:'按时作息（早睡早起）',pts:1}]
   }
 }
@@ -88,6 +88,7 @@ function normalize(d){
   }
   if(!d.parts||d.parts.length!==PT.length){d.parts=JSON.parse(JSON.stringify(PT))}
   if(!Array.isArray(d.switchRewards))d.switchRewards=[]
+  if(!Array.isArray(d.hwPriorities))d.hwPriorities=[]
   const _DEP=['englishVocab','homeworkPhoto','extraStudy','classNote','mistakeBook']
   if(d.dci&&Array.isArray(d.dci)){d.dci=d.dci.filter(function(it){return _DEP.indexOf(it.key)<0})}
   if(d.dci&&Array.isArray(d.dci)){const dd=defData().dci;for(const item of dd){if(!d.dci.some(function(x){return x.key===item.key})){d.dci.push(item)}}}
@@ -140,7 +141,7 @@ async function loadCloud(){
          · 字典（习惯打卡/错题/照片）逐条合并，只会更多不会更少
          · 其余设置类字段，听「更新的一方」
    ========================================================================= */
-const MERGE_LIST=['checks','exams','points','mistakes','handwritings','smallGoals','tasks','hw','msgs','_snaps','_chat','_notes','act','mistakeMilestones','switchRewards']
+const MERGE_LIST=['checks','exams','points','mistakes','handwritings','smallGoals','tasks','hw','hwPriorities','msgs','_snaps','_chat','_notes','act','mistakeMilestones','switchRewards']
 const MERGE_DICT=['dailyChecks','mistakeLog','checkImgs','wrd','imgHash']
 /* 32 位指纹（FNV-1a）：给「没有 id 的记录」当身份。
    老版本直接拿 JSON.stringify(整条记录) 当键 —— 一条 25 KB，
@@ -4940,19 +4941,36 @@ function recordTitle(rec){
   const homeworkTitle=rec.homeworkTitle||(D.hw||[]).find(job=>job&&job.recId===rec.id)?.text
   return (rec.subject?rec.subject+' · ':'')+(homeworkTitle||rec.typeName||rec.type||'学习记录')
 }
-function homeHomeworkRow(entry,primary=false){
+function isHomeworkDue(status){return status==='todo'||status==='rejected'}
+function nextHomework(entries){
+  return entries.find(entry=>entry.status==='rejected')||entries.find(entry=>entry.status==='todo')
+}
+function homeworkPriorityChoice(date){
+  return (D.hwPriorities||[]).find(choice=>choice?.id===date)
+}
+function homeworkPriority(entries,date){
+  const choice=homeworkPriorityChoice(date)
+  if(choice)return entries.find(({job,status})=>job.id===choice.jobId&&isHomeworkDue(status))
+  if(date===td)return nextHomework(entries)
+}
+function homeworkPriorityLabel(){return h('span',{className:'homework-priority-label'},'优先')}
+function homeHomeworkRow(entry,primary=false,priority=false){
   const {job,status}=entry
-  const needsPhoto=status==='todo'||status==='rejected'
+  const needsPhoto=isHomeworkDue(status)
   const label=status==='rejected'?'补交':job.kind==='recite'?'交草稿本':'交照片'
   const action=needsPhoto?homeButton(label,()=>hwPick(job),primary?'primary':'quiet','camera'):homeStatus(status)
   if(needsPhoto)action.setAttribute('aria-label',label+' · '+(job.text||'作业'))
-  return homeListRow(job.kind==='recite'?'book-open':'notebook-pen','neutral',
-    job.text||'作业',[job.subj||'其他',job.kind==='recite'?'背诵':'书面',HOMEWORK_CATEGORIES[hwCategory(job)]].filter(Boolean).join(' · '),action)
+  const title=priority?h('span',null,job.text||'作业',' ',homeworkPriorityLabel()):job.text||'作业'
+  const row=homeListRow(job.kind==='recite'?'book-open':'notebook-pen','neutral',
+    title,[job.subj||'其他',job.kind==='recite'?'背诵':'书面',HOMEWORK_CATEGORIES[hwCategory(job)]].filter(Boolean).join(' · '),action)
+  if(needsPhoto&&!priority)row.classList.add('homework-due')
+  return row
 }
 function todayHomeworkPanel(entries,checks){
   const order=['rejected','todo','uploading','pending','approved']
   entries.sort((a,b)=>order.indexOf(a.status)-order.indexOf(b.status))
-  const next=entries.find(entry=>entry.status==='rejected'||entry.status==='todo')
+  const priority=homeworkPriority(entries,td)
+  const next=priority||nextHomework(entries)
   const waiting=entries.filter(entry=>entry.status==='uploading').length
   const submitted=entries.filter(entry=>entry.status==='pending'||entry.status==='approved').length
   const left=entries.length-waiting-submitted
@@ -4971,7 +4989,8 @@ function todayHomeworkPanel(entries,checks){
     homeButton(firstCapture?'拍照打卡':'随手拍一张',()=>quickShot(td),firstCapture?'primary':'text','camera'))
   if(!entries.length)list.appendChild(h('p',{className:'home-work-empty work-note'},'今天还没有登记作业'))
   if(firstCapture)list.appendChild(capture)
-  if(visible)list.appendChild(h('div',{className:'home-next-work'},homeHomeworkRow(visible,!!next)))
+  if(visible)list.appendChild(h('div',{className:'home-next-work'+(priority?' homework-priority':'')},
+    homeHomeworkRow(visible,!!next,!!priority)))
   const receipt=recentFeedback(checks,visible?.job.recId)
   if(receipt)list.appendChild(receipt)
   const rest=entries.filter(entry=>entry!==visible)
@@ -6402,12 +6421,24 @@ function hwItemCommit(hwId,urls){
     return submitCheck(typeId,subj,urls,false,null,false,true,it&&it.date,it)
   }catch(e){console.warn('作业清单落地失败',e)}
 }
-function hwRow(it,st=hwStatus(it)){
+function setHomeworkPriority(item,on){
+  if(!ROLE.edit||!hwCanPick(item))return
+  const prior=homeworkPriorityChoice(item.date)
+  D.hwPriorities=[...(D.hwPriorities||[]).filter(choice=>choice?.id!==item.date),
+    {id:item.date,jobId:on?item.id:null,at:Math.max(Date.now(),(prior?.at||0)+1)}]
+  sv(D)
+  render()
+  document.getElementById('hwPriority-'+item.id)?.focus({preventScroll:true})
+  ts(on?'已设为优先作业':'已取消优先提示')
+}
+function hwRow(it,st=hwStatus(it),priority=false){
   const r=hwRec(it)
-  const row=h('div',{className:'work-item homework-item'})
+  const due=isHomeworkDue(st)
+  const marker=priority?' homework-priority':due?' homework-due':''
+  const row=h('div',{className:'work-item homework-item'+marker})
   const L=h('div',{className:'grow'})
   L.appendChild(h('div',{className:'work-item-title'},
-    (it.subj&&it.subj!=='其他'?it.subj+' · ':'')+String(it.text||'')))
+    (it.subj&&it.subj!=='其他'?it.subj+' · ':'')+String(it.text||''),priority?' ':null,priority?homeworkPriorityLabel():null))
   const source=ROLE.parent?hwSrcLabel(it.src):''
   if(source||st==='rejected')L.appendChild(h('div',{className:'work-meta'},
     st==='rejected'?homeStatus(st):null,source?h('span',{className:'work-note'},source):null))
@@ -6419,7 +6450,7 @@ function hwRow(it,st=hwStatus(it)){
   }
   row.appendChild(L)
   const btns=h('div',{className:'homework-item-actions'})
-  if(st==='todo'||st==='rejected'){
+  if(due){
     const label=it.kind==='recite'?'交草稿本':st==='rejected'?'补交':'交这项'
     const submit=homeButton(label,()=>hwPick(it),'quiet','camera')
     submit.setAttribute('aria-label',label+' · '+it.text)
@@ -6431,7 +6462,15 @@ function hwRow(it,st=hwStatus(it)){
       removeWithUndo(D.hw,it,String(it.text||'').slice(0,20))
     }})
     d.textContent='移除'
-    btns.appendChild(d)
+    if(due){
+      const selected=homeworkPriorityChoice(it.date)?.jobId===it.id
+      const label=selected?'取消优先':'设为优先'
+      const mark=homeButton(label,()=>setHomeworkPriority(it,!selected),'text')
+      mark.id='hwPriority-'+it.id
+      mark.setAttribute('aria-label',label+' · '+it.text)
+      mark.setAttribute('aria-pressed',String(selected))
+      btns.appendChild(h('div',{className:'homework-item-tools'},mark,d))
+    }else btns.appendChild(d)
   }
   row.appendChild(btns)
   return row
@@ -6457,6 +6496,7 @@ function hwCard(){
   const order=['rejected','todo','uploading','pending','approved']
   const jobs=hwOn(date)
   const list=jobs.map(job=>({job,status:hwDisplayStatus(job,uploading)}))
+  const priority=ROLE.kid?homeworkPriority(list,date):null
   list.sort((a,b)=>order.indexOf(a.status)-order.indexOf(b.status)||
     String(a.job.subj||'').localeCompare(String(b.job.subj||'')))
   const c=h('section',{className:'card homework-ledger'})
@@ -6486,7 +6526,7 @@ function hwCard(){
     const section=h('section',{className:'homework-category','data-category':category},
       h('header',null,h('h3',null,label),action))
     if(!group.length)section.appendChild(h('p',{className:'work-note homework-category-empty'},'暂无登记'))
-    group.forEach(({job,status})=>section.appendChild(hwRow(job,status)))
+    group.forEach(entry=>section.appendChild(hwRow(entry.job,entry.status,entry===priority)))
     c.appendChild(section)
   }
   return c
@@ -6760,11 +6800,15 @@ function rckList(){
 let _scoreSubject='all',_scoreFocus=null,_scoreReviewOnly=false
 function rsc(){
   const modes=[['trend','变化趋势'],['list','考试明细'],['weekly','学习周报']]
-  $c.appendChild(segBar(modes.map(([key,label])=>({label,on:_scView===key,fn:()=>{
+  const tabs=segBar(modes.map(([key,label])=>({label,on:_scView===key,fn:()=>{
     _scView=key;_scoreReviewOnly=false;render()
-  }}))))
-  const box=h('div',{className:'scores-page'})
-  $c.appendChild(box)
+    document.querySelector('.scores-tabs .seg-btn.on')?.focus({preventScroll:true})
+  }})))
+  tabs.classList.add('scores-tabs')
+  tabs.setAttribute('role','group')
+  tabs.setAttribute('aria-label','成绩视图')
+  const box=h('section',{className:'scores-page','aria-label':modes.find(([key])=>key===_scView)?.[1]||'成绩'})
+  $c.appendChild(h('div',{className:'scores-frame'},tabs,box))
   const host=$c; $c=box
   try{
     if(_scView==='weekly')rwk()
@@ -6794,10 +6838,14 @@ function scoreField(ex,kind){
   return {label:'未录入该科',pct:null}
 }
 function scoreTimeline(){
+  let previousRate=null
   const rows=examsByDate().map(ex=>{
     const field=ex.status==='pending'?{label:'待审核',pct:null}
       : ex.status==='rejected'?{label:'已退回',pct:null}:scoreField(ex,_scoreSubject)
-    return {key:String(ex.id),date:ex.date,title:ex.examType||'考试',...field}
+    const rate=Number.isFinite(field.pct)?Math.round(field.pct*10):null
+    const improvement=rate!==null&&previousRate!==null?Math.max(0,rate-previousRate)/10:0
+    if(rate!==null)previousRate=rate
+    return {key:String(ex.id),date:ex.date,title:ex.examType||'考试',...field,improvement}
   })
   const absent=absentExam()
   if(absent&&absent<=td){
@@ -6823,10 +6871,15 @@ function drawScoreTimeline(rows,onPick){
     const numeric=Number.isFinite(row.pct), py=numeric?y(row.pct):201
     if(numeric){line+=(connected?' L':' M')+px+' '+py;connected=true}
     else connected=false
-    dots+='<g tabindex="0" role="button" data-score-index="'+i+'" aria-label="'+(date||'考试')+
-      (numeric?'，得分率 '+Math.round(row.pct)+'%':'，暂无数值')+'">'+
-      '<circle cx="'+px+'" cy="'+py+'" r="16" fill="transparent"/>'+
-      '<circle cx="'+px+'" cy="'+py+'" r="'+(row.key===_scoreFocus?7:5)+'" class="'+(numeric?'score-dot':'score-gap')+'"/>'+
+    const reward=row.improvement>0
+    const marker=reward?'<rect x="-6" y="-6" width="12" height="12" rx="2" transform="rotate(45)" class="score-gain-badge"/>'+
+      '<path class="score-gain-star" d="M0 -4.5 1.4 -1.4 4.5 0 1.4 1.4 0 4.5 -1.4 1.4 -4.5 0 -1.4 -1.4Z"/>':
+      '<circle r="5" class="'+(numeric?'score-dot':'score-gap')+'"/>'
+    dots+='<g tabindex="0" role="button" data-score-index="'+i+'" aria-current="'+(row.key===_scoreFocus)+'" aria-label="'+(date||'考试')+
+      (numeric?'，得分率 '+row.pct.toFixed(1)+'%':'，暂无数值')+
+      (reward?'，比上次高 '+row.improvement+' 个百分点':'')+'">'+
+      '<g transform="translate('+px+' '+py+')"><circle r="16" fill="transparent"/>'+
+      '<circle r="11" class="score-marker-ring"/>'+marker+'</g>'+
       '<text x="'+px+'" y="228" text-anchor="middle">'+date+'</text></g>'
   }
   const graph=h('div',{className:'score-graph',innerHTML:
@@ -6843,10 +6896,13 @@ function drawScoreTimeline(rows,onPick){
 }
 function scoreSummary(row){
   const num=Number.isFinite(row.pct)
-  return h('div',{className:'score-highlight'},
-    h('span',{className:'score-highlight-icon'},homeIcon(num?'trending-up':'list-checks',20)),
+  const reward=row.improvement>0
+  return h('div',{className:'score-highlight'+(reward?' score-highlight-gain':'')},
+    h('span',{className:'score-highlight-icon'},homeIcon(reward?'star':num?'trending-up':'list-checks',20)),
     h('div',null,h('strong',null,row.title),h('span',null,fd(row.date))),
-    h('div',{className:'score-reading'},h('strong',null,row.label),num?h('small',null,row.pct.toFixed(1)+'% 得分率'):null))
+    h('div',{className:'score-reading'},h('strong',null,row.label),
+      num?h('small',null,row.pct.toFixed(1)+'% 得分率'):null,
+      reward?h('small',{className:'score-improvement'},'较上次 +'+row.improvement+' 个百分点'):null))
 }
 function scoreOverview(){
   const rows=scoreTimeline()
@@ -6872,11 +6928,12 @@ function scoreOverview(){
       const graph=drawScoreTimeline(rows,row=>{
         _scoreFocus=row.key
         detail.replaceChildren(scoreSummary(row))
-        graph.querySelectorAll('.score-dot,.score-gap').forEach((dot,i)=>dot.setAttribute('r',rows[i].key===row.key?7:5))
+        graph.querySelectorAll('[data-score-index]').forEach((point,i)=>point.setAttribute('aria-current',String(rows[i].key===row.key)))
       })
       panel.appendChild(graph)
       panel.appendChild(h('div',{className:'score-legend'},
         h('span',null,h('i',{className:'leg-solid'}),'有分数'),
+        h('span',null,h('i',{className:'leg-gain'}),'比上次高'),
         h('span',null,h('i',{className:'leg-hollow'}),'无可用分数'),
         h('span',null,'点任意记录查看详情')))
     }else{
@@ -7062,6 +7119,7 @@ const REWARD_PHOTO_CREDITS={
 }
 const REWARD_STUDIO_ORDER=[8,11,17,14,15,18,10,13,12,16,4,2,1,5,7,6,3,9,19,20]
 function rewardStudioPreview(part){
+  if(Number(part.id)===20)return h('span',{className:'reward-studio zelda-cartridge-art'})
   if(part.switchGame){
     const game=SWITCH_SALES.find(item=>item[0]===part.id)
     if(!game)return null
@@ -7150,9 +7208,9 @@ function rewardDialog(part){
   const owned=part.received||part.unlocked
   const ownWish=getRewardWish()
   const selected=ownWish&&ownWish.id===part.id
-  const photo=rewardPhoto(part)
   const sale=part.switchGame?SWITCH_SALES.find(game=>game[0]===part.id):null
-  const cartridge=sale?rewardStudioPreview(part):null
+  const cartridge=sale||Number(part.id)===20?rewardStudioPreview(part):null
+  const photo=cartridge?null:rewardPhoto(part)
   const dialog=h('dialog',{className:'reward-dialog','aria-labelledby':'rewardDialogTitle'})
   const hide=()=>dialog.close()
   const header=h('header',null,photo||cartridge?null:h('span',{className:'reward-dialog-art','aria-hidden':'true'},
@@ -8412,9 +8470,8 @@ function rwk(){
   const weak=[]
   const bl=D.bl||{};const bsubs=gs(D.sem)
   for(const s of bsubs){const raw=bl[s.id];if(raw!=null){const p=raw/s.full*100;if(p<60)weak.push(s.name+'('+p.toFixed(0)+'%)')}}
-  const rp=h('div',{className:'card'})
-  rp.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📊'}),'学习周报'))
-  rp.appendChild(h('div',{style:'font-size:var(--fs-15);color:var(--muted);margin-bottom:12px'},'本周：'+fd(weekStartStr)+' ~ '+fd(ymd(now))))
+  const rp=h('div',{className:'score-panel score-weekly'})
+  rp.appendChild(h('p',{className:'score-week-range'},'本周 '+fd(weekStartStr)+' ～ '+fd(ymd(now))))
   const _lws=new Date(weekStart);_lws.setDate(weekStart.getDate()-7)
   const _TW=weekStatsOf(weekStart)
   const _LT=weekStatsOf(_lws)
