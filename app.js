@@ -20,7 +20,7 @@ const SUBJECTS=['语文','数学','英语','物理','化学','地理','生物','
 const SUB_PTS_MAX=2
 function defData(){
   return {
-    exams:[],parts:JSON.parse(JSON.stringify(PT)),dailyChecks:{},checkImgs:{},checks:[],points:[],sem:'初二上',
+    exams:[],parts:JSON.parse(JSON.stringify(PT)),switchRewards:[],dailyChecks:{},checkImgs:{},checks:[],points:[],sem:'初二上',
     rate:10,nick:'乐乐',_vcloud:'david',
     bl:{chinese:99,math:115,english:70,geo:67,history:81,dao:63,bio:58,physics:null,pe:null,chem:null},
     handwritings:[],_noGate:false,phone:false,phDate:null,tabUnlock:true,tabDailyMinutes:60,pl:0,examDate:null,examTopic:'',mistakes:[],tasks:[],hw:[],ritualTime:'20:00',smallGoals:[],mistakeMilestones:[],mistakeLog:{},wrd:{},wdD:null,
@@ -87,6 +87,7 @@ function normalize(d){
     if(k==='dailyCheckItems'&&!d.dci&&d.dailyCheckItems)d.dci=d.dailyCheckItems
   }
   if(!d.parts||d.parts.length!==PT.length){d.parts=JSON.parse(JSON.stringify(PT))}
+  if(!Array.isArray(d.switchRewards))d.switchRewards=[]
   const _DEP=['englishVocab','homeworkPhoto','extraStudy','classNote','mistakeBook']
   if(d.dci&&Array.isArray(d.dci)){d.dci=d.dci.filter(function(it){return _DEP.indexOf(it.key)<0})}
   if(d.dci&&Array.isArray(d.dci)){const dd=defData().dci;for(const item of dd){if(!d.dci.some(function(x){return x.key===item.key})){d.dci.push(item)}}}
@@ -139,7 +140,7 @@ async function loadCloud(){
          · 字典（习惯打卡/错题/照片）逐条合并，只会更多不会更少
          · 其余设置类字段，听「更新的一方」
    ========================================================================= */
-const MERGE_LIST=['checks','exams','points','mistakes','handwritings','smallGoals','tasks','hw','msgs','_snaps','_chat','_notes','act','mistakeMilestones']
+const MERGE_LIST=['checks','exams','points','mistakes','handwritings','smallGoals','tasks','hw','msgs','_snaps','_chat','_notes','act','mistakeMilestones','switchRewards']
 const MERGE_DICT=['dailyChecks','mistakeLog','checkImgs','wrd','imgHash']
 /* 32 位指纹（FNV-1a）：给「没有 id 的记录」当身份。
    老版本直接拿 JSON.stringify(整条记录) 当键 —— 一条 25 KB，
@@ -6284,8 +6285,8 @@ function hwRec(x){try{return (x&&x.recId)?((D.checks||[]).filter(function(c){ret
 function hwStatus(x){const r=hwRec(x);return r?(r.status==='approved'?'approved':(r.status==='rejected'?'rejected':'pending')):'todo'}
 function hwMiss(){return hwToday().filter(function(x){return hwStatus(x)==='todo'}).length}
 function hwKey(it){return String(it.subj||'')+'|'+String(it.text||'').replace(/\s+/g,'')}
-/* 来源标签：登记本 / 老师另布置的 / 妈妈加的 / 孩子说的 */
-function hwSrcLabel(src){return src==='sheet'?'📷 登记本':(src==='teacher'?'📢 老师另布置':(src==='mom'?'👩 妈妈加的':(src==='kid'?'🙋 我自己加的':'')))}
+/* 家长核对作业登记来源。 */
+function hwSrcLabel(src){return {sheet:'登记本',teacher:'老师另布置',mom:'妈妈加的',kid:'我自己加的'}[src]||''}
 /* 把一段多行文字拆成清单项：去掉序号/项目符号，认科目，背诵类自动标 recite */
 function hwParseLines(txt,limit=60){
   const out=[]
@@ -6402,13 +6403,13 @@ function hwItemCommit(hwId,urls){
 }
 function hwRow(it,st=hwStatus(it)){
   const r=hwRec(it)
-  const row=h('div',{className:'work-item'})
+  const row=h('div',{className:'work-item homework-item'})
   const L=h('div',{className:'grow'})
   L.appendChild(h('div',{className:'work-item-title'},
     (it.subj&&it.subj!=='其他'?it.subj+' · ':'')+String(it.text||'')))
-  const source=hwSrcLabel(it.src)
-  L.appendChild(h('div',{className:'work-meta'},
-    homeStatus(st),h('span',{className:'work-note'},(it.kind==='recite'?'背诵 · 交草稿本':'书面')+(source?' · '+source:''))))
+  const source=ROLE.parent?hwSrcLabel(it.src):''
+  if(source||st==='rejected')L.appendChild(h('div',{className:'work-meta'},
+    st==='rejected'?homeStatus(st):null,source?h('span',{className:'work-note'},source):null))
   const im=checkImgs(r)
   if(im.length){
     const ir=h('div',{style:'display:flex;gap:4px;flex-wrap:wrap;margin-top:5px'})
@@ -6416,16 +6417,19 @@ function hwRow(it,st=hwStatus(it)){
     L.appendChild(ir)
   }
   row.appendChild(L)
-  const btns=h('div',{style:'flex:0 0 auto;display:flex;flex-direction:column;gap:5px'})
+  const btns=h('div',{className:'homework-item-actions'})
   if(st==='todo'||st==='rejected'){
-    btns.appendChild(homeButton(it.kind==='recite'?'交草稿本':'交这项',()=>hwPick(it),'primary','camera'))
-  }
+    const label=it.kind==='recite'?'交草稿本':st==='rejected'?'补交':'交这项'
+    const submit=homeButton(label,()=>hwPick(it),'quiet','camera')
+    submit.setAttribute('aria-label',label+' · '+it.text)
+    btns.appendChild(submit)
+  }else btns.appendChild(homeStatus(st))
   if(ROLE.parent){
-    const d=h('button',{className:'btn btn-outline btn-sm',onClick:function(){
+    const d=h('button',{type:'button',className:'home-btn text','aria-label':'移除作业 · '+it.text,onClick:function(){
       if(!D.hw)D.hw=[]
       removeWithUndo(D.hw,it,String(it.text||'').slice(0,20))
     }})
-    d.innerHTML='✕'
+    d.textContent='移除'
     btns.appendChild(d)
   }
   row.appendChild(btns)
@@ -6449,33 +6453,35 @@ async function copyHomework(date,items){
 function hwCard(){
   const date=_hwDate||td
   const uploading=hwUploadIds()
-  const order=['todo','rejected','uploading','pending','approved']
+  const order=['rejected','todo','uploading','pending','approved']
   const jobs=hwOn(date)
   const list=jobs.map(job=>({job,status:hwDisplayStatus(job,uploading)}))
   list.sort((a,b)=>order.indexOf(a.status)-order.indexOf(b.status)||
     String(a.job.subj||'').localeCompare(String(b.job.subj||'')))
   const c=h('section',{className:'card homework-ledger'})
-  c.appendChild(h('h2',{className:'card-header'},homeIcon('list-checks',18),'每日作业清单'))
-  const filter=h('input',{type:'date','aria-label':'查看哪一天的作业',value:date,onChange:e=>{
+  const filter=h('input',{type:'date','aria-label':'查看哪一天的作业，当前 '+fd(date),value:date,onChange:e=>{
     if(!homeworkDateValid(e.target.value)){e.target.value=date;return}
     _hwDate=e.target.value
     render()
     document.querySelector('#todayHomework input[type=date]')?.focus({preventScroll:true})
   }})
-  c.appendChild(h('div',{className:'homework-ledger-tools'},
-    h('label',null,h('span',null,'查看日期'),filter),
-    homeButton('登记作业',()=>openHomeworkRegistration(),'primary','pen-tool'),
-    list.length?homeButton('复制清单',()=>copyHomework(date,jobs),'quiet'):null))
+  const shortDate=(date.slice(0,4)===td.slice(0,4)?date.slice(5):date).replace(/-/g,'/')
+  c.appendChild(h('header',{className:'homework-ledger-head'},h('h2',null,'每日作业清单'),
+    h('label',{className:'homework-day-picker',title:fd(date)},
+      h('span',{'aria-hidden':'true'},shortDate+' ▾'),filter),
+    homeButton('登记作业',()=>openHomeworkRegistration(),'primary')))
   if(!list.length){
-    c.appendChild(h('p',{className:'work-note'},'这一天还没有作业，可以手填、粘贴或拍登记本。'))
+    c.appendChild(h('p',{className:'work-note'},'这一天还没有登记作业。'))
     return c
   }
-  const summary=h('div',{className:'work-meta'},h('span',{className:'work-note'},'共 '+list.length+' 项'))
-  for(const status of order){
-    const count=list.filter(entry=>entry.status===status).length
-    if(count)summary.appendChild(homeStatus(status,count))
-  }
-  c.appendChild(summary)
+  const remaining=list.filter(({status})=>status==='todo'||status==='rejected').length
+  const waiting=list.filter(({status})=>status==='uploading').length
+  const submitted=list.length-remaining-waiting
+  const summary=[
+    remaining?'还有 '+remaining+' 项要交':'',waiting?'照片待传 '+waiting+' 项':'',submitted?'已提交 '+submitted+' 项':''
+  ].filter(Boolean).join(' · ')
+  c.appendChild(h('div',{className:'homework-ledger-meta'},
+    h('p',{className:'homework-ledger-summary'},summary),homeButton('复制清单',()=>copyHomework(date,jobs),'text')))
   for(const [category,label] of [...Object.entries(HOMEWORK_CATEGORIES),['','以往登记']]){
     const group=list.filter(entry=>hwCategory(entry.job)===category)
     if(!group.length)continue
@@ -6588,8 +6594,10 @@ function rckList(){
   const quick=h('section',{className:'card check-capture'},
     h('div',null,h('h2',null,ckd===td?'拍一张，记一项':'补记 '+fd(ckd)),h('p',null,'作业、笔记或背诵草稿都可以拍。')),
     homeButton('拍照打卡',()=>quickShot(ckd),'primary','camera'))
-  $c.appendChild(quick)
-  const _hc=hwCard();if(_hc){_hc.id='todayHomework';_hc.tabIndex=-1;$c.appendChild(_hc)};
+  const ledger=hwCard()
+  ledger.id='todayHomework';ledger.tabIndex=-1
+  if(ROLE.kid){$c.appendChild(ledger);$c.appendChild(quick)}
+  else{$c.appendChild(quick);$c.appendChild(ledger)}
   const cq=h('div',{className:'card'})
   cq.appendChild(h('div',{className:'card-header'},icoEl('list-checks',18),'按科目提交'))
   const minD=(function(){var d=new Date();d.setDate(d.getDate()-2);return ymd(d)})()
@@ -6986,10 +6994,33 @@ function rpk(){
 const BUILD_COMPONENTS=[11,17,14,15,18,10,13,12]
 const BUILD_DESK=[16,4,2,1,5,7,6,3]
 const BUILD_GAMES=[9,19,20]
+// 累计公开销量，单位万套。按初代 Switch 的版本统计，各作品的公开日期不同。
+const SWITCH_SALES=[
+  ['sw-kart8','马力欧卡丁车 8 豪华版',7200,'2026-09'],
+  ['sw-animal','集合啦！动物森友会',5063,'2026-09'],
+  ['sw-smash','任天堂明星大乱斗 特别版',3850,'2026-09'],
+  ['sw-botw','塞尔达传说 旷野之息',3428,'2026-09'],
+  ['sw-odyssey','超级马力欧 奥德赛',3106,'2026-09'],
+  ['sw-sv','宝可梦 朱／紫',2866,'2026-09'],
+  ['sw-swsh','宝可梦 剑／盾',2736,'2026-09'],
+  ['sw-totk','塞尔达传说 王国之泪',2290,'2026-09'],
+  ['sw-party','超级马力欧派对',2139,'2026-09'],
+  ['sw-mariou','新 超级马力欧兄弟 U 豪华版',1922,'2026-09'],
+  ['sw-sports','Nintendo Switch 运动',1832,'2026-03'],
+  ['sw-wonder','超级马力欧兄弟 惊奇',1744,'2026-03'],
+  ['sw-ringfit','健身环大冒险',1538,'2023-03'],
+  ['sw-letsgo','宝可梦 Let’s Go！皮卡丘／伊布',1507,'2022-12'],
+  ['sw-bdsp','宝可梦 晶灿钻石／明亮珍珠',1506,'2022-12'],
+  ['sw-arceus','宝可梦传说 阿尔宙斯',1483,'2023-03'],
+  ['sw-luigi3','路易吉洋馆 3',1425,'2024-03'],
+  ['sw-superstars','马力欧派对 超级巨星',1400,'2025-03'],
+  ['sw-splatoon2','斯普拉遁 2',1360,'2022-12'],
+  ['sw-3dworld','超级马力欧 3D 世界 ＋ 狂怒世界',1347,'2024-03']
+]
 const REWARD_ICONS={1:'pad',2:'mouse',3:'bolt',4:'keyboard',5:'headset',6:'camera',7:'speaker',8:'pc',
   9:'gamepad',10:'storage',11:'fan',12:'bolt',13:'storage',14:'chip',15:'chip',16:'monitor',17:'chip',18:'fan',
   19:'console',20:'gamepad'}
-let _buildPowered=false
+let _buildPowered=false,_buildDrawer='case'
 function rewardBalance(){
   return myExp()-(D.points||[]).filter(p=>p.type==='spend').reduce((n,p)=>n+(p.points||0),0)
 }
@@ -7017,13 +7048,13 @@ const REWARD_PHOTO_CREDITS={
 }
 const REWARD_STUDIO_ORDER=[8,11,17,14,15,18,10,13,12,16,4,2,1,5,7,6,3,9,19,20]
 function rewardStudioPreview(part){
-  const slot=REWARD_STUDIO_ORDER.indexOf(Number(part.id))
+  const slot=REWARD_STUDIO_ORDER.indexOf(part.switchGame?20:Number(part.id))
   if(slot<0)return null
   const x=(slot%4)*100/3,y=Math.floor(slot/4)*25
   return h('span',{className:'reward-studio',style:'--studio-x:'+x+'%;--studio-y:'+y+'%'})
 }
 function rewardPhoto(part){
-  const id=Number(part.id)
+  const id=part.switchGame?20:Number(part.id)
   const credit=REWARD_PHOTO_CREDITS[id]
   return credit?{src:'reward-photos/'+String(id).padStart(2,'0')+'.webp',...credit}:null
 }
@@ -7035,12 +7066,23 @@ function rewardPhotoFigure(photo){
       ' · 已缩放'),
     h('p',{className:'reward-art-note'},'装机台缩略图为 AI 风格展示。'))
 }
-function rewardCost(part){return Math.round(part.value*(D.rate||10))}
+function rewardCost(part){return Math.round((part.value||0)*(D.rate||10))}
+function switchReward(game){
+  const [id,name]=game
+  return D.switchRewards.find(p=>p.id===id)||
+    {id,name,switchGame:true,cond:'待家长设定兑换价'}
+}
+function rewardById(id){
+  const part=D.parts.find(p=>String(p.id)===String(id))
+  if(part)return part
+  const game=SWITCH_SALES.find(item=>item[0]===id)
+  return game?switchReward(game):null
+}
 function rewardWishKey(){return DEMO?'lc_demo_reward_wish':'lc_reward_wish'}
 function getRewardWish(){
   try{
     const id=localStorage.getItem(rewardWishKey())
-    return D.parts.find(p=>String(p.id)===id)||null
+    return rewardById(id)
   }catch(e){return null}
 }
 function saveRewardWish(part){
@@ -7054,7 +7096,7 @@ function openRewardCatalog(){_pkView='catalog';sw('points',true)}
 function rewardState(part,balance){
   if(part.received)return '已签收'
   if(part.unlocked)return '已解锁'
-  if(!part.exchange)return '条件解锁'
+  if(!part.exchange)return part.switchGame?'待定价':'条件解锁'
   return balance>=rewardCost(part)?'可兑换':'积分兑换'
 }
 function rewardProgress(part,balance){
@@ -7089,6 +7131,7 @@ function rewardDialog(part){
   const ownWish=getRewardWish()
   const selected=ownWish&&ownWish.id===part.id
   const photo=rewardPhoto(part)
+  const sale=part.switchGame?SWITCH_SALES.find(game=>game[0]===part.id):null
   const dialog=h('dialog',{className:'reward-dialog','aria-labelledby':'rewardDialogTitle'})
   const hide=()=>dialog.close()
   const header=h('header',null,photo?null:h('span',{className:'reward-dialog-art','aria-hidden':'true'},
@@ -7098,6 +7141,7 @@ function rewardDialog(part){
   const details=h('div',{className:'reward-dialog-info'},
     h('h3',null,part.exchange?'兑换规则':'解锁条件'),
     h('p',null,part.exchange?(need.toLocaleString()+' 积分 · 家长确认兑换'):(part.cond||'按家里约定解锁')),
+    sale?h('p',null,'公开累计销量 '+sale[2].toLocaleString('zh-CN')+' 万套 · '+sale[3]):null,
     part.det?h('p',null,part.det):null,
     ROLE.parent?h('p',null,'参考价格 ¥'+Number(part.value||0).toLocaleString()):null)
   if(part.exchange&&!owned)details.appendChild(rewardProgress(part,balance))
@@ -7110,20 +7154,20 @@ function rewardDialog(part){
       target?.focus()
       ts(selected?'已取消心愿':'已设为我的心愿')
     },selected?'quiet':'primary','star'))
-    if(!owned)actions.appendChild(part.exchange
+    if(!owned&&(part.exchange||!part.switchGame))actions.appendChild(part.exchange
       ?homeButton('拍照打卡',()=>{hide();quickShot(td)},'quiet','camera')
       :homeButton('看我的成绩',()=>{hide();openTodayScores()},'quiet','bar-chart-3'))
   }else{
     if(part.exchange&&!owned&&balance>=need)actions.appendChild(homeButton('兑换奖励',()=>{
       hide()
       ask('兑换「'+part.name+'」？','确认后将扣除 '+need.toLocaleString()+' 积分。','确认兑换',()=>{
-        const current=D.parts.find(p=>p.id===part.id)
+        const current=rewardById(part.id)
         if(current&&rewardCost(current)!==need){ts('奖励价格已更新，请重新查看。');return}
         exchangeReward(current)
       })
     },'primary','gift'))
     if(part.unlocked&&!part.received)actions.appendChild(homeButton('标记签收',()=>{hide();receiveReward(part)},'primary','list-checks'))
-    actions.appendChild(homeButton('改价',()=>{hide();editRewardPrice(part)},'quiet','pen-tool'))
+    actions.appendChild(homeButton(part.switchGame&&!part.exchange?'设定兑换价':'改价',()=>{hide();editRewardPrice(part)},'quiet','pen-tool'))
   }
   dialog.appendChild(header)
   if(photo)dialog.appendChild(rewardPhotoFigure(photo))
@@ -7153,7 +7197,26 @@ function buildModule(part,balance,scope){
 }
 function buildShelf(title,parts,balance,kind){
   return h('section',{className:'build-shelf '+kind},h('h2',null,title),
-    h('div',{className:'build-shelf-grid'},...parts.map(p=>buildModule(p,balance,'shelf-module'))))
+    parts.length?h('div',{className:'build-shelf-grid'},...parts.map(p=>buildModule(p,balance,'shelf-module'))):
+      h('p',{className:'work-note'},'这个抽屉还没有装备。'))
+}
+function switchCatalog(balance){
+  const wish=getRewardWish()
+  const rows=SWITCH_SALES.map((game,index)=>{
+    const part=switchReward(game)
+    const label=part.received||part.unlocked?rewardState(part,balance):
+      (wish?.id===part.id?'我的心愿':part.exchange?rewardCost(part).toLocaleString()+' 积分':'')
+    return h('li',null,h('button',{type:'button',className:'switch-game',onClick:()=>rewardDialog(part)},
+      h('span',{className:'switch-rank'},index+1),
+      h('span',{className:'switch-game-name'},h('strong',null,part.name),
+        label?h('small',null,label):null),
+      h('span',{className:'switch-sales'},game[2].toLocaleString('zh-CN')+' 万套')))
+  })
+  return h('section',{className:'build-shelf switch-catalog'},h('h2',null,'Switch 热销游戏'),
+    h('p',{className:'work-note'},'初代 Switch · 全球公开累计销量。点游戏可查看统计时间和兑换条件。'),
+    h('ol',{className:'switch-game-list'},...rows),
+    h('div',{className:'switch-sources'},h('a',{href:'https://www.nintendo.co.jp/ir/en/finance/software/switch.html',target:'_blank',rel:'noopener noreferrer'},'任天堂销量'),
+      h('a',{href:'https://en.wikipedia.org/wiki/List_of_best-selling_Nintendo_Switch_video_games',target:'_blank',rel:'noopener noreferrer'},'公开销量汇总')))
 }
 function rewardCatalog(){
   const balance=rewardBalance()
@@ -7165,7 +7228,8 @@ function rewardCatalog(){
   const games=layout(BUILD_GAMES)
   const extras=D.parts.filter(p=>!BUILD_COMPONENTS.includes(Number(p.id))&&!BUILD_DESK.includes(Number(p.id))&&
     !BUILD_GAMES.includes(Number(p.id))&&Number(p.id)!==8)
-  const owned=D.parts.filter(p=>p.received||p.unlocked).length
+  const rewards=[...D.parts,...D.switchRewards]
+  const owned=rewards.filter(p=>p.received||p.unlocked).length
   const bench=h('div',{className:'build-bench'})
   const tools=h('div',{className:'home-panel build-controls'})
   bench.appendChild(tools)
@@ -7181,7 +7245,7 @@ function rewardCatalog(){
       homeButton('详情',()=>rewardDialog(wish),'quiet')))
   }
   const ownedCount=h('span',{className:'build-meter-copy'},
-    h('span',null,'已获得'),h('strong',null,owned+' / '+D.parts.length))
+    h('span',null,'已获得'),h('strong',null,owned+' / '+rewards.length))
   const meter=h('div',{className:'build-meter'},
     h('button',{type:'button',className:'build-balance',
       'aria-label':'查看积分账本，可用 '+balance.toLocaleString()+' 积分',onClick:()=>{
@@ -7215,16 +7279,50 @@ function rewardCatalog(){
   const gaming=buildShelf('游戏装备',games,balance,'game-shelf')
   gaming.id='buildGames'
   gaming.tabIndex=-1
-  const shortcuts=h('nav',{className:'seg build-jumps','aria-label':'装备分区'})
-  for(const [label,target] of [['主机',board],['桌面',desktop],['游戏',gaming]]){
-    shortcuts.appendChild(h('button',{type:'button',className:'seg-btn',onClick:()=>{
-      target.scrollIntoView({block:'start',behavior:'instant'})
-      target.focus({preventScroll:true})
-    }},label))
+  const drawers=[
+    ['case','主机',[board]],
+    ['desk','桌面',[desktop,...(extras.length?[buildShelf('其他装备',extras,balance,'extra-shelf')]:[])]],
+    ['games','游戏',[gaming,switchCatalog(balance)]]
+  ]
+  const tabs=h('div',{className:'seg build-jumps',role:'tablist','aria-label':'装备抽屉'})
+  const equipment=h('div',{className:'build-equipment'},tabs)
+  const options=drawers.map(([key,label,contents])=>{
+    const id='build-tab-'+key,panelId='build-drawer-'+key
+    const button=h('button',{type:'button',className:'seg-btn',id,role:'tab','aria-controls':panelId},label)
+    const panel=h('div',{className:'build-drawer',id:panelId,role:'tabpanel','aria-labelledby':id},...contents)
+    tabs.appendChild(button)
+    equipment.appendChild(panel)
+    return {key,button,panel}
+  })
+  function showDrawer(key){
+    _buildDrawer=key
+    for(const option of options){
+      const active=option.key===key
+      option.button.classList.toggle('on',active)
+      option.button.setAttribute('aria-selected',String(active))
+      option.button.tabIndex=active?0:-1
+      option.panel.hidden=!active
+    }
   }
-  const side=h('div',{className:'build-side'},desktop,gaming)
-  if(extras.length)side.appendChild(buildShelf('其他装备',extras,balance,'extra-shelf'))
-  bench.appendChild(h('div',{className:'build-equipment'},shortcuts,h('div',{className:'build-layout'},board,side)))
+  function activateDrawer(option){
+    if(option.key===_buildDrawer)return
+    const fromBelow=tabs.getBoundingClientRect().top-equipment.getBoundingClientRect().top>16
+    showDrawer(option.key)
+    if(fromBelow)equipment.scrollIntoView({block:'start'})
+  }
+  for(const option of options)option.button.addEventListener('click',()=>activateDrawer(option))
+  tabs.addEventListener('keydown',event=>{
+    const current=options.findIndex(option=>option.button===event.target)
+    if(current<0)return
+    const offsets={ArrowLeft:-1,ArrowRight:1,Home:-current,End:options.length-1-current}
+    if(!Object.hasOwn(offsets,event.key))return
+    event.preventDefault()
+    const next=options[(current+offsets[event.key]+options.length)%options.length]
+    activateDrawer(next)
+    next.button.focus({preventScroll:true})
+  })
+  showDrawer(_buildDrawer)
+  bench.appendChild(equipment)
   $c.appendChild(bench)
 }
 
@@ -8072,25 +8170,55 @@ function wallData(){
 
 function receiveReward(part){
   if(!ROLE.parent||!part||!part.unlocked||part.received)return
+  if(part.switchGame)part.at=Date.now()
   part.received=true;sv(D);render();ts('✅ 已标记签收 · '+praise('part'))
-  undoBar('已标记「'+part.name+'」签收',function(){part.received=false;sv(D);render();ts('↩️ 已撤销签收')})
+  undoBar('已标记「'+part.name+'」签收',function(){
+    const current=rewardById(part.id)
+    if(!current?.received)return
+    if(current.switchGame)current.at=Date.now()
+    current.received=false;sv(D);render();ts('↩️ 已撤销签收')
+  })
 }
 const rewardPurchaseUntil=new Map()
 function exchangeReward(part){
   if(!ROLE.parent||!part||!part.exchange||part.unlocked||part.received)return
   const need=rewardCost(part)
   if(Date.now()<(rewardPurchaseUntil.get(part.id)||0))return
+  const redemptionId=part.switchGame?'reward-'+part.id:_newId('p')
+  if(D.points.some(point=>point.id===redemptionId))return
   const availPts=rewardBalance()
   if(availPts<need){ts('⚠️ 积分不足，还差 '+(need-availPts).toLocaleString()+' 分');return}
   rewardPurchaseUntil.set(part.id,Date.now()+1500)
-  const _rec={id:_newId('p'),date:td,source:'兑换 '+part.name,points:need,type:'spend'}
+  const now=Date.now()
+  const _rec={id:redemptionId,date:td,source:'兑换 '+part.name,points:need,type:'spend',at:now}
+  if(part.switchGame)part.at=now
   D.points.push(_rec);part.unlocked=true;sv(D);render();ts('✅ 已兑换 '+part.name+' · '+praise('part'))
-  undoBar('已兑换：'+part.name+'（-⭐'+need.toLocaleString()+'）',function(){const _i=D.points.indexOf(_rec);if(_i>=0)D.points.splice(_i,1);part.unlocked=false;sv(D);render();ts('↩️ 已撤销兑换')})
+  undoBar('已兑换：'+part.name+'（-⭐'+need.toLocaleString()+'）',function(){
+    const _i=D.points.findIndex(point=>point.id===_rec.id&&point.at===_rec.at)
+    const current=rewardById(part.id)
+    if(_i<0||!current?.unlocked)return
+    D.points.splice(_i,1)
+    if(current.switchGame)current.at=Date.now()
+    current.unlocked=false;sv(D);render();ts('↩️ 已撤销兑换')
+  })
 }
 function editRewardPrice(part){
   if(!ROLE.edit||!part)return
-  const np=prompt('修改 '+part.name+' 价格（当前：¥'+part.value.toLocaleString()+'）：',part.value)
-  if(np!==null){const v=parseFloat(np);if(!isNaN(v)&&v>0){part.value=v;sv(D);render();ts('✅ 已更新')}}
+  const current=rewardById(part.id)||part
+  const np=prompt('填写「'+current.name+'」的兑换价格（元）',current.value??'')
+  if(np===null)return
+  const value=part.switchGame?Number(np):parseFloat(np)
+  const cost=Math.round(value*(D.rate||10))
+  if(!Number.isFinite(value)||value<=0||(part.switchGame&&(!Number.isFinite(cost)||cost<1))){
+    ts('请填写有效的价格');return
+  }
+  if(part.switchGame&&!current.exchange){
+    D.switchRewards.push({...current,value,exchange:true,cond:'积分兑换',at:Date.now()})
+  }else{
+    current.value=value
+    if(current.switchGame)current.at=Date.now()
+  }
+  sv(D);render();ts('✅ 已更新')
 }
 
 function rpt(){

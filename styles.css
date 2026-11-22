@@ -1745,14 +1745,17 @@ body.workspace.chat-page .chat-tools .chat-cam.rec{
 .build-ledger-label{display:inline-flex;align-items:center;gap:3px;color:var(--workspace-accent);font-size:12px;white-space:nowrap}
 .build-ledger-label>span{font-size:18px;line-height:1}
 .build-balance:hover{background:var(--primary-weak)}
-.build-jumps.seg{margin:0 0 10px}
+.build-jumps.seg{position:sticky;top:calc(var(--workspace-anchor-top) + 6px);z-index:2;margin:0 0 10px}
 .build-equipment{
   padding:10px;min-width:0;border:1px solid var(--build-border);border-radius:16px;background:var(--workspace-surface);
+  scroll-margin-top:calc(var(--workspace-anchor-top) + 8px);
 }
+.build-drawer{max-width:980px;margin:0 auto}
+.build-drawer[hidden]{display:none}
 .build-wish{background:var(--workspace-surface);border-color:var(--build-border)}
-.build-layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,1fr);align-items:start;gap:14px}
 .build-chassis{min-width:0;padding:2px}
-.build-shelf{min-width:0;border-top:1px solid var(--build-border)}
+.build-shelf{min-width:0}
+.build-shelf+.build-shelf{margin-top:10px;border-top:1px solid var(--build-border)}
 .build-zone-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
 .build-zone-head h2,.build-shelf h2{margin:0;font-size:19px;line-height:1.3;letter-spacing:-.02em}
 .build-zone-head p{margin:4px 0 0;color:var(--build-muted);font-size:13px}
@@ -1848,7 +1851,6 @@ body.workspace.chat-page .chat-tools .chat-cam.rec{
 .powered .chassis-board{border-color:#80947e}
 .powered :is(.module-11,.module-17,.module-18) .hardware-model{border-color:#b5dccf;box-shadow:0 0 7px #a9cbb55e}
 .powered .module-14 .hardware-model{border-color:#d2bf9b;box-shadow:0 0 7px #cbb78d54}
-.build-side{display:grid;gap:14px;min-width:0}
 .build-shelf{padding:12px}
 .build-shelf h2{font-size:16px;margin-bottom:9px}
 .build-shelf-grid{
@@ -1864,9 +1866,25 @@ body.workspace.chat-page .chat-tools .chat-cam.rec{
 .game-shelf .shelf-module{background:linear-gradient(#3d333e,#302932);border-color:#74606a}
 .game-shelf .shelf-module.owned{border-color:#759754}
 .game-shelf .hardware-model{color:#dfbd99}
-@media(max-width:1050px){
-  .build-layout{grid-template-columns:minmax(0,1fr)}
+.switch-catalog>p{margin:0 0 8px}
+.switch-game-list{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:6px 10px;
+  list-style:none;margin:0;padding:0;
 }
+.switch-game-list li{min-width:0}
+.switch-game{
+  display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:center;gap:8px;width:100%;
+  min-height:47px;padding:6px 8px;border:1px solid var(--workspace-line);border-radius:8px;
+  background:var(--workspace-panel);color:var(--workspace-ink);font:inherit;text-align:left;cursor:pointer;
+}
+.switch-game:hover{border-color:var(--primary-border);background:var(--primary-weak)}
+.switch-rank,.switch-sales{font-size:12px;font-variant-numeric:tabular-nums;color:var(--workspace-muted)}
+.switch-rank{text-align:center}
+.switch-sales{white-space:nowrap}
+.switch-game-name{display:grid;gap:2px;line-height:1.4;overflow-wrap:anywhere}
+.switch-game-name strong{font-size:14px;font-weight:650}
+.switch-game-name small,.switch-sources a{font-size:12px;color:var(--workspace-accent)}
+.switch-sources{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
 @media(max-width:480px){
   .build-chassis,.build-shelf{padding:9px;border-radius:13px}
   .build-zone-head{margin-bottom:9px}
@@ -1937,7 +1955,7 @@ body.workspace :is(.btn-success,.btn-warning,.btn-danger):hover{filter:brightnes
 .home-shortcuts,.score-status-list{display:flex;flex-wrap:wrap;gap:8px}
 .home-shortcuts .home-btn{justify-content:flex-start}
 .home-shortcuts .home-btn .ico-s{color:var(--workspace-accent)}
-#buildCase,#buildDesk,#buildGames,.check-history-row{
+.check-history-row{
   scroll-margin-top:calc(var(--workspace-anchor-top) + 15px);
 }
 .check-date-options{margin:4px 0 10px}
@@ -2029,12 +2047,32 @@ body.workspace :is(.btn-success,.btn-warning,.btn-danger):hover{filter:brightnes
 }
 
 /* 按日期登记和查看作业 */
-.homework-ledger-tools,.homework-row{display:flex;gap:8px;align-items:end;flex-wrap:wrap}
-.homework-ledger-tools{margin-bottom:10px}
-.homework-ledger-tools input{min-width:142px}
+.homework-row{display:flex;gap:8px;align-items:end;flex-wrap:wrap}
+.homework-ledger-head,.homework-ledger-meta{display:flex;align-items:center;justify-content:space-between;gap:7px}
+.homework-ledger-head h2{margin:0;margin-right:auto;font-size:clamp(14px,4.2vw,17px);line-height:1.35;white-space:nowrap}
+.homework-ledger-head .home-btn{padding-inline:8px;white-space:nowrap}
+.homework-day-picker{
+  position:relative;isolation:isolate;display:grid;place-items:center;flex:none;min-height:44px;
+  padding:0 7px;border:1px solid var(--workspace-line);border-radius:var(--control-radius);
+  background:var(--workspace-panel-raised);color:var(--workspace-ink);font-size:13px;white-space:nowrap;cursor:pointer;
+}
+.homework-day-picker input{
+  position:absolute;inset:0;opacity:0;width:100%;height:100%;min-width:0;padding:0;cursor:pointer;
+}
+.homework-day-picker input::-webkit-calendar-picker-indicator{
+  position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;cursor:pointer;
+}
+.homework-day-picker:focus-within{outline:2px solid var(--workspace-accent);outline-offset:2px}
+.homework-ledger-meta{margin-top:3px}
+.homework-ledger-meta .home-btn{flex:none;padding-inline:6px;white-space:nowrap}
+.homework-ledger-summary{margin:0;color:var(--workspace-muted);font-size:13px}
+.homework-item{align-items:start;gap:8px 10px}
+.homework-item-actions{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.homework-item-actions .home-btn{padding-inline:8px}
+.homework-item-actions .home-state{margin-top:1px}
 .homework-form{display:grid;gap:12px;margin-top:14px}
-.homework-ledger-tools label,.homework-form label{display:grid;gap:4px;min-width:0}
-.homework-ledger-tools label span,.homework-source span{font-size:13px;color:var(--workspace-muted)}
+.homework-form label{display:grid;gap:4px;min-width:0}
+.homework-source span{font-size:13px;color:var(--workspace-muted)}
 .homework-source{margin-left:auto}
 .homework-form textarea{
   width:100%;min-height:138px;resize:vertical;padding:10px 12px;
@@ -2043,9 +2081,6 @@ body.workspace :is(.btn-success,.btn-warning,.btn-danger):hover{filter:brightnes
 }
 .homework-form textarea:focus,.workspace .chat-bar #chatInput:focus{
   outline:none;border-color:var(--primary-border);box-shadow:0 0 0 3px var(--primary-weak);
-}
-@media(max-width:520px){
-  .homework-ledger-tools label{flex-basis:100%}
 }
 .homework-form>button{justify-self:start}
 .homework-feedback:empty{display:none}
