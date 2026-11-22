@@ -8442,94 +8442,146 @@ function rpt(){
 
 let _checkDate=null
 let _openSubj={},_onlyTodo=false
-let _calY=null,_calM=null,_calSel=null
+let _calSel=''
+const CALENDAR_MARKS={due:'待交',waiting:'处理中',logged:'有记录'}
+function checkinCalendarMonth(year,month){
+  const days=new Map()
+  const count=new Date(year,month+1,0).getDate()
+  for(let n=1;n<=count;n++){
+    const date=ymd(new Date(year,month,n,12))
+    days.set(date,{date,jobs:[],checks:[]})
+  }
+  const uploads=hwUploadIds()
+  for(const job of D.hw||[]){
+    const day=days.get(job?.date)
+    if(day)day.jobs.push({job,status:hwDisplayStatus(job,uploads)})
+  }
+  for(const rec of D.checks||[])days.get(rec?.date)?.checks.push(rec)
+  for(const day of days.values()){
+    const {ci,tchk}=habStats(day.date)
+    day.habits=ci.filter(item=>tchk[item.key]).map(item=>item.label)
+    day.due=day.jobs.filter(({status})=>isHomeworkDue(status)).length
+    day.logged=day.checks.length>0||day.habits.length>0
+    const waiting=day.checks.some(rec=>rec.status==='pending')||
+      day.jobs.some(({status})=>status==='pending'||status==='uploading')
+    day.mark=day.due?'due':waiting?'waiting':day.logged||day.jobs.length?'logged':''
+  }
+  return days
+}
+function calendarEntry(title,status,rec,context){
+  const review=ROLE.parent&&rec?.status==='pending'
+  const row=h('div',{className:'calendar-entry'},
+    h('div',{className:'calendar-entry-head'},
+      h('span',{className:'calendar-entry-title'},title),
+      review?homeButton('审核',()=>openTodayCheckin('review-'+rec.id),'text'):homeStatus(status)))
+  if(context)row.appendChild(h('p',{className:'work-note'},context))
+  const scan=scanLine(rec)
+  if(scan)row.appendChild(h('p',{className:'work-note'},scan))
+  const imgs=rec?checkImgs(rec):[]
+  if(imgs.length){
+    row.appendChild(h('div',{className:'calendar-photos'},...imgs.slice(0,4).map((src,index)=>{
+      const img=photoImg(src,imgs)
+      img.onclick=null
+      return h('button',{type:'button','aria-label':'查看第 '+(index+1)+' 张照片 · '+title,
+        onClick:()=>viewImg(src,imgs)},img)
+    })))
+  }
+  return row
+}
+function calendarDayDetail(day){
+  const [year,month,num]=day.date.split('-').map(Number)
+  const label=(year!==Number(td.slice(0,4))?year+'年':'')+month+'月'+num+'日'+(day.date===td?' · 今天':'')
+  const detail=h('section',{className:'calendar-detail',id:'calendarDetail','aria-labelledby':'calendarDateLabel'},
+    h('header',{className:'calendar-detail-head'},h('h2',{id:'calendarDateLabel'},label),
+      day.jobs.length?homeButton(ROLE.kid&&day.due?'去交作业':'作业清单',
+        ()=>openTodayCheckin('todayHomework',day.date),'primary'):
+        homeButton('登记作业',()=>openHomeworkRegistration({date:day.date}),'quiet')))
+  if(!day.jobs.length&&!day.logged){
+    detail.appendChild(h('p',{className:'work-note calendar-empty'},'这天还没有作业或打卡记录。'))
+    return detail
+  }
+  if(day.jobs.length){
+    const jobs=h('section',{className:'calendar-day-group'},
+      h('h3',null,'作业',day.due?h('span',null,day.due+' 项待交'):null))
+    for(const {job,status} of day.jobs.slice().sort((a,b)=>Number(isHomeworkDue(b.status))-Number(isHomeworkDue(a.status)))){
+      const rec=hwRec(job)
+      const title=(job.subj&&job.subj!=='其他'?job.subj+' · ':'')+job.text
+      const points=status==='approved'&&Number(rec?.pts)>0?'+'+rec.pts+' 积分':''
+      jobs.appendChild(calendarEntry(title,status,rec,[HOMEWORK_CATEGORIES[hwCategory(job)],points].filter(Boolean).join(' · ')))
+    }
+    detail.appendChild(jobs)
+  }
+  const linked=new Set(day.jobs.map(({job})=>job.recId).filter(Boolean))
+  const other=day.checks.filter(rec=>!linked.has(rec.id))
+  if(other.length){
+    const entries=h('section',{className:'calendar-day-group'},h('h3',null,'拍照与补记'))
+    for(const rec of other){
+      const points=rec.status==='approved'&&Number(rec.pts)>0?'+'+rec.pts+' 积分':''
+      entries.appendChild(calendarEntry(recordTitle(rec),rec.status||'pending',rec,points))
+    }
+    detail.appendChild(entries)
+  }
+  if(day.habits.length){
+    detail.appendChild(h('section',{className:'calendar-day-group'},
+      h('h3',null,'习惯打卡',h('span',null,day.habits.length+' 项')),
+      h('p',{className:'work-note calendar-habits'},day.habits.join('、'))))
+  }
+  return detail
+}
 function rcal(){
-  $c.innerHTML=''
-  const now=new Date()
-  if(_calY===null){_calY=now.getFullYear();_calM=now.getMonth()}
-  const y=_calY,m=_calM
-  function pad(n){return n<10?'0'+n:''+n}
-  function dateStr(d){return y+'-'+pad(m+1)+'-'+pad(d)}
-  function dayCount(ds){return (D.checks||[]).filter(function(c){return c.date===ds}).length}
-  function dayApproved(ds){return (D.checks||[]).filter(function(c){return c.date===ds&&c.status==='approved'}).length}
-
-  // 醒目的鼓励横幅
-  const todayStr0=ymd()
-  function monthDays(){const days={};for(const c of (D.checks||[])){if(c.date&&c.date.indexOf(y+'-'+pad(m+1))===0){days[c.date]=1}}return Object.keys(days).length}
-  const mdays=monthDays()
-  const todayCnt=(D.checks||[]).filter(function(c){return c.date===todayStr0}).length
-  let praiseTxt, praiseEmoji
-  if(mdays>=15){praiseTxt='火焰不停，本月已坚持 '+mdays+' 天，你太棒了！';praiseEmoji='🔥'}
-  else if(mdays>=7){praiseTxt='已坚持 '+mdays+' 天，积少成多，继续加油！';praiseEmoji='🌟'}
-  else if(todayCnt>0){praiseTxt='今天已打卡，给自己点个赞！';praiseEmoji='✨'}
-  else if(mdays>0){praiseTxt='每一步都算数，今天也来打卡吧！';praiseEmoji='💪'}
-  else{praiseTxt='今天还没打卡哦，坚持就是胜利！';praiseEmoji='✨'}
-  const praiseBar=h('div',{style:'margin-bottom:14px;padding:18px 20px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#a855f7);box-shadow:0 6px 24px rgba(99,102,241,0.35);text-align:center'})
-  praiseBar.appendChild(h('div',{style:'font-size:var(--fs-32);margin-bottom:6px'},praiseEmoji))
-  praiseBar.appendChild(h('div',{style:'font-size:var(--fs-17);font-weight:800;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,0.25);line-height:1.5'},praiseTxt))
-  $c.appendChild(praiseBar)
-
-  // 头部：月份导航
-  const head=h('div',{className:'card'})
-  const nav=h('div',{style:'display:flex;align-items:center;justify-content:space-between'})
-  nav.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_calM--;if(_calM<0){_calM=11;_calY--}render()}},'← 上月'))
-  nav.appendChild(h('div',{style:'font-size:var(--fs-17);font-weight:700'},y+'年 '+(m+1)+'月'))
-  nav.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_calM++;if(_calM>11){_calM=0;_calY++}render()}},'下月 →'))
-  head.appendChild(nav)
-  // 图例
-  head.appendChild(h('div',{style:'font-size:var(--fs-14);color:var(--muted);margin-top:10px;display:flex;gap:14px;flex-wrap:wrap'},'🟢 有打卡 · ⚪ 无打卡 · 数字=当天打卡次数'))
-  $c.appendChild(head)
-
-  // 日历网格
-  const firstDay=new Date(y,m,1).getDay()
-  const offset=(firstDay+6)%7
-  const daysInMonth=new Date(y,m+1,0).getDate()
-  const calCard=h('div',{className:'card'})
-  const wk=['一','二','三','四','五','六','日']
-  const grid=h('div',{style:'display:grid;grid-template-columns:repeat(7,1fr);gap:4px'})
-  for(const w of wk){grid.appendChild(h('div',{style:'text-align:center;font-size:var(--fs-14);color:var(--faint);padding:6px 0;font-weight:600'},w))}
-  for(let i=0;i<offset;i++){grid.appendChild(h('div',null))}
-  const todayStr=ymd()
-  for(let d=1;d<=daysInMonth;d++){
-    const ds=dateStr(d)
-    const cnt=dayCount(ds)
-    const app=dayApproved(ds)
-    const isToday=ds===todayStr
-    const isSel=ds===_calSel
-    const cell=h('div',{style:'min-height:56px;border-radius:8px;padding:4px;cursor:pointer;border:1px solid '+(isSel?'var(--primary-border)':isToday?'var(--border-strong)':'var(--border)')+';background:'+(cnt>0?(app===cnt&&cnt>0?'var(--success-weak)':'var(--warning-weak)'):'transparent'),onClick:function(){_calSel=(_calSel===ds)?null:ds;render()}})
-    cell.appendChild(h('div',{style:'font-size:var(--fs-15);font-weight:'+(isToday?'700':'500')+';color:'+(isToday?'var(--primary)':'var(--text)')},d))
-    if(cnt>0){
-      cell.appendChild(h('div',{style:'text-align:center;margin-top:4px'},h('span',{style:'display:inline-block;min-width:18px;padding:1px 6px;border-radius:10px;font-size:var(--fs-14);font-weight:700;color:#fff;background:'+(app===cnt?'var(--success)':'var(--warning)')},cnt)))
-    }else{
-      cell.appendChild(h('div',{style:'text-align:center;margin-top:4px;font-size:var(--fs-14);color:var(--faint)'},'⚪'))
-    }
-    grid.appendChild(cell)
+  const selected=_calSel||td
+  const [year,month]=selected.split('-').map(Number)
+  const days=checkinCalendarMonth(year,month-1)
+  const show=(date,focus)=>{
+    _calSel=date
+    render()
+    document.getElementById(focus)?.focus({preventScroll:true})
   }
-  calCard.appendChild(grid)
-  $c.appendChild(calCard)
-
-  // 选中日期详情
-  if(_calSel){
-    const selChecks=(D.checks||[]).filter(function(c){return c.date===_calSel})
-    const dc=h('div',{className:'card'})
-    dc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'📅'}),_calSel+' 打卡详情（'+selChecks.length+'条）'))
-    if(!selChecks.length){dc.appendChild(h('div',{style:'color:var(--muted);font-size:var(--fs-15)'},'这天没有打卡记录'))}
-    else{
-      for(const c of selChecks){
-        const type=CHECK_TYPES.find(function(t){return t.id===c.type})||{name:c.typeName,icon:''}
-        const st=c.status==='pending'?'⏳ 待审核':c.status==='approved'?'✅ 已通过':'↩️ 已退回'
-        const sc2=c.status==='pending'?'var(--warning)':c.status==='approved'?'var(--success)':'var(--muted)'
-        const row=h('div',{className:'mistake-item'})
-        row.innerHTML='<div><strong>'+type.icon+' '+(c.subject?c.subject+'·':'')+type.name+'</strong> <span style="color:'+sc2+'">'+st+'</span> <span style="color:var(--muted);font-size:var(--fs-14)">+'+c.pts+'分</span></div>'
-        const _sl2=scanLine(c)
-        if(_sl2)row.appendChild(h('div',{style:'font-size:var(--fs-13);color:var(--warning);margin-top:4px;line-height:1.7'},'📌 小搭看到：'+_sl2))
-        const cImgs=checkImgs(c)
-        if(cImgs.length){const cir=h('div',{style:'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px'});cImgs.forEach(function(b){cir.appendChild(photoImg(b,cImgs,'width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)'))});row.appendChild(cir)}
-        dc.appendChild(row)
-      }
-    }
-    $c.appendChild(dc)
+  const moveMonth=(step,focus)=>{
+    const date=ymd(new Date(year,month-1+step,1,12))
+    show(date.slice(0,7)===td.slice(0,7)?td:date,focus)
   }
+  const monthView=h('section',{className:'calendar-month','aria-labelledby':'calendarMonthLabel'},
+    h('header',{className:'calendar-toolbar'},
+      h('button',{id:'calendarPrev',type:'button',className:'calendar-nav','aria-label':'上月',
+        onClick:()=>moveMonth(-1,'calendarPrev')},'‹'),
+      h('h2',{id:'calendarMonthLabel','aria-live':'polite'},year+'年'+month+'月'),
+      h('button',{id:'calendarNext',type:'button',className:'calendar-nav','aria-label':'下月',
+        onClick:()=>moveMonth(1,'calendarNext')},'›'),
+      h('button',{id:'calendarToday',type:'button',className:'calendar-nav',
+        onClick:()=>show(td,'cal-day-'+td)},'今天')))
+  const monthDays=[...days.values()]
+  const logged=monthDays.filter(day=>day.logged).length
+  const due=monthDays.filter(day=>day.due).length
+  monthView.appendChild(h('p',{className:'calendar-month-note'},'有记录 '+logged+' 天'+(due?' · 待交 '+due+' 天':'')))
+  const grid=h('div',{className:'calendar-grid',role:'group','aria-label':'选择日期'})
+  for(const label of ['一','二','三','四','五','六','日'])grid.appendChild(h('span',{className:'calendar-weekday','aria-hidden':'true'},label))
+  const offset=(new Date(year,month-1,1).getDay()+6)%7
+  for(let n=0;n<offset;n++)grid.appendChild(h('span',{'aria-hidden':'true'}))
+  const shifts={ArrowLeft:-1,ArrowRight:1,ArrowUp:-7,ArrowDown:7}
+  for(const day of monthDays){
+    const id='cal-day-'+day.date
+    const isToday=day.date===td
+    const isSelected=day.date===selected
+    const label=fd(day.date)+(day.due?'，'+day.due+' 项待交':day.mark?'，'+CALENDAR_MARKS[day.mark]:'')
+    const attrs={id,type:'button',className:'calendar-day',tabindex:isSelected?'0':'-1',
+      'aria-label':label,'aria-pressed':String(isSelected),'aria-controls':'calendarDetail',
+      onClick:()=>show(day.date,id),onKeyDown:e=>{
+        if(!Object.hasOwn(shifts,e.key))return
+        e.preventDefault()
+        const date=new Date(day.date+'T12:00:00')
+        date.setDate(date.getDate()+shifts[e.key])
+        const next=ymd(date)
+        show(next,'cal-day-'+next)
+      }}
+    if(isToday)attrs['aria-current']='date'
+    grid.appendChild(h('button',attrs,Number(day.date.slice(-2)),
+      h('span',{className:'calendar-mark '+day.mark,'aria-hidden':'true'})))
+  }
+  monthView.appendChild(grid)
+  monthView.appendChild(h('div',{className:'calendar-legend'},
+    ...Object.entries(CALENDAR_MARKS).map(([mark,label])=>h('span',null,h('i',{className:'calendar-mark '+mark,'aria-hidden':'true'}),label))))
+  $c.appendChild(h('div',{className:'calendar-layout'},monthView,calendarDayDetail(days.get(selected))))
 }
 
 /* 已移除：错题本页（无入口，功能并入打卡体系）*/
