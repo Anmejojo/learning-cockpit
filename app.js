@@ -8687,6 +8687,26 @@ document.getElementById('tabNav').addEventListener('click',e=>{
   else openMainTab(btn.dataset.tab)
 })
 document.querySelectorAll('[data-home]').forEach(b=>b.addEventListener('click',()=>sw('today')))
+const appScrollHint=document.getElementById('appScrollHint')
+if(appScrollHint){
+  const scrollContent=document.getElementById('appContent')
+  let hideHint
+  scrollContent.addEventListener('scroll',()=>{
+    const track=appScrollHint.clientHeight
+    const range=scrollContent.scrollHeight-scrollContent.clientHeight
+    if(!track||range<=0){
+      appScrollHint.classList.remove('is-active')
+      return
+    }
+    const height=Math.min(track,Math.max(20,track*scrollContent.clientHeight/scrollContent.scrollHeight))
+    const fraction=Math.max(0,Math.min(1,scrollContent.scrollTop/range))
+    appScrollHint.style.setProperty('--hint-height',height+'px')
+    appScrollHint.style.setProperty('--hint-offset',fraction*(track-height)+'px')
+    appScrollHint.classList.add('is-active')
+    clearTimeout(hideHint)
+    hideHint=setTimeout(()=>appScrollHint.classList.remove('is-active'),650)
+  },{passive:true})
+}
 const appChat=document.getElementById('appChat')
 if(appChat){
   appChat.insertBefore(homeIcon('bot',16),appChat.firstChild)

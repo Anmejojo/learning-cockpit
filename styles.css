@@ -1253,6 +1253,7 @@ html[data-theme="c"] .workspace{
 .profile-copy #lvBadge b{color:var(--workspace-accent);font-variant-numeric:tabular-nums}
 .profile-copy #lvBadge i{font-style:normal}
 .app-shell{margin-left:var(--workspace-side);min-width:0}
+.app-scroll-hint{display:none}
 .workspace .topbar{
   top:0;z-index:90;height:calc(var(--workspace-top) + var(--workspace-safe));
   padding:var(--workspace-safe) clamp(20px,3.6vw,52px) 0;
@@ -2177,8 +2178,23 @@ body.workspace :is(.btn-success,.btn-warning,.btn-danger):hover{filter:brightnes
     display:grid;grid-template-rows:auto minmax(0,1fr);height:100dvh;padding-bottom:var(--workspace-dock);
   }
   .workspace:not(.chat-page) .content{
-    min-height:0;overflow:auto;overscroll-behavior-y:contain;scrollbar-width:thin;
+    min-height:0;overflow:auto;overscroll-behavior-y:contain;scrollbar-width:none;
     padding-bottom:20px;
+  }
+  .workspace:not(.chat-page) .content::-webkit-scrollbar{display:none}
+  .workspace:not(.chat-page) .app-scroll-hint{
+    position:fixed;display:block;z-index:85;inset-inline-end:4px;
+    inset-block:calc(var(--workspace-top) + var(--workspace-safe) + 5px) calc(var(--workspace-dock) + 5px);
+    width:3px;pointer-events:none;opacity:0;
+  }
+  .workspace:not(.chat-page) .app-scroll-hint.is-active{opacity:1}
+  .app-scroll-hint::before{
+    content:'';display:block;height:var(--hint-height,0px);
+    transform:translateY(var(--hint-offset,0px));border-radius:3px;
+    background:var(--workspace-accent);
+  }
+  @media(prefers-reduced-motion:no-preference){
+    .app-scroll-hint{transition:opacity .2s ease-out}
   }
 }
 @media(orientation:landscape){
