@@ -4692,12 +4692,13 @@ function render(){
   try{if(dateRoll())try{sv(D)}catch(e){}}catch(e){}
   $c.innerHTML=''
   if(tb!=='chat'){document.body.classList.remove('chat-page');_memOpen=false}
-  if(tb==='points'){
+  if(tb==='points'&&_pkView==='points'){
     $c.appendChild(h('div',{className:'workspace-page-actions'},
-      homeButton(_pkView==='points'?'返回装机台':'积分账本',()=>{
-          _pkView=_pkView==='points'?'catalog':'points'
-          render()
-        },'quiet',_pkView==='points'?'arrow-left':'list-checks')))
+      homeButton('返回装机台',()=>{
+        _pkView='catalog'
+        render()
+        document.querySelector('.build-balance')?.focus()
+      },'quiet','arrow-left')))
   }
   if(tb==='today')rtoday()
   else if(tb==='room')$c.appendChild(spaceHome())
@@ -6988,7 +6989,7 @@ const BUILD_GAMES=[9,19,20]
 const REWARD_ICONS={1:'pad',2:'mouse',3:'bolt',4:'keyboard',5:'headset',6:'camera',7:'speaker',8:'pc',
   9:'gamepad',10:'storage',11:'fan',12:'bolt',13:'storage',14:'chip',15:'chip',16:'monitor',17:'chip',18:'fan',
   19:'console',20:'gamepad'}
-let _showEarned=false,_buildPowered=false
+let _buildPowered=false
 function rewardBalance(){
   return myExp()-(D.points||[]).filter(p=>p.type==='spend').reduce((n,p)=>n+(p.points||0),0)
 }
@@ -7049,7 +7050,7 @@ function saveRewardWish(part){
     return true
   }catch(e){ts('本机无法保存心愿，请检查浏览器存储。');return false}
 }
-function openRewardCatalog(filter){_showEarned=filter==='owned';_pkView='catalog';sw('points',true)}
+function openRewardCatalog(){_pkView='catalog';sw('points',true)}
 function rewardState(part,balance){
   if(part.received)return '已签收'
   if(part.unlocked)return '已解锁'
@@ -7074,7 +7075,7 @@ function rewardHero(){
     h('div',{className:'home-hero-copy'},
       h('h2',null,'我的装机台'),
       h('div',{className:'reward-actions'},
-        homeButton('看装备',()=>openRewardCatalog(),'quiet','gift')),
+        homeButton('看装备',openRewardCatalog,'quiet','gift')),
       part?h('div',{className:'hero-wish'},
         homeButton('我的心愿 · '+part.name,()=>rewardDialog(part),'text','star'),
         showProgress?rewardProgress(part,balance):
@@ -7165,7 +7166,9 @@ function rewardCatalog(){
   const extras=D.parts.filter(p=>!BUILD_COMPONENTS.includes(Number(p.id))&&!BUILD_DESK.includes(Number(p.id))&&
     !BUILD_GAMES.includes(Number(p.id))&&Number(p.id)!==8)
   const owned=D.parts.filter(p=>p.received||p.unlocked).length
-  const bench=h('div',{className:'build-bench'+(_showEarned?' show-earned':'')})
+  const bench=h('div',{className:'build-bench'})
+  const tools=h('div',{className:'home-panel build-controls'})
+  bench.appendChild(tools)
   const wish=ROLE.kid?getRewardWish():null
   if(wish){
     const preview=rewardStudioPreview(wish)
@@ -7177,20 +7180,19 @@ function rewardCatalog(){
           h('p',null,wish.unlocked||wish.received?rewardState(wish,balance):(wish.cond||'按家里约定解锁'))),
       homeButton('详情',()=>rewardDialog(wish),'quiet')))
   }
+  const ownedCount=h('span',{className:'build-meter-copy'},
+    h('span',null,'已获得'),h('strong',null,owned+' / '+D.parts.length))
   const meter=h('div',{className:'build-meter'},
-    h('span',{className:'build-balance'},homeIcon('star',18),h('strong',null,balance.toLocaleString()),'可用积分'),
-    h('span',{className:'build-balance'},'已获得 '+owned+' / '+D.parts.length),
-    h('button',{type:'button',className:'build-owned','aria-pressed':String(_showEarned),
-      title:'高亮已经解锁和兑换的装备',onClick:e=>{
-        _showEarned=!_showEarned
-        bench.classList.toggle('show-earned',_showEarned)
-        e.currentTarget.setAttribute('aria-pressed',String(_showEarned))
-        feedback.hidden=!_showEarned||owned!==0
-      }},'高亮已获得'))
-  bench.appendChild(meter)
-  const feedback=h('p',{className:'build-feedback',role:'status'},'还没有解锁的装备，点任意物件可以查看条件。')
-  feedback.hidden=!_showEarned||owned!==0
-  bench.appendChild(feedback)
+    h('button',{type:'button',className:'build-balance',
+      'aria-label':'查看积分账本，可用 '+balance.toLocaleString()+' 积分',onClick:()=>{
+        _pkView='points'
+        render()
+        document.querySelector('.workspace-page-actions button')?.focus()
+      }},
+      h('span',{className:'build-meter-copy'},h('span',null,'可用积分'),h('strong',null,balance.toLocaleString())),
+      h('span',{className:'build-ledger-label'},'账本',h('span',{'aria-hidden':'true'},'›'))),
+    h('div',{className:'build-owned-count'},ownedCount))
+  tools.appendChild(meter)
 
   const board=h('section',{id:'buildCase',tabindex:'-1',className:'build-chassis'+(_buildPowered?' powered':'')},
     h('header',{className:'build-zone-head'},
@@ -7213,17 +7215,16 @@ function rewardCatalog(){
   const gaming=buildShelf('游戏装备',games,balance,'game-shelf')
   gaming.id='buildGames'
   gaming.tabIndex=-1
-  const shortcuts=h('nav',{className:'build-jumps','aria-label':'在装机台中跳转'})
-  for(const [label,icon,target] of [['主机','pc',board],['桌面','keyboard',desktop],['游戏','gamepad',gaming]]){
-    shortcuts.appendChild(homeButton(label,()=>{
+  const shortcuts=h('nav',{className:'seg build-jumps','aria-label':'装备分区'})
+  for(const [label,target] of [['主机',board],['桌面',desktop],['游戏',gaming]]){
+    shortcuts.appendChild(h('button',{type:'button',className:'seg-btn',onClick:()=>{
       target.scrollIntoView({block:'start',behavior:'instant'})
       target.focus({preventScroll:true})
-    },'quiet',icon))
+    }},label))
   }
-  bench.appendChild(shortcuts)
   const side=h('div',{className:'build-side'},desktop,gaming)
   if(extras.length)side.appendChild(buildShelf('其他装备',extras,balance,'extra-shelf'))
-  bench.appendChild(h('div',{className:'build-layout'},board,side))
+  bench.appendChild(h('div',{className:'build-equipment'},shortcuts,h('div',{className:'build-layout'},board,side)))
   $c.appendChild(bench)
 }
 
@@ -8416,7 +8417,8 @@ function closeMore(restoreFocus){
 const _scrollPos={}      /* 切页签时记着刚才滚到哪（2026-09-19） */
 function sw(tab,resetScroll){
   const _prev=tb
-  try{_scrollPos[_prev]=window.scrollY||window.pageYOffset||0}catch(e){}
+  const scroller=window.matchMedia?.('(max-width:899px) and (orientation:portrait)')?.matches?$c:window
+  try{_scrollPos[_prev]=(scroller===window?window.scrollY:scroller.scrollTop)||0}catch(e){}
   if(_prev==='room'&&tab!=='room'){_spacePanel=null;_kidMenu=false}
   closeMore()
   tb=tab
@@ -8425,8 +8427,8 @@ function sw(tab,resetScroll){
   /* 记录型页面（错题本/积分/成绩）切回来还停在原处；操作型页面回顶部 */
   const _keep=['mistake','points','scores'].indexOf(tab)>=0
   const _y=_keep&&!resetScroll?(_scrollPos[tab]||0):0
-  if(_y>0)setTimeout(function(){try{window.scrollTo({top:_y})}catch(e){}},0)
-  else window.scrollTo(0,0)
+  if(_y>0)setTimeout(function(){try{scroller.scrollTo(0,_y)}catch(e){}},0)
+  else scroller.scrollTo(0,0)
   if(_prev&&_prev!=='chat'&&tab==='chat')_ctxTab=_prev
   if(tab==='chat'){try{ensureChatOpener()}catch(e){}}
 }
