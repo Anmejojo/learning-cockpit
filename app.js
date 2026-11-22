@@ -1340,7 +1340,8 @@ function submitCheck(typeId,subject,imgsArr,append,localB64,quick,forceNew,recor
   }
   const _rec={id:Date.now(),date:_ds,type:typeId,typeName:type.name,subject:_sub,imgs:imgsArr||[],pts:type.pts,status:'pending',ts:Date.now()}
   actLog('提交记录',_ds+' '+_lbl)
-  try{confetti(120)}catch(e){}
+  const showCelebration=!(ROLE.kid&&tb==='today')
+  if(showCelebration)try{confetti(120)}catch(e){}
   _rec.noteSubmit=encTake()
   if(homework){
     if(homework.text)_rec.homeworkTitle=String(homework.text)
@@ -1350,19 +1351,22 @@ function submitCheck(typeId,subject,imgsArr,append,localB64,quick,forceNew,recor
   D.checks.unshift(_rec)
   const _subCnt=(D.points||[]).filter(function(p){return p.date===_ds&&p.type==='earn'&&String(p.source||'').indexOf('提交·')===0}).length
   const _gaveSub=(_subCnt<SUB_PTS_MAX)
-  if(_gaveSub){D.points.push({id:_newId('p'),date:_ds,source:'提交·'+_lbl,points:1,type:'earn'});try{ptBurst(1,'提交')}catch(e){}}
+  if(_gaveSub){
+    D.points.push({id:_newId('p'),date:_ds,source:'提交·'+_lbl,points:1,type:'earn'})
+    if(showCelebration)try{ptBurst(1,'提交')}catch(e){}
+  }
   /* 🌟 今日首胜（每天第一张 +1）+ 🍀 幸运加分（5% +1） */
   try{
     if(!D.win)D.win={d:'',n:0}
     if(D.win.d!==_ds){
       D.win={d:_ds,n:1}
       D.points.push({id:'win-'+_ds,date:_ds,source:'🌟 今日首胜',points:1,type:'earn'})
-      setTimeout(function(){try{ts('🌟 今日首胜 +1')}catch(e){};try{confetti(200)}catch(e){}},700)
+      if(showCelebration)setTimeout(function(){try{ts('🌟 今日首胜 +1')}catch(e){};try{confetti(200)}catch(e){}},700)
     }else D.win.n=(D.win.n||0)+1
     /* 🍀 幸运加分：5% 概率 +1 分（2026-09-19 收紧：原来 10% +2） */
     if(Math.random()<0.05){
       D.points.push({id:'lucky-'+_ds+'-'+Date.now(),date:_ds,source:'🍀 幸运加分',points:1,type:'earn'})
-      setTimeout(function(){try{ts('🍀 幸运加分 +1！')}catch(e){};try{confetti(220)}catch(e){}},1200)
+      if(showCelebration)setTimeout(function(){try{ts('🍀 幸运加分 +1！')}catch(e){};try{confetti(220)}catch(e){}},1200)
     }
   }catch(e){}
   sv(D);render()
@@ -4202,7 +4206,7 @@ async function pendRun(){
   }
   if(typeof render==='function')render()
 }
-function pendBanner(){
+function pendBanner(compact=false){
   const n=pendCount()
   if(!n)return null
   const box=h('div')
@@ -4210,7 +4214,7 @@ function pendBanner(){
   b.appendChild(h('span',{style:'flex:1'},'⏳ 有 '+n+' 批照片还没传完（已存在本机，不会丢）'))
   b.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){ts('正在接着传…');pendRun()}},'接着传'))
   box.appendChild(b)
-  box.appendChild(skelCard(3,'⏳ 正在传 '+n+' 批照片…（传完自动认科目和类型）'))
+  if(!compact)box.appendChild(skelCard(3,'⏳ 正在传 '+n+' 批照片…（传完自动认科目和类型）'))
   return box
 }
 
@@ -4948,39 +4952,53 @@ function homeHomeworkRow(entry,primary=false){
   return homeListRow(job.kind==='recite'?'book-open':'notebook-pen','neutral',
     job.text||'作业',[job.subj||'其他',job.kind==='recite'?'背诵':'书面',HOMEWORK_CATEGORIES[hwCategory(job)]].filter(Boolean).join(' · '),action)
 }
-function todayHomeworkPanel(entries,next){
+function todayHomeworkPanel(entries,checks){
   const order=['rejected','todo','uploading','pending','approved']
   entries.sort((a,b)=>order.indexOf(a.status)-order.indexOf(b.status))
-  const list=homeSection('作业清单')
-  list.classList.add('home-homework')
-  const progress=h('div',{className:'home-work-progress'})
-  if(!next&&!entries.some(entry=>entry.status==='uploading')){
-    progress.appendChild(h('strong',null,'今天的作业都已提交'))
-  }
-  for(const status of order){
-    const count=entries.filter(entry=>entry.status===status).length
-    if(count)progress.appendChild(homeStatus(status,count))
-  }
-  list.appendChild(progress)
+  const next=entries.find(entry=>entry.status==='rejected'||entry.status==='todo')
+  const waiting=entries.filter(entry=>entry.status==='uploading').length
+  const submitted=entries.filter(entry=>entry.status==='pending'||entry.status==='approved').length
+  const left=entries.length-waiting-submitted
   const visible=next||entries.find(entry=>entry.status==='uploading')
+  const list=homeSection('今日作业',homeButton('登记作业',()=>openHomeworkRegistration(),'text'))
+  list.classList.add('home-homework')
+  const heading=!entries.length?'今天还没有登记作业':
+    left?'还有 '+left+' 项要交':waiting?'只剩照片待传':'今天的作业都已提交'
+  const hasRecordedToday=checks.some(c=>c.date===td&&c.status!=='rejected')
+  const firstCapture=!entries.length&&!hasRecordedToday
+  const capture=h('div',{className:'home-work-actions'},
+    homeButton(firstCapture?'拍照打卡':'随手拍一张',()=>quickShot(td),firstCapture?'primary':'text','camera'))
+  list.appendChild(h('div',{className:'home-work-progress'},
+    h('strong',null,heading),
+    waiting?homeStatus('uploading',waiting+' 项'):null,
+    submitted?h('span',{className:'home-state mint'},'已提交 '+submitted+' 项'):null))
+  if(firstCapture)list.appendChild(capture)
   if(visible)list.appendChild(h('div',{className:'home-next-work'},homeHomeworkRow(visible,!!next)))
+  const receipt=recentFeedback(checks,visible?.job.recId)
+  if(receipt)list.appendChild(receipt)
   const rest=entries.filter(entry=>entry!==visible)
-  if(!rest.length)return list
-  const more=h('details',{className:'home-work-details'},
-    h('summary',null,visible?'查看其余 '+rest.length+' 项':'查看 '+rest.length+' 项作业'))
-  rest.forEach(entry=>more.appendChild(homeHomeworkRow(entry)))
-  list.appendChild(more)
+  if(rest.length){
+    const more=h('details',{className:'home-work-details'},
+      h('summary',null,(visible?'查看其余 ':'查看全部 ')+rest.length+' 项'))
+    rest.forEach(entry=>more.appendChild(homeHomeworkRow(entry)))
+    list.appendChild(more)
+  }
+  if(!firstCapture)list.appendChild(capture)
   return list
 }
-function recentFeedback(checks){
-  const latest=checks.reduce((best,c)=>!best||Math.max(c.at||0,c.ts||0)>Math.max(best.at||0,best.ts||0)?c:best,null)
+function recentFeedback(checks,shownId){
+  const latest=checks.find(c=>c.date===td&&(shownId==null||c.id!==shownId))||
+    checks.filter(c=>c.date!==td&&(c.status==='approved'||c.status==='rejected'))
+      .reduce((best,c)=>!best||Math.max(c.at||0,c.ts||0)>Math.max(best.at||0,best.ts||0)?c:best,null)
   if(!latest)return null
   const st=latest.status||'pending'
+  const today=latest.date===td
+  const label=today&&st!=='rejected'?'今天已记录':'最近反馈'+(!today&&latest.date?' · '+fd(latest.date):'')
   return h('section',{className:'home-feedback'},
-    h('span',{className:'home-icon '+(st==='approved'?'mint':st==='rejected'?'rose':'amber')},homeIcon('list-checks',19)),
+    h('span',{className:'home-icon '+(st==='rejected'?'rose':'mint')},homeIcon('list-checks',19)),
     h('div',{className:'home-feedback-copy'},
-      h('span',null,'最近反馈'+(latest.date&&latest.date!==td?' · '+fd(latest.date):'')),
-      h('h2',null,recordTitle(latest)),
+      h('span',null,label),
+      h('h3',null,recordTitle(latest)),
       st==='approved'&&latest.note?h('p',null,latest.note):null),
     h('div',{className:'home-feedback-actions'},homeStatus(st),
       homeButton('看记录',()=>openCheckHistory(latest.id),'text','arrow-right')))
@@ -4991,8 +5009,7 @@ function homeShortcuts(parent){
     ? [['录入成绩','bar-chart-3',()=>{_scView='list';_scoreReviewOnly=false;_openExamForm=true;sw('scores')}],
         ['积分账本','star',()=>{_pkView='points';sw('points')}],['小搭','bot',()=>sw('chat')]]
     : [['小搭','bot',()=>sw('chat')],['单词游戏','book-open',()=>sw('word')],
-        ['错题本','notebook-pen',()=>sw('mistake')],['记个习惯','flame',()=>openTodayCheckin('todayHabits')],
-        ['登记作业','list-checks',()=>openHomeworkRegistration()]]
+        ['错题本','notebook-pen',()=>sw('mistake')],['记个习惯','flame',()=>openTodayCheckin('todayHabits')]]
   for(const [label,icon,fn] of tools)box.appendChild(homeButton(label,fn,'quiet',icon))
   return box
 }
@@ -5016,7 +5033,7 @@ function rtoday(){
   const checks=(D.checks||[]).slice().sort((a,b)=>(b.ts||0)-(a.ts||0))
   const parent=ROLE.parent
   const work=h('div',{className:'home-page '+(parent?'parent-home':'kid-home')})
-  const upload=pendBanner()
+  const upload=pendBanner(!parent)
   if(upload)work.appendChild(upload)
   if(parent){
     if((D._alerts||[]).some(a=>!a.ack))work.appendChild(homeButton('查看小搭的关注提醒',()=>sw('chat'),'quiet','bell'))
@@ -5032,17 +5049,7 @@ function rtoday(){
   }else{
     const uploading=hwUploadIds()
     const entries=hwToday().map(job=>({job,status:hwDisplayStatus(job,uploading)}))
-    const next=entries.find(entry=>entry.status==='rejected')||entries.find(entry=>entry.status==='todo')
-    const latest=recentFeedback(checks)
-    const workStack=h('div',{className:'kid-home-work'})
-    if(entries.length)workStack.appendChild(todayHomeworkPanel(entries,next))
-    if(latest)workStack.appendChild(latest)
-    const poster=rewardHero(entries.length>0,!!next||entries.some(entry=>entry.status==='uploading'))
-    const layout=h('div',{className:'kid-home-grid'+(entries.length?' has-homework':'')})
-    if(!entries.length)layout.appendChild(poster)
-    if(entries.length||latest)layout.appendChild(workStack)
-    if(entries.length)layout.appendChild(poster)
-    work.appendChild(layout)
+    work.appendChild(h('div',{className:'kid-home-grid'},todayHomeworkPanel(entries,checks),rewardHero()))
     work.appendChild(homeShortcuts(false))
   }
   $c.appendChild(work)
@@ -7063,18 +7070,16 @@ function rewardProgress(part,balance){
     h('div',null,h('span',null,'积分进度'),h('strong',null,have.toLocaleString()+' / '+need.toLocaleString())),
     progress)
 }
-function rewardHero(hasHomework,secondaryCapture){
+function rewardHero(){
   const part=getRewardWish()
   const balance=rewardBalance()
   const showProgress=part&&part.exchange&&!part.unlocked&&!part.received
   return h('section',{className:'home-hero reward-hero',id:'rewardGoal',tabindex:'-1'},
     h('img',{className:'reward-art',src:'build-hero.webp',alt:'',decoding:'async',fetchpriority:'high'}),
     h('div',{className:'home-hero-copy'},
-      h('h2',null,'今天记点什么？'),
-      h('p',null,hasHomework?'随手拍一张笔记或练习。':'作业、笔记、背诵草稿，都可以拍。'),
+      h('h2',null,'我的装机台'),
       h('div',{className:'reward-actions'},
-        homeButton('拍照打卡',()=>quickShot(td),secondaryCapture?'quiet':'primary','camera'),
-        part?null:homeButton('去装机台',openRewardCatalog,'quiet','gift')),
+        homeButton('看装备',()=>openRewardCatalog(),'quiet','gift')),
       part?h('div',{className:'hero-wish'},
         homeButton('我的心愿 · '+part.name,()=>rewardDialog(part),'text','star'),
         showProgress?rewardProgress(part,balance):
