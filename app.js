@@ -4596,6 +4596,16 @@ function habStats(date){
   let done=0;for(const it of ci){if(tchk[it.key])done++}
   return {done:done,total:ci.length,ci:ci,tchk:tchk}
 }
+function habitStreakDays(key){
+  const day=new Date(td+'T12:00:00')
+  if(!D.dailyChecks[td]?.[key])day.setDate(day.getDate()-1)
+  let count=0
+  while(D.dailyChecks[ymd(day)]?.[key]){
+    count++
+    day.setDate(day.getDate()-1)
+  }
+  return count
+}
 function segBar(items){
   const seg=h('div',{className:'seg'})
   for(const it of items)seg.appendChild(h('button',{type:'button',className:'seg-btn'+(it.on?' on':''),'aria-pressed':String(!!it.on),onClick:it.fn},it.label))
@@ -6681,7 +6691,7 @@ function hwAddRow({text='',category='school',date='',onSaved=()=>render()}={}){
   box.appendChild(save)
   return box
 }
-let _checkToolsOpen=false
+let _checkToolsOpen=false,_habitStreakOpen=false
 function rckList(){
   const _pb=pendBanner();if(_pb)$c.appendChild(_pb);
   if(_offline)$c.appendChild(h('div',{className:'alert warning',style:'margin-bottom:10px'},'📴 现在没连上网：拍照打卡照旧能用，先存在本机，联网后自动传上去。'));
@@ -6830,6 +6840,17 @@ function rckList(){
         onClick:()=>viewImg(photo)},homeIcon('camera',18)):null))
   }
   cc.appendChild(list)
+  const streaks=hs.ci.map(item=>[item.label,habitStreakDays(item.key)])
+  const longest=streaks.reduce((max,[,days])=>Math.max(max,days),0)
+  const streakDetails=h('details',{className:'home-work-details habit-streak'},
+    h('summary',null,h('span',null,'连续记录'),
+      longest?h('span',{className:'habit-streak-summary'},'当前最长 '+longest+' 天'):null),
+    h('p',{className:'work-note habit-streak-note'},'今天还没打卡的项目，连续天数算到昨天。'),
+    h('dl',{className:'habit-list'},...streaks.map(([label,days])=>h('div',{className:'habit-row habit-streak-row'},
+      h('dt',null,label),h('dd',null,days+' 天')))))
+  streakDetails.open=_habitStreakOpen
+  streakDetails.addEventListener('toggle',()=>{if(streakDetails.isConnected)_habitStreakOpen=streakDetails.open})
+  cc.appendChild(streakDetails)
   $c.appendChild(cc)
 
   // 今日任务清单
@@ -6854,13 +6875,6 @@ function rckList(){
     tc.appendChild(addRow)
   }
   $c.appendChild(tc)
-
-  // 连续打卡
-  const sc=h('div',{className:'card'})
-  sc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🔥'}),'习惯连续天数'))
-  function cs_(key){let n=0;const d=new Date();for(let i=0;i<60;i++){const d2=ymd(d);const chk=D.dailyChecks[d2];if(chk&&chk[key]){n++;d.setDate(d.getDate()-1)}else break}return n}
-  sc.innerHTML+='<div class="table-scroll"><table><thead><tr><th scope="col">项目</th><th scope="col">连续天数</th><th scope="col">状态</th></tr></thead><tbody>'+hs.ci.map(function(item){const n=cs_(item.key);const st=n>=7?'🟢 优秀':n>=3?'🟡 良好':n>0?'🟠 一般':'🔴 未打卡';return '<tr><td>'+item.icon+' '+item.label+'</td><td><strong>'+n+'</strong> 天</td><td>'+st+'</td></tr>'}).join('')+'</tbody></table></div>'
-  $c.appendChild(sc)
 }
 
 /* ============ ③ 成绩（记录 / 周报） ============ */
