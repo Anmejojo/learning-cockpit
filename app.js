@@ -4482,24 +4482,19 @@ function compressImage(file,cb){
     reader.readAsDataURL(file)
   }catch(e){cb(null)}
 }
-function toggleCheck(item,img){
-  const nv=!D.dailyChecks[td][item.key]
-  D.dailyChecks[td][item.key]=nv
-  if(nv){
-    if(img){
-      if(!D.checkImgs)D.checkImgs={}
-      if(!D.checkImgs[td])D.checkImgs[td]={}
-      D.checkImgs[td][item.key]=img
-    }
-    D.points.push({id:_newId('p'),date:td,source:item.label,points:item.pts,type:'earn'});try{ptBurst(item.pts,item.label)}catch(e){}
-    sv(D);render()
-    ts('✅ '+item.label+' +'+item.pts+'分'+(img?' · 已上传照片':''))
+function toggleCheck(item){
+  dateRoll()
+  const done=!D.dailyChecks[td][item.key]
+  D.dailyChecks[td][item.key]=done
+  if(done){
+    D.points.push({id:_newId('p'),date:td,source:item.label,points:item.pts,type:'earn'})
   }else{
-    if(D.checkImgs&&D.checkImgs[td]){delete D.checkImgs[td][item.key]}
     D.points=D.points.filter(function(p){return !(p.date===td&&p.source===item.label&&p.type==='earn')})
-    sv(D);render()
-    ts('已取消 '+item.label)
   }
+  sv(D)
+  render()
+  document.getElementById('habit-'+item.key)?.focus({preventScroll:true})
+  ts(done?'已打卡 · '+item.label:'已取消 · '+item.label)
 }
 let _lbScale=1,_lbImg=null,_lbList=[],_lbIdx=0
 function closeLightbox(){const lb=document.getElementById('lightbox');if(lb)lb.remove();_lbScale=1;_lbImg=null}
@@ -4582,24 +4577,6 @@ document.addEventListener('keydown',function(e){
   else if(e.key==='ArrowRight'){lbStep(1)}
   else if(e.key==='Escape'){closeLightbox()}
 })
-function pickImageThenCheck(item){
-  const done=!!D.dailyChecks[td][item.key]
-  const hasImg=D.checkImgs&&D.checkImgs[td]&&D.checkImgs[td][item.key]
-  if(done){if(hasImg){viewImg(hasImg);return}toggleCheck(item);return}
-  askChoice('要传证明照片吗？','传一张照片更清楚（家长审核时能看到你写了什么），也可以直接打勾。',[
-    ['📷 传照片',function(){
-      const inp=document.createElement('input')
-      inp.type='file';inp.accept='image/*'
-      inp.onchange=function(e){
-        const f=e.target.files[0]
-        if(f){compressImage(f,function(b64){toggleCheck(item,b64)})}
-        else{toggleCheck(item)}
-      }
-      inp.click()
-    },'btn-primary'],
-    ['✅ 直接打卡',function(){toggleCheck(item)}]
-  ])
-}
 function ckDate(){return _checkDate||td}
 function findRec(subj,typeId,date){const ds=date||ckDate();return (D.checks||[]).find(function(c){return c.date===ds&&c.subject===subj&&c.type===typeId})}
 function subjTypes(subj){return CHECK_TYPES.filter(function(t){return t.subject&&(!t.englishOnly||subj==='英语')})}
@@ -6835,16 +6812,24 @@ function rckList(){
 
   // 习惯打卡
   const hs=habStats(td)
-  const cc=h('div',{className:'card',id:'todayHabits',tabindex:'-1'})
-  cc.appendChild(h('div',{className:'card-header'},icoEl('flame',18),'习惯打卡（打勾即可，不用拍照）'))
-  const grid=h('div',{className:'check-grid'})
+  const cc=h('section',{className:'card',id:'todayHabits',tabindex:'-1','aria-labelledby':'habitHeading'})
+  cc.appendChild(h('header',{className:'habit-head'},
+    h('h2',{id:'habitHeading'},homeIcon('flame',18),'习惯打卡'),
+    h('span',{className:'habit-count'},'已打卡 '+hs.done+' / '+hs.total)))
+  const list=h('ul',{className:'habit-list'})
   for(const item of hs.ci){
-    const done=hs.tchk[item.key]||false
-    const cii=h('div',{className:'check-item '+(done?'done':''),onClick:function(){pickImageThenCheck(item)}})
-    cii.innerHTML='<div class="ci">'+(done?'✅':item.icon)+'</div><div class="cl">'+item.label+(D.checkImgs&&D.checkImgs[td]&&D.checkImgs[td][item.key]?' 📷':'')+'</div><div class="cs">+'+item.pts+' 积分</div>'
-    grid.appendChild(cii)
+    const done=!!hs.tchk[item.key]
+    const photo=D.checkImgs?.[td]?.[item.key]
+    const points=(Number(item.pts)>0?'+':'')+item.pts+' 积分'
+    list.appendChild(h('li',{className:'habit-row'},
+      h('button',{type:'button',id:'habit-'+item.key,className:'habit-toggle','aria-pressed':String(done),onClick:()=>toggleCheck(item)},
+        h('span',{className:'habit-mark','aria-hidden':'true'},done?homeIcon('check',14):null),
+        h('span',{className:'habit-label'},item.label),
+        h('span',{className:'habit-points'},points)),
+      photo?h('button',{type:'button',className:'habit-photo',title:'查看打卡照片','aria-label':'查看照片 · '+item.label,
+        onClick:()=>viewImg(photo)},homeIcon('camera',18)):null))
   }
-  cc.appendChild(grid)
+  cc.appendChild(list)
   $c.appendChild(cc)
 
   // 今日任务清单
