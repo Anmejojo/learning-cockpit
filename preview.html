@@ -5,7 +5,10 @@
 <title>驾驶舱对照预览</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-  :root{color-scheme:dark;background:#0d0c10;color:#efeae1;scrollbar-gutter:stable}
+  :root{
+    --preview-bg:#101014;--preview-chrome:#1c1b21;--preview-control:#232029;
+    color-scheme:dark;background:var(--preview-bg);color:#efeae1;scrollbar-gutter:stable;
+  }
   *,*::before,*::after{box-sizing:border-box}
   body{
     margin:0;min-height:100dvh;
@@ -13,7 +16,7 @@
   }
   .toolbar{
     position:sticky;top:0;z-index:1;display:grid;gap:8px;
-    padding:10px 16px;border-bottom:1px solid #4a4452;background:#222128;
+    padding:10px 16px;border-bottom:1px solid #4a4452;background:var(--preview-chrome);
   }
   .toolbar-head,.toolbar-controls{
     display:flex;align-items:center;justify-content:space-between;gap:8px 16px;flex-wrap:wrap;
@@ -23,13 +26,13 @@
   .actions,.options{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
   .toolbar :is(button,a){
     min-height:38px;display:inline-flex;align-items:center;justify-content:center;padding:4px 10px;border:1px solid #4a4452;
-    border-radius:8px;color:#efeae1;background:#29262e;font:inherit;font-size:13px;
+    border-radius:8px;color:#efeae1;background:var(--preview-control);font:inherit;font-size:13px;
     cursor:pointer;text-decoration:none;white-space:nowrap;
   }
   .toolbar :is(button,a):hover{background:#35313b}
   .toolbar button[aria-pressed="true"]{background:#45382d;border-color:#b38d65;color:#fff0db}
   .toolbar :is(button,a):focus-visible{outline:2px solid #a9d0c5;outline-offset:2px}
-  .options{gap:2px;padding:2px;border:1px solid #4a4452;border-radius:10px;background:#1b1a20}
+  .options{gap:2px;padding:2px;border:1px solid #4a4452;border-radius:10px;background:#18171c}
   .options button{min-height:34px;padding-inline:9px;border-color:transparent;background:transparent}
   [hidden]{display:none!important}
   .dimensions{color:#c9c0cf;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -40,14 +43,14 @@
   .pane{min-width:0;display:flex;justify-content:center;align-items:flex-start}
   .screen{
     position:relative;width:var(--fit-w);height:var(--fit-h);overflow:hidden;
-    border-radius:12px;outline:1px solid #716473;background:#101014;
+    border-radius:12px;outline:1px solid #716473;background:var(--preview-bg);
     box-shadow:0 12px 30px #100d147d;
   }
   .screen iframe{
     position:absolute;inset:0 auto auto 0;display:block;
     width:var(--screen-w);height:var(--screen-h);padding:0;border:0;
     transform:scale(var(--fit-scale));transform-origin:top left;
-    background:#101014;
+    background:var(--preview-bg);
   }
   @media(max-width:760px){
     .wrap{padding:8px;gap:10px}

@@ -574,10 +574,10 @@ const ROLE={
 
 /* ===== 外观主题（只换配色，数据不受影响）===== */
 const THEMES=[
-  {id:'classic',name:'静夜驾驶舱',bg:'#1b1a20',cl:'#d9b68b'},
-  {id:'a',name:'极简暗夜',bg:'#12161b',cl:'#dbe8ed'},
-  {id:'b',name:'深空金属',bg:'#1a2023',cl:'#b4cbd0'},
-  {id:'c',name:'暖夜书房',bg:'#191a19',cl:'#e8d9b2'}
+  {id:'classic',name:'静夜驾驶舱',cl:'#d9b68b'},
+  {id:'a',name:'极简暗夜',cl:'#dbe8ed'},
+  {id:'b',name:'深空金属',cl:'#b4cbd0'},
+  {id:'c',name:'暖夜书房',cl:'#e8d9b2'}
 ]
 function themeNow(){try{return (D&&D.theme)||'classic'}catch(e){return 'classic'}}
 function applyTheme(){
@@ -7776,13 +7776,13 @@ function _rsetBody(){
   const _th=themeNow()
   const thc=h('div',{className:'card edit-only'})
   thc.appendChild(h('div',{className:'card-header'},h('span',{innerHTML:'🎨'}),'外观主题'))
-  thc.appendChild(h('div',{className:'t-muted mb8'},'三套高档不花的配色。只换颜色，数据一样；选一个你和他都看得顺眼的。'))
+  thc.appendChild(h('div',{className:'t-muted mb8'},'选择按钮和高亮的颜色。'))
   const _trow=h('div',{className:'row'})
   THEMES.forEach(function(t){
     const on=(_th===t.id)
     const b=h('div',{className:'theme-pick'+(on?' on':''),onClick:function(){setTheme(t.id)}})
     const dots=h('div',{className:'tp-dots'})
-    const d1=h('span',{className:'tp-dot'});d1.style.background=t.bg
+    const d1=h('span',{className:'tp-dot'});d1.style.background='var(--workspace-panel)'
     const d2=h('span',{className:'tp-dot'});d2.style.background=t.cl
     dots.appendChild(d1);dots.appendChild(d2)
     b.appendChild(dots)
