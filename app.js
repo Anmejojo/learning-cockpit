@@ -3496,7 +3496,7 @@ function chatUI(){
   const _all=chatLog()
   const list=_all.slice(-_chatShow)
   const full=h('div',{className:'chat-full'})
-  const scroll=h('div',{className:'chat-scroll',id:'chatScroll'})
+  const scroll=h('div',{className:'chat-scroll',id:'chatScroll',tabindex:'-1'})
   if(_all.length>list.length){
     scroll.appendChild(h('button',{className:'btn btn-outline btn-sm',style:'margin:2px auto 12px;display:block',onClick:function(){_chatShow+=60;render()}},'看更早的聊天'))
   }else if(list.length&&list[0].date!==td){
@@ -6347,13 +6347,13 @@ function hwParse(txt){
     return (j&&Array.isArray(j.items))?j.items:[]
   }catch(e){return []}
 }
-function openHomeworkRegistration({text='',category='school',identify=false}={}){
+function openHomeworkRegistration({text='',category='school',date='',identify=false}={}){
   const existing=document.getElementById('homeworkRegistration')
   if(existing){existing.querySelector('textarea')?.focus();return}
   const dialog=h('dialog',{className:'reward-dialog homework-registration',id:'homeworkRegistration','aria-labelledby':'homeworkRegistrationTitle'})
   dialog.appendChild(h('header',null,h('h2',{id:'homeworkRegistrationTitle'},'登记作业'),
     h('button',{type:'button',className:'reward-close','aria-label':'关闭作业登记',onClick:()=>dialog.close()},'×')))
-  const form=hwAddRow({text,category,onSaved:date=>{
+  const form=hwAddRow({text,category,date,onSaved:date=>{
     dialog.close()
     openTodayCheckin('todayHomework',date)
   }})
@@ -6470,31 +6470,31 @@ function hwCard(){
   c.appendChild(h('header',{className:'homework-ledger-head'},h('h2',null,'每日作业清单'),
     h('label',{className:'homework-day-picker',title:fd(date)},
       h('span',{'aria-hidden':'true'},shortDate+' ▾'),filter),
-    homeButton('登记作业',()=>openHomeworkRegistration(),'primary')))
-  if(!list.length){
-    c.appendChild(h('p',{className:'work-note'},'这一天还没有登记作业。'))
-    return c
-  }
+    homeButton('登记作业',()=>openHomeworkRegistration(),'primary','notebook-pen')))
   const remaining=list.filter(({status})=>status==='todo'||status==='rejected').length
   const waiting=list.filter(({status})=>status==='uploading').length
   const submitted=list.length-remaining-waiting
   const summary=[
     remaining?'还有 '+remaining+' 项要交':'',waiting?'照片待传 '+waiting+' 项':'',submitted?'已提交 '+submitted+' 项':''
   ].filter(Boolean).join(' · ')
-  c.appendChild(h('div',{className:'homework-ledger-meta'},
+  if(list.length)c.appendChild(h('div',{className:'homework-ledger-meta'},
     h('p',{className:'homework-ledger-summary'},summary),homeButton('复制清单',()=>copyHomework(date,jobs),'text')))
   for(const [category,label] of [...Object.entries(HOMEWORK_CATEGORIES),['','以往登记']]){
     const group=list.filter(entry=>hwCategory(entry.job)===category)
-    if(!group.length)continue
-    const section=h('section',{className:'homework-category'},h('h3',null,label))
+    if(!category&&!group.length)continue
+    const action=category==='family'?homeButton('登记家庭作业',()=>openHomeworkRegistration({category,date}),'text'):null
+    const section=h('section',{className:'homework-category','data-category':category},
+      h('header',null,h('h3',null,label),action))
+    if(!group.length)section.appendChild(h('p',{className:'work-note homework-category-empty'},'暂无登记'))
     group.forEach(({job,status})=>section.appendChild(hwRow(job,status)))
     c.appendChild(section)
   }
   return c
 }
-function hwAddRow({text='',category='school',onSaved=()=>render()}={}){
+function hwAddRow({text='',category='school',date='',onSaved=()=>render()}={}){
   const box=h('div',{className:'homework-form'})
   const day=h('input',{type:'date',id:'hwDateIn','aria-label':'这是哪一天的作业？'})
+  day.value=date
   const source=h('select',{id:'hwSrcSel','aria-label':'作业来源'})
   for(const [key,label] of Object.entries(HOMEWORK_CATEGORIES))source.appendChild(h('option',{value:key},label))
   source.value=category
@@ -6599,26 +6599,41 @@ function rckList(){
   ledger.id='todayHomework';ledger.tabIndex=-1
   if(ROLE.kid){$c.appendChild(ledger);$c.appendChild(quick)}
   else{$c.appendChild(quick);$c.appendChild(ledger)}
-  const cq=h('div',{className:'card'})
-  cq.appendChild(h('div',{className:'card-header'},icoEl('list-checks',18),'按科目提交'))
-  const minD=(function(){var d=new Date();d.setDate(d.getDate()-2);return ymd(d)})()
-  const dateRow=h('div',{style:'display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap'})
-  dateRow.innerHTML='<span style="font-size:var(--fs-15)">日期：</span><input type="date" id="checkDateInput" value="'+ckd+'" min="'+minD+'" max="'+td+'" style="width:150px">'+(ckd!==td?'<span style="font-size:var(--fs-14);color:var(--warning)">（补卡 '+ckd+'）</span>':'')
-  dateRow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){var v=document.getElementById('checkDateInput').value||td;if(v<minD){ts('⚠️ 只能补最近 2 天（'+minD+'之后）');return}if(v>td){ts('⚠️ 不能选未来日期');return}_checkDate=v;render()}},'切换'))
-  dateRow.appendChild(h('button',{className:'btn btn-warning btn-sm',onClick:function(){var d=new Date();d.setDate(d.getDate()-1);_checkDate=ymd(d);render()}},'⏰ 补昨天'))
-  if(ckd!==td)dateRow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_checkDate=null;render()}},'回到今天'))
-  if(ROLE.kid){
-    const dateOptions=h('details',{className:'check-date-options'},h('summary',null,'补前两天的记录'),dateRow)
-    dateOptions.open=ckd!==td
-    cq.appendChild(dateOptions)
-  }else cq.appendChild(dateRow)
-  const ctrlRow=h('div',{style:'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px'})
-  ctrlRow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){for(const sb of SUBJECTS)_openSubj[sb]=true;render()}},'全部展开'))
-  ctrlRow.appendChild(h('button',{className:'btn btn-outline btn-sm',onClick:function(){_openSubj={};render()}},'全部收起'))
-  const onlyBtn=h('button',{className:'btn btn-sm '+(_onlyTodo?'btn-primary':'btn-outline'),onClick:function(){_onlyTodo=!_onlyTodo;render()}})
-  onlyBtn.innerHTML=_onlyTodo?'☑ 只看未完成':'☐ 只看未完成'
-  ctrlRow.appendChild(onlyBtn)
-  cq.appendChild(ctrlRow)
+  const cq=h('section',{className:'card','aria-labelledby':'check-subject-title'})
+  const subjects=SUBJECTS.map(subj=>[subj,subjStats(subj,ckd)])
+    .filter(([,st])=>!_onlyTodo||!st.total||st.done<st.total)
+  const allOpen=subjects.length>0&&subjects.every(([subj])=>_openSubj[subj])
+  const dateSelect=h('select',{id:'checkDateInput','aria-label':'补记日期',onChange:e=>{
+    _checkDate=e.target.value===td?null:e.target.value
+    render()
+    document.getElementById('checkDateInput')?.focus({preventScroll:true})
+  }},...['今天','昨天','前天'].map((label,offset)=>{
+    const day=new Date(td+'T12:00:00')
+    day.setDate(day.getDate()-offset)
+    const value=ymd(day)
+    return h('option',{value},label+' · '+fd(value))
+  }))
+  dateSelect.value=ckd
+  const toggle=homeButton(allOpen?'收起':'展开',()=>{
+    _openSubj=allOpen?{}:Object.fromEntries(SUBJECTS.map(subj=>[subj,true]))
+    render()
+    document.getElementById('checkSubjectToggle')?.focus({preventScroll:true})
+  },'text')
+  toggle.id='checkSubjectToggle'
+  toggle.setAttribute('aria-label',allOpen?'收起全部科目':'展开全部科目')
+  toggle.disabled=!subjects.length
+  const filter=homeButton('只看未完成',()=>{
+    _onlyTodo=!_onlyTodo
+    render()
+    document.getElementById('checkSubjectFilter')?.focus({preventScroll:true})
+  },'quiet')
+  filter.id='checkSubjectFilter'
+  filter.setAttribute('aria-pressed',String(_onlyTodo))
+  cq.appendChild(h('header',{className:'check-submission-head'},
+    h('h2',{id:'check-subject-title'},'按科目提交'),
+    h('label',{className:'homework-day-picker check-day-picker'},
+      h('span',{'aria-hidden':'true'},(ckd===td?'补记':ckd.slice(5).replace('-','/'))+' ▾'),dateSelect),
+    toggle,filter))
   const pendDay=(D.checks||[]).filter(function(c){return c.date===ckd&&c.status==='pending'})
   if(ROLE.parent&&pendDay.length){
     const pbar=h('div',{className:'alert warning',style:'margin-bottom:10px;flex-wrap:wrap;gap:10px'})
@@ -6665,9 +6680,7 @@ function rckList(){
     }
     return card
   }
-  for(const subj of SUBJECTS){
-    const st=subjStats(subj,ckd)
-    if(_onlyTodo&&st.total>0&&st.done===st.total)continue
+  for(const [subj,st] of subjects){
     const open=!!_openSubj[subj]
     const id='subj_'+subj
     const head=h('button',{id,type:'button',className:'subj-head'+(open?' open':''),'aria-expanded':String(open),
@@ -8575,6 +8588,16 @@ document.getElementById('tabNav').addEventListener('click',e=>{
   else openMainTab(btn.dataset.tab)
 })
 document.querySelectorAll('[data-home]').forEach(b=>b.addEventListener('click',()=>sw('today')))
+const appChat=document.getElementById('appChat')
+if(appChat){
+  appChat.insertBefore(homeIcon('bot',16),appChat.firstChild)
+  appChat.addEventListener('click',()=>{
+    if(tb!=='chat'){sw('chat');return}
+    if(_memOpen){_memOpen=false;render()}
+    const target=document.getElementById(ROLE.kid?'chatInput':'chatScroll')
+    target?.focus({preventScroll:true})
+  })
+}
 window.addEventListener('resize',()=>{if(_moreOpen&&window.innerWidth>=900)closeMore()})
 var _cb=document.getElementById('cloudBadge')
 if(_cb){_cb.style.cursor='pointer';_cb.addEventListener('click',function(){if(_dirty||!cloudReady){syncNow()}else{ts('☁️ 数据已同步（'+fmtHM(_syncT)+'）')}})}
