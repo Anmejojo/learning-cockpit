@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1c1b21">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="学习驾驶舱">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<title>阿勒学习驾驶舱</title>
+<link rel="stylesheet" href="styles.css?v11110048">
+</head>
+<body class="workspace">
+<aside class="app-sidebar">
+  <button class="app-brand" type="button" data-home>
+    <span class="app-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3.4 18a10 10 0 1 1 17.2 0M12 13l4-4"/><circle cx="12" cy="13" r="1.6" fill="currentColor"/></svg></span>
+    <span>学习驾驶舱</span>
+  </button>
+  <nav class="tabs" id="tabNav" aria-label="学习导航">
+    <div class="nav-caption">学习</div>
+    <button class="tab-btn active" type="button" data-tab="today" aria-current="page"><span class="tab-label">今日</span></button>
+    <button class="tab-btn" type="button" data-tab="checkin"><span class="tab-label">作业与打卡</span></button>
+    <button class="tab-btn" type="button" data-tab="scores"><span class="tab-label">成绩</span></button>
+    <button class="tab-btn" type="button" data-tab="mistake"><span class="tab-label">错题本</span></button>
+    <button class="tab-btn" type="button" data-tab="word"><span class="tab-label">单词</span></button>
+    <button class="tab-btn" type="button" data-tab="write"><span class="tab-label">硬笔字</span></button>
+    <div class="nav-caption">成长</div>
+    <button class="tab-btn" type="button" data-tab="chat"><span class="tab-label">小搭</span></button>
+    <button class="tab-btn" type="button" data-tab="points"><span class="tab-label">积分奖励</span></button>
+    <button class="tab-btn" type="button" data-tab="settings"><span class="tab-label">设置</span></button>
+    <button class="tab-btn" type="button" data-tab="more" aria-controls="moreSheet" aria-expanded="false"><span class="tab-label">更多</span></button>
+  </nav>
+  <div class="app-profile" id="appProfile"></div>
+</aside>
+<div class="app-shell">
+  <header class="topbar">
+    <div class="app-home-title" id="appHomeTitle"></div>
+    <div class="app-page-title">
+      <button class="app-mobile-home" type="button" data-home aria-label="返回首页"><span aria-hidden="true">‹</span></button>
+      <div id="appPageTitle"></div>
+    </div>
+    <div class="app-status">
+      <span class="app-role" id="modeBadge"></span>
+      <button type="button" id="cloudBadge" title="查看同步状态或重试" aria-label="连接中…"><span class="cloud-indicator" aria-hidden="true"></span><span class="cloud-label">连接中…</span></button>
+      <div class="app-home-actions" id="appHomeActions"></div>
+      <button type="button" class="home-btn quiet app-chat-button" id="appChat" aria-label="小搭" title="小搭"><span>小搭</span></button>
+    </div>
+  </header>
+  <main class="content" id="appContent" tabindex="-1"></main>
+  <div class="app-scroll-hint" id="appScrollHint" aria-hidden="true"></div>
+</div>
+<div id="moreSheet"></div>
+<div class="toast" id="toast" role="status"></div>
+<script src="room.js?v11110048"></script>
+<script src="wall.js?v11110048"></script>
+<script src="app.js?v11110048"></script>
+</body>
+</html>
