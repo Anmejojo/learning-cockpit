@@ -1,7 +1,7 @@
 ﻿/* 阿勒学习驾驶舱 · Service Worker
    作用：① 安卓 Chrome 可"安装成应用" ② 断网也能打开壳 ③ 静态资源缓存加速
    注意：AI 请求、云存储图片、数据库走网络，不缓存 */
-const CACHE = 'lc-shell-v41'
+const CACHE = 'lc-shell-v42'
 const ASSETS = ['./', './index.html', './classic.html', './学习驾驶舱.html', './styles.css', './cockpit.css', './cockpit.js', './avatar-lele.png', './manifest.json', './icon-192.png', './icon-512.png', './icon-180.png', './font-inter.woff2', './font-mono.woff2', './words-8.json', './words-zk.json', './app.js', './room.js', './wall.js', './cockpit-hero.webp', './build-hero.webp']
 ASSETS.push('./reward-photos/studio.webp','./reward-photos/switch-cartridges.webp','./reward-photos/zelda-cartridge.webp',...Array.from({length:20},(_,i)=>'./reward-photos/'+String(i+1).padStart(2,'0')+'.webp'))
 

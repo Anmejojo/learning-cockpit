@@ -758,7 +758,13 @@ body[data-role="parent"] .task-row .tick{border-style:dashed;background:#fbf8fd}
 .reward-ico.cat-出行{background:linear-gradient(150deg,#eaf5ff,#dcecfc);border-color:#d8e9fa}
 .reward-ico.cat-文具{background:linear-gradient(150deg,#eef9f2,#ddf0e5);border-color:#d9ecdf}
 .reward-ico.cat-心愿{background:linear-gradient(150deg,#fdf0f5,#fbe3ec);border-color:#f7dce7}
+.reward-ico.cat-电脑{background:linear-gradient(150deg,#eef4fb,#e2ecf8);border-color:#d7e5f4}
 .reward-name{font-size:12px;font-weight:800;line-height:1.35;color:var(--ink);min-height:32px;display:flex;align-items:center;justify-content:center}
+.reward-detail{
+  font-size:8.5px;color:var(--muted);line-height:1.4;margin-top:-2px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  max-width:100%;word-break:break-all;
+}
 .reward-cost{font-size:10.5px;font-weight:800;color:#a3741f;display:flex;align-items:center;gap:2px;line-height:1}
 .reward-cost i{font-style:normal;color:var(--gold)}
 .reward-btn{
@@ -857,6 +863,7 @@ body[data-role="parent"] .task-row .tick{border-style:dashed;background:#fbf8fd}
 .modal-reward-preview .reward-ico{width:64px;height:64px;font-size:32px}
 .modal-reward-preview strong{font-size:15px;font-weight:850;margin-top:3px}
 .modal-reward-preview .cost{font-size:12px;font-weight:800;color:#a3741f}
+.modal-reward-preview .detail{font-size:10px;color:var(--muted);line-height:1.5;max-width:290px}
 .modal-reward-preview .after{font-size:10.5px;color:var(--muted);margin-top:2px}
 .confirm-hint{display:flex;align-items:flex-start;gap:7px;font-size:11px;color:var(--muted);background:#fdfaf5;border:1px solid #f6ead5;border-radius:10px;padding:8px 10px;margin-top:10px;line-height:1.6}
 .confirm-hint .ico{width:14px;height:14px;color:var(--gold-deep);flex:none;margin-top:1px}

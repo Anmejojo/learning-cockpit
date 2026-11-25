@@ -1,4 +1,4 @@
-/* =========================================================
+﻿/* =========================================================
    乐乐学习舱 · 效率学习 App 风
    cockpit.js · v1.0  2026-11-25
    结构：1 常量  2 工具  3 图标  4 演示数据  5 存储/迁移
@@ -17,7 +17,8 @@
   var SUB_ORDER = ['语文', '数学', '英语', '物理', '化学', '生物', '历史', '道法', '地理', '阅读', '习惯', '运动', '体育'];
   var SUB_SHORT = { 语文: '语', 数学: '数', 英语: '英', 物理: '物', 化学: '化', 生物: '生', 历史: '史', 道法: '道', 地理: '地', 阅读: '阅', 习惯: '惯', 运动: '动', 体育: '体' };
   var TASK_SUBJECTS = ['语文', '数学', '英语', '物理', '化学', '生物', '历史', '道法', '地理', '阅读', '习惯', '运动', '体育'];
-  var REWARD_CATS = ['全部', '游戏', '零食', '出行', '文具', '心愿'];
+  var REWARD_CATS = ['全部', '游戏', '零食', '出行', '文具', '心愿', '电脑'];
+  var CATALOG_VERSION = 2;
   var WEEK_CN = ['日', '一', '二', '三', '四', '五', '六'];
   var WEEK_FULL = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
   var MASTERY_GROUPS = {
@@ -185,6 +186,30 @@
       { id: 'r11', name: '一次好友聚会', icon: '🫂', cost: 70, cat: '心愿' },
       { id: 'r12', name: '免做一次家务', icon: '🧹', cost: 10, cat: '心愿' },
       { id: 'r13', name: '和同学打篮球', icon: '🏀', cost: 18, cat: '出行' }
+    ].concat(legacyComputerRewards());
+  }
+  function legacyComputerRewards() {
+    return [
+      { id: 'pc_mousepad', name: '鼠标垫', icon: '🖱️', cost: 30, cat: '电脑', detail: '初二上期中 · 主科均分≥100' },
+      { id: 'pc_mouse', name: '鼠标', icon: '🐭', cost: 200, cat: '电脑', detail: '初二上期中 · 主科均分≥100' },
+      { id: 'pc_powerstrip', name: '排插', icon: '🔌', cost: 100, cat: '电脑', detail: '初二上期中 · 主科均分≥100' },
+      { id: 'pc_keyboard', name: '键盘', icon: '⌨️', cost: 400, cat: '电脑', detail: '初二上期末 · 总分≥508' },
+      { id: 'pc_headset', name: '耳机', icon: '🎧', cost: 350, cat: '电脑', detail: '初二上期末 · 总分≥508' },
+      { id: 'pc_webcam', name: '摄像头', icon: '🎥', cost: 200, cat: '电脑', detail: '初二上期末 · 总分≥508' },
+      { id: 'pc_speaker', name: '音响', icon: '🔊', cost: 400, cat: '电脑', detail: '初二下期中 · 总分≥517' },
+      { id: 'pc_case', name: '机箱', icon: '🎒', cost: 350, cat: '电脑', detail: '初二下期中 · 总分≥517' },
+      { id: 'pc_gamepad', name: '游戏手柄', icon: '🕹️', cost: 350, cat: '电脑', detail: '初二下期中 · 总分≥517' },
+      { id: 'pc_ssd', name: 'SSD 1TB', icon: '💾', cost: 500, cat: '电脑', detail: '初二下期末 · 总分≥538' },
+      { id: 'pc_cooler', name: '散热器', icon: '❄️', cost: 300, cat: '电脑', detail: '初二下期末 · 总分≥538' },
+      { id: 'pc_psu', name: '电源 750W', icon: '⚡', cost: 500, cat: '电脑', detail: '初三上期中 · 总分≥580' },
+      { id: 'pc_hdd', name: '机械硬盘', icon: '💽', cost: 500, cat: '电脑', detail: '初三上期中 · 总分≥580' },
+      { id: 'pc_ram', name: '内存 32G', icon: '🧠', cost: 600, cat: '电脑', detail: '初三上期末 · 总分≥610' },
+      { id: 'pc_motherboard', name: '主板', icon: '🔧', cost: 1000, cat: '电脑', detail: '一模≥600 · 初三下开学' },
+      { id: 'pc_monitor', name: '显示器 2K', icon: '📺', cost: 1200, cat: '电脑', detail: '二模≥610 · 初三下期中' },
+      { id: 'pc_cpu', name: 'CPU', icon: '🧮', cost: 1500, cat: '电脑', detail: '三模≥615 · 中考前冲刺' },
+      { id: 'pc_gpu', name: '显卡', icon: '🎮', cost: 2500, cat: '电脑', detail: '中考≥625 · 中考达标' },
+      { id: 'game_switch', name: 'Switch 游戏机', icon: '🎮', cost: 3508, cat: '游戏', detail: '积分兑换 · 游戏机大奖' },
+      { id: 'game_zelda', name: '塞尔达游戏', icon: '🗡️', cost: 287, cat: '游戏', detail: '积分兑换 · Switch 游戏卡带' }
     ];
   }
   function seedState() {
@@ -238,7 +263,7 @@
       ],
       log: log,
       settings: { starGoal: 200 },
-      meta: { demo: true, demoTasks: true, legacy: false, legacyTasks: 0, lastRoll: todayKeyNow, noticeDismissed: false, parentPin: '' }
+      meta: { demo: true, demoTasks: true, legacy: false, legacyTasks: 0, lastRoll: todayKeyNow, noticeDismissed: false, parentPin: '', catalogV: CATALOG_VERSION }
     };
   }
 
@@ -430,7 +455,9 @@
       t.icon = String(t.icon || '🎁');
       t.cost = Math.max(1, Math.round(num(t.cost, 10)));
       t.cat = REWARD_CATS.indexOf(t.cat) > 0 ? t.cat : '心愿';
+      t.detail = String(t.detail || '');
     }
+    ensureCatalogRewards(s);
     for (i = 0; i < s.mastery.length; i++) {
       t = s.mastery[i]; if (!t || typeof t !== 'object') continue;
       t.id = t.id || uid('m');
@@ -441,6 +468,18 @@
       t.grade = typeof t.grade === 'string' ? t.grade : '初二上';
     }
     return s;
+  }
+  function ensureCatalogRewards(s) {
+    if (!s || !Array.isArray(s.rewards)) return;
+    if (num(s.meta && s.meta.catalogV) >= CATALOG_VERSION) return;
+    var ids = {}, names = {};
+    s.rewards.forEach(function (r) { if (!r) return; ids[r.id] = 1; names[r.name] = 1; });
+    legacyComputerRewards().forEach(function (r) {
+      if (ids[r.id] || names[r.name]) return;
+      s.rewards.push({ id: r.id, name: r.name, icon: r.icon, cost: r.cost, cat: r.cat, detail: r.detail });
+    });
+    if (!s.meta) s.meta = {};
+    s.meta.catalogV = CATALOG_VERSION;
   }
   function loadState() {
     var raw = safeGet(STORE_KEY);
@@ -1165,7 +1204,8 @@
           (isParent ? '<button class="reward-admin" type="button" data-act="edit-reward" data-id="' + esc(r.id) + '" aria-label="编辑奖励" title="编辑奖励">' + icon('edit') + '</button>' : '') +
           (times ? '<div class="reward-times">已兑换 ' + times + ' 次</div>' : '') +
           '<div class="reward-ico cat-' + esc(r.cat) + '" aria-hidden="true">' + esc(r.icon) + '</div>' +
-          '<div class="reward-name">' + esc(r.name) + '</div>' +
+          '<div class="reward-name" title="' + esc(r.detail || '') + '">' + esc(r.name) + '</div>' +
+          (r.detail ? '<div class="reward-detail" title="' + esc(r.detail) + '">' + esc(r.detail) + '</div>' : '') +
           '<div class="reward-cost"><i>★</i>' + r.cost + ' 颗</div>' +
           '<button class="reward-btn' + (short ? ' is-short' : '') + '" type="button" data-act="redeem" data-id="' + esc(r.id) + '">' + (short ? '还差 ' + (r.cost - balance) + ' ★' : '立即兑换') + '</button>' +
           '</div>';
@@ -1513,7 +1553,7 @@
     openModal({
       title: '重置演示数据？', icon: 'refresh',
       sub: '会清空新版本里的任务、星星流水和兑换记录',
-      body: '<p>重置后恢复到初始演示状态：11 条今日任务、6 个考试目标、13 个奖励。旧版 <code>lc_v3</code> 数据不会被删除。</p>' +
+      body: '<p>重置后恢复到初始演示状态：11 条今日任务、6 个考试目标、33 个奖励。旧版 <code>lc_v3</code> 数据不会被删除。</p>' +
         '<p class="form-note" style="margin-top:10px">如果只是想换回学生端，点侧边栏的「切换」即可，不需要重置。</p>',
       footer: '<button class="btn btn-ghost" type="button" data-close>取消</button>' +
         '<button class="btn btn-primary" type="button" data-act="do-reset">' + icon('refresh') + '确认重置</button>'
@@ -1650,7 +1690,7 @@
   }
   function openAddReward() {
     if (!requireParent('切换到家长端才能添加奖励')) return;
-    var cats = ['零食', '游戏', '出行', '文具', '心愿'].map(function (c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
+    var cats = REWARD_CATS.slice(1).map(function (c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
     openModal({
       title: '添加奖励', icon: 'gift',
       sub: '和孩子一起定一个想要的小目标',
@@ -1682,7 +1722,7 @@
     if (!requireParent('切换到家长端才能编辑奖励')) return;
     var r = state.rewards.filter(function (x) { return x.id === id; })[0];
     if (!r) return;
-    var cats = ['零食', '游戏', '出行', '文具', '心愿'].map(function (c) {
+    var cats = REWARD_CATS.slice(1).map(function (c) {
       return '<option value="' + c + '"' + (r.cat === c ? ' selected' : '') + '>' + c + '</option>';
     }).join('');
     openModal({
@@ -1693,7 +1733,8 @@
         '<div class="field"><label for="erIcon">图标（emoji）</label><input id="erIcon" maxlength="4" value="' + esc(r.icon) + '"></div>' +
         '<div class="field"><label for="erCost">所需星星</label><input id="erCost" type="number" min="1" max="999" step="1" value="' + r.cost + '"></div>' +
         '<div class="field field-full"><label for="erCat">分类</label><select id="erCat">' + cats + '</select></div>' +
-        '</div><p class="form-note" style="margin-top:11px">删除奖励不会删除已产生的兑换记录。</p>',
+        '</div>' + (r.detail ? '<p class="form-note" style="margin-top:11px">旧版条件：' + esc(r.detail) + '（仅展示，不参与兑换判断）</p>' : '') +
+        '<p class="form-note" style="margin-top:11px">删除奖励不会删除已产生的兑换记录。</p>',
       footer: '<button class="btn btn-soft" type="button" data-act="delete-reward" data-id="' + esc(id) + '">' + icon('trash') + '删除</button>' +
         '<button class="btn btn-ghost" type="button" data-close>取消</button>' +
         '<button class="btn btn-primary" type="button" data-act="submit-edit-reward" data-id="' + esc(id) + '">保存</button>'
@@ -1839,6 +1880,7 @@
       sub: '兑换后星星会从账户扣除',
       body: '<div class="modal-reward-preview"><div class="reward-ico cat-' + esc(r.cat) + '" aria-hidden="true">' + esc(r.icon) + '</div>' +
         '<strong>' + esc(r.name) + '</strong><div class="cost">' + r.cost + ' 颗星星</div>' +
+        (r.detail ? '<div class="detail">' + esc(r.detail) + '</div>' : '') +
         '<div class="after">兑换后剩余 ' + (totals.balance - r.cost) + ' 颗</div></div>' +
         '<div class="confirm-hint">' + icon('info') + '<span>兑换后请找家长领取奖励，兑换记录会保存在「我的要兑换」页面。</span></div>',
       footer: '<span class="foot-note">当前可用 ' + totals.balance + ' 颗</span>' +
@@ -2456,6 +2498,7 @@
     state = resetRequested ? normalizeState(seedState()) : loadState();
     if (resetRequested) save();
     rollTasksOver();
+    save();
     var parentAuthed = safeSessionGet('lc_parent_ok') === '1';
     if (state.role === 'parent' && !parentAuthed && !params.has('parent')) {
       state.role = 'student';
