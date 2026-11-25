@@ -313,11 +313,15 @@ ul,ol{margin:0;padding:0;list-style:none}
 .sub-数学{background:var(--lilac-soft);color:var(--lilac-deep);border-color:#e6dcf7}
 .sub-英语{background:var(--sage-soft);color:var(--sage-deep);border-color:#d9eddf}
 .sub-物理{background:var(--sky-soft);color:var(--sky-deep);border-color:#d9e8f8}
+.sub-化学{background:#eef2fb;color:#5b7bb5;border-color:#dbe4f6}
+.sub-生物{background:#eef8f1;color:#4f8a68;border-color:#d7ecdf}
+.sub-历史{background:#f3effa;color:#7d6aa8;border-color:#e6dff6}
+.sub-道法{background:#fdf0ee;color:#b56a4f;border-color:#f8ddd4}
+.sub-地理{background:var(--gold-soft);color:#a3741f;border-color:var(--gold-line)}
 .sub-阅读{background:var(--gold-soft);color:#a3741f;border-color:var(--gold-line)}
 .sub-习惯{background:#f4f1f6;color:#7b7086;border-color:#e8e1ee}
 .sub-运动{background:#eaf7ef;color:#468a67;border-color:#d6eddf}
-.sub-道法{background:#fdf0ee;color:#b56a4f;border-color:#f8ddd4}
-.sub-历史{background:#f3effa;color:#7d6aa8;border-color:#e6dff6}
+.sub-体育{background:#eaf7ef;color:#468a67;border-color:#d6eddf}
 
 .star-pill{
   display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:800;color:#a3741f;
@@ -771,6 +775,13 @@ body[data-role="parent"] .task-row .tick{border-style:dashed;background:#fbf8fd}
   background:#f7f3f9;border:1px solid #efe8f4;border-radius:6px;padding:1px 5px;line-height:1.5;
 }
 .reward-card.has-times{padding-top:18px}
+.reward-admin{
+  position:absolute;left:7px;top:7px;width:22px;height:22px;border-radius:7px;display:grid;place-items:center;
+  color:var(--muted);background:rgba(255,255,255,.88);border:1px solid #eee6f4;transition:.16s;
+}
+.reward-admin .ico{width:12px;height:12px}
+.reward-admin:hover{color:var(--primary);background:#fff;border-color:#f6d8d5}
+.exam-actions .icon-btn{width:25px;height:25px;flex:none}
 .reward-history{margin-top:20px}
 .history-list{display:flex;flex-direction:column;gap:7px}
 .history-row{

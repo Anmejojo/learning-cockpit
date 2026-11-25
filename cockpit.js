@@ -14,8 +14,9 @@
   var VERSION = 1;
   var PAGES = ['today', 'exam', 'mastery', 'stars', 'rewards'];
   var PAGE_TITLES = { today: '今天要做', exam: '考试赚星星', mastery: '初二必掌握', stars: '我的星星', rewards: '我的要兑换' };
-  var SUB_ORDER = ['语文', '数学', '英语', '物理', '阅读', '习惯', '运动'];
-  var SUB_SHORT = { 语文: '语', 数学: '数', 英语: '英', 物理: '物', 阅读: '阅', 习惯: '惯', 运动: '动', 道法: '道', 历史: '史' };
+  var SUB_ORDER = ['语文', '数学', '英语', '物理', '化学', '生物', '历史', '道法', '地理', '阅读', '习惯', '运动', '体育'];
+  var SUB_SHORT = { 语文: '语', 数学: '数', 英语: '英', 物理: '物', 化学: '化', 生物: '生', 历史: '史', 道法: '道', 地理: '地', 阅读: '阅', 习惯: '惯', 运动: '动', 体育: '体' };
+  var TASK_SUBJECTS = ['语文', '数学', '英语', '物理', '化学', '生物', '历史', '道法', '地理', '阅读', '习惯', '运动', '体育'];
   var REWARD_CATS = ['全部', '游戏', '零食', '出行', '文具', '心愿'];
   var WEEK_CN = ['日', '一', '二', '三', '四', '五', '六'];
   var WEEK_FULL = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
@@ -237,7 +238,7 @@
       ],
       log: log,
       settings: { starGoal: 200 },
-      meta: { demo: true, demoTasks: true, legacy: false, lastRoll: todayKeyNow, noticeDismissed: false }
+      meta: { demo: true, demoTasks: true, legacy: false, legacyTasks: 0, lastRoll: todayKeyNow, noticeDismissed: false, parentPin: '' }
     };
   }
 
@@ -253,6 +254,15 @@
   }
   function safeSet(key, val) {
     try { localStorage.setItem(key, val); return true; } catch (e) { return false; }
+  }
+  function safeSessionGet(key) {
+    try { return sessionStorage.getItem(key); } catch (e) { return null; }
+  }
+  function safeSessionSet(key, val) {
+    try { sessionStorage.setItem(key, val); return true; } catch (e) { return false; }
+  }
+  function safeSessionRemove(key) {
+    try { sessionStorage.removeItem(key); } catch (e) { }
   }
   function save() {
     if (!state) return false;
@@ -281,7 +291,7 @@
         log.push({ id: uid('lg'), ts: ts, delta: (type === 'use' || pts < 0) ? -Math.abs(pts) : Math.abs(pts), reason: p.source || p.reason || '旧版星星记录', kind: 'legacy' });
       }
     }
-    if (!log.length) return null;
+    if (!log.length && !(Array.isArray(o.hw) && o.hw.length) && !(Array.isArray(o.tasks) && o.tasks.length) && !(Array.isArray(o.checks) && o.checks.length)) return null;
     log.sort(function (a, b) { return b.ts - a.ts; });
     /* 旧数据可能很多：保留最近 1200 条，早年的净额合并成一条，保证余额不丢 */
     if (log.length > 1200) {
@@ -293,7 +303,82 @@
         log.push({ id: uid('lg'), ts: log[log.length - 1].ts - 1, delta: totalDelta - keptDelta, reason: '历史星星合并', kind: 'legacy' });
       }
     }
-    return { nick: typeof o.nick === 'string' && o.nick.trim() ? o.nick.trim() : '', grade: /^初[一二三][上下]$/.test(String(o.sem || '')) ? String(o.sem) : '', log: log };
+
+    /* 旧版任务 / 作业清单 / 打卡记录 → 新版任务 */
+    var legacyTasks = [], seenTask = {}, linked = {}, checkById = {};
+    function normSub(s) {
+      s = String(s == null ? '' : s).trim();
+      return SUB_SHORT[s] ? s : '习惯';
+    }
+    function validDate(s) {
+      return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
+    }
+    function dateTs(s) {
+      s = validDate(s);
+      return s ? new Date(s + 'T20:00:00').getTime() : 0;
+    }
+    function addLegacyTask(t) {
+      if (!t || !t.title) return;
+      if (legacyTasks.length >= 300 && t.source === 'legacy-check') return;
+      var key = (t.date || '') + '|' + t.subject + '|' + t.title;
+      if (seenTask[key]) return;
+      seenTask[key] = 1;
+      legacyTasks.push(t);
+    }
+    function checkType(tp) {
+      return tp === 'homework' ? 'homework' : tp === 'word' ? 'words' : tp === 'recite' ? 'recite' : tp === 'note' ? 'read' : 'habit';
+    }
+    function hwType(k) {
+      return k === 'recite' ? 'recite' : k === 'written' ? 'homework' : (k === 'read' || k === 'reading') ? 'read' : 'habit';
+    }
+    if (Array.isArray(o.checks)) {
+      o.checks.forEach(function (c) { if (c && c.id != null) checkById[String(c.id)] = c; });
+    }
+    if (Array.isArray(o.hw)) {
+      o.hw.forEach(function (job) { if (job && job.recId != null) linked[String(job.recId)] = 1; });
+    }
+    if (Array.isArray(o.checks)) {
+      o.checks.forEach(function (c) {
+        if (!c || c.status === 'rejected' || linked[String(c.id)]) return;
+        var doneAt = Number(c.at || c.ts || 0);
+        addLegacyTask({
+          id: uid('lt'), subject: normSub(c.subject),
+          title: (normSub(c.subject) !== '习惯' ? normSub(c.subject) + ' · ' : '') + String(c.typeName || c.type || '学习记录').slice(0, 40),
+          type: checkType(c.type), stars: 1, date: validDate(c.date) || dayKey(Date.now()),
+          done: c.status === 'approved', doneAt: doneAt || dateTs(c.date) || Date.now(),
+          source: 'legacy-check', createdAt: Date.now()
+        });
+      });
+    }
+    if (Array.isArray(o.hw)) {
+      o.hw.forEach(function (job) {
+        if (!job || !job.text) return;
+        var c = job.recId != null ? checkById[String(job.recId)] : null;
+        addLegacyTask({
+          id: uid('lt'), subject: normSub(job.subj), title: String(job.text).slice(0, 60),
+          type: hwType(job.kind), stars: 1, date: validDate(job.date) || dayKey(Date.now()),
+          done: !!(c && c.status === 'approved'), doneAt: c ? Number(c.at || c.ts || 0) : 0,
+          source: 'legacy-hw', createdAt: Date.now()
+        });
+      });
+    }
+    if (Array.isArray(o.tasks)) {
+      o.tasks.forEach(function (t) {
+        if (!t || !t.text) return;
+        addLegacyTask({
+          id: uid('lt'), subject: '习惯', title: String(t.text).slice(0, 60), type: 'habit',
+          stars: 1, date: validDate(t.date) || dayKey(Date.now()), done: !!t.done,
+          doneAt: t.doneAt ? Number(t.doneAt) : (t.done ? dateTs(t.date) : 0),
+          source: 'legacy-task', createdAt: Date.now()
+        });
+      });
+    }
+    return {
+      nick: typeof o.nick === 'string' && o.nick.trim() ? o.nick.trim() : '',
+      grade: /^初[一二三][上下]$/.test(String(o.sem || '')) ? String(o.sem) : '',
+      log: log,
+      tasks: legacyTasks
+    };
   }
   function normalizeState(s) {
     var base = seedState();
@@ -314,7 +399,9 @@
     if (typeof s.meta.demo !== 'boolean') s.meta.demo = false;
     if (typeof s.meta.demoTasks !== 'boolean') s.meta.demoTasks = false;
     if (typeof s.meta.legacy !== 'boolean') s.meta.legacy = false;
+    if (typeof s.meta.legacyTasks !== 'number' || !isFinite(s.meta.legacyTasks)) s.meta.legacyTasks = 0;
     if (typeof s.meta.noticeDismissed !== 'boolean') s.meta.noticeDismissed = false;
+    if (typeof s.meta.parentPin !== 'string') s.meta.parentPin = '';
     if (!s.meta.lastRoll) s.meta.lastRoll = dayKey(Date.now());
     var i, t, todayKey = dayKey(Date.now());
     for (i = 0; i < s.tasks.length; i++) {
@@ -370,9 +457,16 @@
       s.redemptions = [];
       s.profile.nick = legacy.nick || s.profile.nick;
       if (legacy.grade) s.profile.grade = legacy.grade;
-      s.tasks = s.tasks.map(function (t) { t.done = false; delete t.doneAt; return t; });
+      if (legacy.tasks && legacy.tasks.length) {
+        s.tasks = legacy.tasks;
+        s.meta.demoTasks = false;
+        s.meta.legacyTasks = legacy.tasks.length;
+      } else {
+        s.tasks = s.tasks.map(function (t) { t.done = false; delete t.doneAt; return t; });
+        s.meta.demoTasks = true;
+        s.meta.legacyTasks = 0;
+      }
       s.meta.demo = false;
-      s.meta.demoTasks = true;
       s.meta.legacy = true;
       var totals = logTotals(s.log);
       if (totals.balance < 0) {
@@ -426,7 +520,7 @@
       var e = state.log[i];
       if (dayKey(e.ts) !== key) continue;
       if (e.delta > 0) sum += e.delta;
-      else if (e.kind === 'undo') sum += e.delta;
+      else if (e.kind === 'undo' || e.kind === 'exam') sum += e.delta;
     }
     return Math.max(0, sum);
   }
@@ -581,15 +675,32 @@
     });
 
     var meta = state.meta || {};
-    if ((meta.demo || meta.demoTasks) && !meta.noticeDismissed && !ui.demoDismissed) {
-      var demoText = meta.legacy
-        ? '已导入旧版星星（当前余额 ' + fmtNum(starTotals().balance) + ' 颗）。今天这 11 条是示例任务，不是孩子的真实作业；清空示例后可以让家长添加，或拍照识别。'
-        : '当前是演示数据：11 条示例任务、演示星星和流水，只保存在本机。开始使用会清空演示任务与星星，保留奖励目录。';
+    var hasLegacyTasks = num(meta.legacyTasks) > 0;
+    if ((meta.demo || meta.demoTasks || hasLegacyTasks) && !meta.noticeDismissed && !ui.demoDismissed) {
+      var demoText, demoTitle, demoBadge, demoActions;
+      if (hasLegacyTasks) {
+        demoTitle = '旧版任务和星星已导入';
+        demoBadge = '导入';
+        demoText = '已从旧版导入 ' + meta.legacyTasks + ' 条任务和 ' + fmtNum(starTotals().balance) + ' 颗星星。请检查今天的任务、科目和余额；这是真实数据，建议先导出一份备份。';
+        demoActions = '<button class="btn btn-ghost btn-xs" type="button" data-act="demo-dismiss">知道了</button>' +
+          '<button class="btn btn-primary btn-xs" type="button" data-act="export-data">导出备份</button>';
+      } else if (meta.legacy) {
+        demoTitle = '旧版星星已导入，任务还是示例';
+        demoBadge = '演示';
+        demoText = '已导入旧版星星（当前余额 ' + fmtNum(starTotals().balance) + ' 颗）。今天这 11 条是示例任务，不是孩子的真实作业；清空示例后可以让家长添加，或拍照识别。';
+        demoActions = '<button class="btn btn-ghost btn-xs" type="button" data-act="demo-dismiss">先看看</button>' +
+          '<button class="btn btn-primary btn-xs" type="button" data-act="demo-clean">清空示例</button>';
+      } else {
+        demoTitle = '你正在看演示数据';
+        demoBadge = '演示';
+        demoText = '当前是演示数据：11 条示例任务、演示星星和流水，只保存在本机。开始使用会清空演示任务与星星，保留奖励目录。';
+        demoActions = '<button class="btn btn-ghost btn-xs" type="button" data-act="demo-dismiss">先看看</button>' +
+          '<button class="btn btn-primary btn-xs" type="button" data-act="demo-clean">开始使用</button>';
+      }
       h += '<div class="demo-banner" role="status">' +
-        '<span class="demo-badge">演示</span>' +
-        '<div class="demo-copy"><strong>' + (meta.legacy ? '旧版星星已导入，任务还是示例' : '你正在看演示数据') + '</strong><p>' + esc(demoText) + '</p></div>' +
-        '<div class="demo-actions"><button class="btn btn-ghost btn-xs" type="button" data-act="demo-dismiss">先看看</button>' +
-        '<button class="btn btn-primary btn-xs" type="button" data-act="demo-clean">开始使用</button></div>' +
+        '<span class="demo-badge">' + demoBadge + '</span>' +
+        '<div class="demo-copy"><strong>' + demoTitle + '</strong><p>' + esc(demoText) + '</p></div>' +
+        '<div class="demo-actions">' + demoActions + '</div>' +
         '</div>';
     }
 
@@ -816,7 +927,9 @@
   function renderExam() {
     var goals = state.examGoals;
     var done = goals.filter(function (g) { return g.done; });
-    var earned = done.reduce(function (s, g) { return s + g.stars; }, 0);
+    var earned = 0;
+    state.log.forEach(function (e) { if (e.kind === 'exam') earned += num(e.delta); });
+    earned = Math.max(0, earned);
     var isParent = state.role === 'parent';
     var h = pageHead('exam', {
       title: '考试赚星星',
@@ -846,6 +959,7 @@
           '</div>' +
           '<div class="exam-actions">';
         if (isParent) {
+          h += '<button class="icon-btn" type="button" data-act="edit-exam" data-id="' + esc(g.id) + '" aria-label="编辑考试目标" title="编辑考试目标">' + icon('edit') + '</button>';
           h += g.done
             ? '<button class="btn btn-ghost btn-xs" type="button" data-act="exam-undo" data-id="' + esc(g.id) + '">' + icon('reset') + '撤销</button>'
             : '<button class="btn btn-gold btn-sm" type="button" data-act="exam-done" data-id="' + esc(g.id) + '">' + icon('check') + '标记达成</button>';
@@ -1048,6 +1162,7 @@
         var short = balance < r.cost;
         var times = state.redemptions.filter(function (x) { return x.rewardId === r.id; }).length;
         return '<div class="reward-card' + (times ? ' has-times' : '') + '" data-reward="' + esc(r.id) + '">' +
+          (isParent ? '<button class="reward-admin" type="button" data-act="edit-reward" data-id="' + esc(r.id) + '" aria-label="编辑奖励" title="编辑奖励">' + icon('edit') + '</button>' : '') +
           (times ? '<div class="reward-times">已兑换 ' + times + ' 次</div>' : '') +
           '<div class="reward-ico cat-' + esc(r.cat) + '" aria-hidden="true">' + esc(r.icon) + '</div>' +
           '<div class="reward-name">' + esc(r.name) + '</div>' +
@@ -1156,26 +1271,109 @@
 
   /* ---------- 13. 角色 / 资料 / 更多 ---------- */
   function setRole(role) {
-    state.role = role === 'parent' ? 'parent' : 'student';
+    if (role === 'parent') { grantParent(); return; }
+    state.role = 'student';
+    safeSessionRemove('lc_parent_ok');
     save();
     closeModal();
     render();
-    toast(state.role === 'parent' ? '已切换到家长端：可以布置任务和确认奖励' : '已切换到学生端：完成任务赚星星吧', 'success');
+    toast('已切换到学生端：完成任务赚星星吧', 'success');
+  }
+  function simplePinHash(pin) {
+    var h = 5381;
+    var s = 'lc_pin_v1:' + pin;
+    for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    return 'f' + (h >>> 0).toString(16);
+  }
+  function hashPin(pin) {
+    return new Promise(function (resolve) {
+      try {
+        if (window.crypto && window.crypto.subtle && window.TextEncoder) {
+          window.crypto.subtle.digest('SHA-256', new TextEncoder().encode('lc_pin_v1:' + pin)).then(function (buf) {
+            var arr = Array.prototype.slice.call(new Uint8Array(buf));
+            resolve(arr.map(function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''));
+          }).catch(function () { resolve(simplePinHash(pin)); });
+          return;
+        }
+      } catch (e) { }
+      resolve(simplePinHash(pin));
+    });
+  }
+  function grantParent() {
+    state.role = 'parent';
+    safeSessionSet('lc_parent_ok', '1');
+    save();
+    closeModal();
+    render();
+    toast('已进入家长端：可以布置任务和确认奖励', 'success');
+  }
+  function requestParentAccess() {
+    if (state.role === 'parent') return;
+    if (state.meta && state.meta.parentPin) openPinEntry();
+    else openPinSetup();
+  }
+  function openPinSetup() {
+    openModal({
+      title: state.meta && state.meta.parentPin ? '修改家长 PIN' : '设置家长 PIN', icon: 'lock',
+      sub: '用于切换家长端、发放奖励和确认考试',
+      body: '<div class="form-grid">' +
+        '<div class="field field-full"><label for="pin1">4–6 位数字 PIN</label><input id="pin1" type="password" inputmode="numeric" maxlength="6" placeholder="例如 1234"></div>' +
+        '<div class="field field-full"><label for="pin2">再输一次</label><input id="pin2" type="password" inputmode="numeric" maxlength="6" placeholder="再输一次"></div>' +
+        '</div><p class="form-note" style="margin-top:11px">PIN 只保存在这台设备（加盐哈希）。忘记 PIN 只能清除本机数据重来，请记好。</p>',
+      footer: '<button class="btn btn-ghost" type="button" data-close>取消</button>' +
+        '<button class="btn btn-primary" type="button" data-act="save-pin">' + icon('check') + '保存 PIN</button>'
+    });
+  }
+  function submitPinSetup() {
+    var p1 = (($('#pin1') || {}).value || '').trim();
+    var p2 = (($('#pin2') || {}).value || '').trim();
+    if (!/^\d{4,6}$/.test(p1)) { toast('PIN 需要 4–6 位数字', 'warn'); return; }
+    if (p1 !== p2) { toast('两次输入的 PIN 不一致', 'warn'); return; }
+    hashPin(p1).then(function (h) {
+      state.meta.parentPin = h;
+      save();
+      grantParent();
+      toast('家长 PIN 已保存', 'success');
+    });
+  }
+  function openPinEntry() {
+    openModal({
+      title: '家长验证', icon: 'lock',
+      sub: '输入家长 PIN 才能进入家长端',
+      body: '<div class="field"><label for="pinEntry">家长 PIN</label><input id="pinEntry" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="请输入 4–6 位 PIN"></div>' +
+        '<p class="form-note" style="margin-top:11px">忘记 PIN 只能在设备上清除本机数据后重来；旧版数据不会受影响。</p>',
+      footer: '<button class="btn btn-ghost" type="button" data-close>取消</button>' +
+        '<button class="btn btn-primary" type="button" data-act="verify-pin">' + icon('lock') + '验证并进入</button>'
+    });
+  }
+  function submitPinVerify() {
+    var v = (($('#pinEntry') || {}).value || '').trim();
+    if (!v) { toast('请输入家长 PIN', 'warn'); return; }
+    hashPin(v).then(function (h) {
+      if (h === (state.meta.parentPin || '')) {
+        grantParent();
+      } else {
+        toast('PIN 不对，再试一次', 'warn');
+        var el = $('#pinEntry');
+        if (el) { el.value = ''; el.focus(); }
+      }
+    });
   }
   function openRoleModal() {
     var s = state.role === 'parent';
     var body = '<div class="role-grid">' +
       '<button class="role-option' + (!s ? ' is-active' : '') + '" type="button" data-act="set-role" data-role="student">' +
       '<span class="role-ico">🧒</span><strong>学生端</strong><span>完成任务、打卡赚星、兑换奖励</span>' + (!s ? '<em class="role-now">当前</em>' : '') + '</button>' +
-      '<button class="role-option' + (s ? ' is-active' : '') + '" type="button" data-act="set-role" data-role="parent">' +
+      '<button class="role-option' + (s ? ' is-active' : '') + '" type="button" data-act="choose-parent">' +
       '<span class="role-ico">👩</span><strong>家长端</strong><span>布置任务、添加奖励、确认考试达成</span>' + (s ? '<em class="role-now">当前</em>' : '') + '</button>' +
       '</div>' +
-      '<p class="form-note" style="margin-top:11px">身份只影响可执行的操作，星星账户和记录两个孩子共用一份。</p>';
+      '<p class="form-note" style="margin-top:11px">进入家长端需要 PIN' + (state.meta && state.meta.parentPin ? '；PIN 已设置。' : '，第一次进入会先设置。') + '</p>';
     openModal({
       title: '切换身份', icon: 'users',
       sub: '学生完成任务，家长布置与确认',
       body: body,
-      footer: '<button class="btn btn-ghost" type="button" data-close>取消</button>'
+      footer: (s ? '<button class="btn btn-ghost" type="button" data-act="open-pin">修改家长 PIN</button>' : '') +
+        '<button class="btn btn-ghost" type="button" data-close>取消</button>'
     });
   }
   function openProfileModal() {
@@ -1234,6 +1432,7 @@
     }
     state.meta.demo = false;
     state.meta.demoTasks = false;
+    state.meta.legacyTasks = 0;
     state.meta.noticeDismissed = true;
     state.meta.legacy = false;
     ui.demoDismissed = true;
@@ -1246,6 +1445,10 @@
   }
   function dismissDemo() {
     ui.demoDismissed = true;
+    if (state.meta && num(state.meta.legacyTasks) > 0) {
+      state.meta.noticeDismissed = true;
+      save();
+    }
     render();
   }
   function exportData() {
@@ -1329,7 +1532,7 @@
   /* ---------- 14. 添加任务 / 奖励 / 考试目标 ---------- */
   function openAddTask() {
     if (!requireParent('切换到家长端才能布置任务')) return;
-    var subjOpts = ['语文', '数学', '英语', '物理', '阅读', '习惯', '运动'].map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
+    var subjOpts = TASK_SUBJECTS.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
     var typeOpts = [['habit', '普通打卡'], ['timer', '计时 / 倒计时'], ['recite', '背诵录音'], ['words', '单词朗读'], ['dictation', '听写练习'], ['homework', '作业拍照检查'], ['read', '知识点复习']].map(function (t) { return '<option value="' + t[0] + '">' + t[1] + '</option>'; }).join('');
     openModal({
       title: '添加今日任务', icon: 'plus',
@@ -1366,7 +1569,7 @@
     toast('已添加「' + title + '」，完成就能拿星星', 'success');
   }
   function taskFormHTML(prefix, task) {
-    var subjects = ['语文', '数学', '英语', '物理', '阅读', '习惯', '运动'];
+    var subjects = TASK_SUBJECTS;
     var types = [['habit', '普通打卡'], ['timer', '计时 / 倒计时'], ['recite', '背诵录音'], ['words', '单词朗读'], ['dictation', '听写练习'], ['homework', '作业拍照检查'], ['read', '知识点复习']];
     var minutes = task && task.minutes ? task.minutes : (task && task.seconds ? Math.round(task.seconds / 60) : '');
     return '<div class="form-grid">' +
@@ -1475,6 +1678,66 @@
     setPage('rewards');
     toast('已添加奖励「' + name + '」', 'success');
   }
+  function openEditReward(id) {
+    if (!requireParent('切换到家长端才能编辑奖励')) return;
+    var r = state.rewards.filter(function (x) { return x.id === id; })[0];
+    if (!r) return;
+    var cats = ['零食', '游戏', '出行', '文具', '心愿'].map(function (c) {
+      return '<option value="' + c + '"' + (r.cat === c ? ' selected' : '') + '>' + c + '</option>';
+    }).join('');
+    openModal({
+      title: '编辑奖励', icon: 'edit',
+      sub: '修改后会立即生效',
+      body: '<div class="form-grid">' +
+        '<div class="field field-full"><label for="erName">奖励名称 <em>*</em></label><input id="erName" maxlength="24" value="' + esc(r.name) + '"></div>' +
+        '<div class="field"><label for="erIcon">图标（emoji）</label><input id="erIcon" maxlength="4" value="' + esc(r.icon) + '"></div>' +
+        '<div class="field"><label for="erCost">所需星星</label><input id="erCost" type="number" min="1" max="999" step="1" value="' + r.cost + '"></div>' +
+        '<div class="field field-full"><label for="erCat">分类</label><select id="erCat">' + cats + '</select></div>' +
+        '</div><p class="form-note" style="margin-top:11px">删除奖励不会删除已产生的兑换记录。</p>',
+      footer: '<button class="btn btn-soft" type="button" data-act="delete-reward" data-id="' + esc(id) + '">' + icon('trash') + '删除</button>' +
+        '<button class="btn btn-ghost" type="button" data-close>取消</button>' +
+        '<button class="btn btn-primary" type="button" data-act="submit-edit-reward" data-id="' + esc(id) + '">保存</button>'
+    });
+  }
+  function submitEditReward(id) {
+    if (!requireParent('切换到家长端才能编辑奖励')) return;
+    var r = state.rewards.filter(function (x) { return x.id === id; })[0];
+    if (!r) return;
+    var name = (($('#erName') || {}).value || '').trim();
+    if (!name) { toast('奖励名称不能为空', 'warn'); return; }
+    r.name = name;
+    r.icon = (($('#erIcon') || {}).value || '🎁').trim().slice(0, 4) || '🎁';
+    r.cost = clamp(Math.round(num(($('#erCost') || {}).value, 10)), 1, 999);
+    r.cat = ($('#erCat') || {}).value || '心愿';
+    save();
+    closeModal();
+    ui.rewardCat = '全部';
+    render();
+    toast('奖励已更新', 'success');
+  }
+  function openDeleteReward(id) {
+    if (!requireParent('切换到家长端才能删除奖励')) return;
+    var r = state.rewards.filter(function (x) { return x.id === id; })[0];
+    if (!r) return;
+    openModal({
+      title: '删除奖励？', icon: 'trash',
+      sub: '已产生的兑换记录会保留',
+      body: '<p><strong>' + esc(r.name) + '</strong>（' + r.cost + ' 颗星星）</p><p class="form-note" style="margin-top:10px">删除后孩子将看不到这个奖励；已兑换的历史记录不会消失。</p>',
+      footer: '<button class="btn btn-ghost" type="button" data-close>取消</button>' +
+        '<button class="btn btn-primary" type="button" data-act="do-delete-reward" data-id="' + esc(id) + '">' + icon('trash') + '确认删除</button>'
+    });
+  }
+  function doDeleteReward(id) {
+    if (!requireParent('切换到家长端才能删除奖励')) return;
+    var r = state.rewards.filter(function (x) { return x.id === id; })[0];
+    if (!r) { closeModal(); return; }
+    state.rewards = state.rewards.filter(function (x) { return x.id !== id; });
+    save();
+    closeModal();
+    ui.rewardCat = '全部';
+    render();
+    toast('已删除奖励「' + r.name + '」', 'success');
+  }
   function openAddExam() {
     if (!requireParent('切换到家长端才能添加考试目标')) return;
     var subjOpts = ['语文', '数学', '英语', '物理', '道法', '历史'].map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('');
@@ -1502,6 +1765,64 @@
     closeModal();
     setPage('exam');
     toast('已添加目标：' + title + ' ' + target + ' 分', 'success');
+  }
+  function openEditExam(id) {
+    if (!requireParent('切换到家长端才能编辑考试目标')) return;
+    var g = state.examGoals.filter(function (x) { return x.id === id; })[0];
+    if (!g) return;
+    var subjOpts = TASK_SUBJECTS.map(function (s) {
+      return '<option value="' + s + '"' + (g.subject === s ? ' selected' : '') + '>' + s + '</option>';
+    }).join('');
+    openModal({
+      title: '编辑考试目标', icon: 'target',
+      sub: g.done ? '已达成目标的星星不会因修改而重算' : '修改立即生效',
+      body: '<div class="form-grid">' +
+        '<div class="field"><label for="eeSubject">科目</label><select id="eeSubject">' + subjOpts + '</select></div>' +
+        '<div class="field"><label for="eeTarget">目标分数</label><input id="eeTarget" type="number" min="0" max="150" step="1" value="' + g.target + '"></div>' +
+        '<div class="field"><label for="eeStars">奖励星星</label><input id="eeStars" type="number" min="1" max="50" step="1" value="' + g.stars + '"></div>' +
+        '<div class="field"><label for="eeTitle">目标名称</label><input id="eeTitle" maxlength="20" value="' + esc(g.title) + '"></div>' +
+        '</div><p class="form-note" style="margin-top:11px">删除已达成目标不会扣回已发放的星星；如需退星请先点「撤销」。</p>',
+      footer: '<button class="btn btn-soft" type="button" data-act="delete-exam" data-id="' + esc(id) + '">' + icon('trash') + '删除</button>' +
+        '<button class="btn btn-ghost" type="button" data-close>取消</button>' +
+        '<button class="btn btn-primary" type="button" data-act="submit-edit-exam" data-id="' + esc(id) + '">保存</button>'
+    });
+  }
+  function submitEditExam(id) {
+    if (!requireParent('切换到家长端才能编辑考试目标')) return;
+    var g = state.examGoals.filter(function (x) { return x.id === id; })[0];
+    if (!g) return;
+    var subject = ($('#eeSubject') || {}).value || g.subject;
+    var target = clamp(Math.round(num(($('#eeTarget') || {}).value, g.target)), 0, 150);
+    var stars = clamp(Math.round(num(($('#eeStars') || {}).value, g.stars)), 1, 50);
+    var title = (($('#eeTitle') || {}).value || '').trim() || '期末' + subject + '目标';
+    g.subject = subject; g.target = target; g.stars = stars; g.title = title;
+    save();
+    closeModal();
+    render();
+    toast('考试目标已更新', 'success');
+  }
+  function openDeleteExam(id) {
+    if (!requireParent('切换到家长端才能删除考试目标')) return;
+    var g = state.examGoals.filter(function (x) { return x.id === id; })[0];
+    if (!g) return;
+    openModal({
+      title: '删除考试目标？', icon: 'trash',
+      sub: '删除后不可恢复',
+      body: '<p><strong>' + esc(g.title) + '</strong>（' + g.target + ' 分）</p>' +
+        '<p class="form-note" style="margin-top:10px">' + (g.done ? '该目标已达成，已发放的星星不会自动退回；需要退星请先点「撤销」。' : '目标还没达成，删除不会影响星星余额。') + '</p>',
+      footer: '<button class="btn btn-ghost" type="button" data-close>取消</button>' +
+        '<button class="btn btn-primary" type="button" data-act="do-delete-exam" data-id="' + esc(id) + '">' + icon('trash') + '确认删除</button>'
+    });
+  }
+  function doDeleteExam(id) {
+    if (!requireParent('切换到家长端才能删除考试目标')) return;
+    var g = state.examGoals.filter(function (x) { return x.id === id; })[0];
+    if (!g) { closeModal(); return; }
+    state.examGoals = state.examGoals.filter(function (x) { return x.id !== id; });
+    save();
+    closeModal();
+    render();
+    toast('已删除考试目标', 'success');
   }
 
   /* ---------- 15. 兑换 ---------- */
@@ -1610,7 +1931,7 @@
     if (starTotals().balance - g.stars < 0) { toast('星星已经花掉了，暂时不能撤销', 'warn'); return; }
     g.done = false;
     delete g.doneAt;
-    changeStars(-g.stars, '撤销考试奖励 · ' + g.title, 'undo');
+    changeStars(-g.stars, '撤销考试奖励 · ' + g.title, 'exam');
     save();
     render();
     toast('已撤销，星星已扣回', 'info');
@@ -1892,6 +2213,10 @@
 
     switch (act) {
       case 'set-role': setRole(el.getAttribute('data-role')); break;
+      case 'choose-parent': closeModal(); setTimeout(requestParentAccess, 80); break;
+      case 'save-pin': submitPinSetup(); break;
+      case 'verify-pin': submitPinVerify(); break;
+      case 'open-pin': closeModal(); setTimeout(function () { if (state.role === 'parent') openPinSetup(); else requestParentAccess(); }, 80); break;
       case 'open-role': closeModal(); setTimeout(openRoleModal, 60); break;
       case 'open-profile': closeModal(); setTimeout(openProfileModal, 60); break;
       case 'save-profile': {
@@ -1960,8 +2285,16 @@
       case 'submit-task': submitTask(); break;
       case 'add-reward': openAddReward(); break;
       case 'submit-reward': submitReward(); break;
+      case 'edit-reward': openEditReward(id); break;
+      case 'submit-edit-reward': submitEditReward(id); break;
+      case 'delete-reward': openDeleteReward(id); break;
+      case 'do-delete-reward': doDeleteReward(id); break;
       case 'add-exam': openAddExam(); break;
       case 'submit-exam': submitExam(); break;
+      case 'edit-exam': openEditExam(id); break;
+      case 'submit-edit-exam': submitEditExam(id); break;
+      case 'delete-exam': openDeleteExam(id); break;
+      case 'do-delete-exam': doDeleteExam(id); break;
       case 'redeem': openRedeem(id); break;
       case 'confirm-redeem': confirmRedeem(id); break;
       case 'exam-done': markExam(id, el); break;
@@ -2111,7 +2444,8 @@
 
   function init() {
     var params = new URLSearchParams(location.search);
-    if (params.get('reset') === '1') {
+    var resetRequested = params.get('reset') === '1';
+    if (resetRequested) {
       try { localStorage.removeItem(STORE_KEY); } catch (e) { }
       params.delete('reset');
       try {
@@ -2119,8 +2453,14 @@
         history.replaceState(null, '', location.pathname + (q ? '?' + q : '') + (location.hash || ''));
       } catch (e2) { }
     }
-    state = loadState();
+    state = resetRequested ? normalizeState(seedState()) : loadState();
+    if (resetRequested) save();
     rollTasksOver();
+    var parentAuthed = safeSessionGet('lc_parent_ok') === '1';
+    if (state.role === 'parent' && !parentAuthed && !params.has('parent')) {
+      state.role = 'student';
+      save();
+    }
     if (params.has('parent')) state.role = 'parent';
     else if (params.has('view')) state.role = 'student';
     ui.page = currentPage();
