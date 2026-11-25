@@ -1053,6 +1053,10 @@ body[data-role="parent"] .task-row .tick{border-style:dashed;background:#fbf8fd}
   .page-head h1 .ico{width:17px;height:17px}
   .page-sub{font-size:10px;line-height:1.5}
   .page-head-side{display:none}
+  .demo-banner{padding:9px;gap:7px}
+  .demo-copy{flex-basis:calc(100% - 50px)}
+  .demo-copy p{font-size:9.5px}
+  .demo-actions{width:100%;justify-content:flex-end}
   .stat b{font-size:19px}
   .stat span{font-size:8.5px}
   .stat{padding:9px 2px 8px}
@@ -1181,6 +1185,30 @@ body[data-role="parent"] .task-row .tick{border-style:dashed;background:#fbf8fd}
 }
 
 /* ---------- 11. 弹窗内扩展组件 ---------- */
+.demo-banner{
+  display:flex;align-items:center;gap:10px;padding:10px 13px;margin-bottom:14px;
+  border-radius:14px;border:1px solid #f3dfb8;
+  background:linear-gradient(110deg,#fffaf0,#fff 55%,#fdf3ee);
+  box-shadow:0 5px 14px rgba(180,130,60,.06);flex-wrap:wrap;
+}
+.demo-badge{
+  flex:none;font-size:9px;font-weight:850;color:#8a5f1e;background:#ffe9b8;
+  border:1px solid #f3d493;border-radius:6px;padding:2px 6px;line-height:1.4;
+}
+.demo-copy{flex:1;min-width:180px}
+.demo-copy strong{font-size:12px;font-weight:850;color:#6f5526}
+.demo-copy p{font-size:10.5px;color:#94794c;line-height:1.6;margin-top:2px}
+.demo-actions{display:flex;align-items:center;gap:6px;flex:none}
+.task-carry{
+  font-size:8.5px;font-weight:800;color:var(--lilac-deep);background:var(--lilac-soft);
+  border:1px solid #e6daf6;border-radius:5px;padding:0 4px;line-height:1.6;
+}
+.tools-admin{
+  display:flex;align-items:center;gap:6px;margin-top:10px;padding-top:9px;
+  border-top:1px dashed #ece3f2;
+}
+.tools-admin .tiny{margin-right:auto}
+
 .role-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
 .role-option{
   position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:4px;
@@ -1215,6 +1243,13 @@ body[data-role="parent"] .task-row .tick{border-style:dashed;background:#fbf8fd}
   .role-ico{margin:0}
   .role-option > span:not(.role-ico){flex-basis:100%;margin-left:33px}
   .role-now{position:static;margin-left:auto;order:0}
+}
+@media (max-width:720px){
+  .demo-banner{padding:9px;gap:7px}
+  .demo-copy{flex-basis:calc(100% - 50px)}
+  .demo-copy p{font-size:9.5px}
+  .demo-actions{width:100%;justify-content:flex-end}
+  .tools-admin{margin-top:8px;padding-top:7px}
 }
 
 

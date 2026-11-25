@@ -107,7 +107,8 @@
     edit: '<path d="M4 20h4.2L20 8.2a2.3 2.3 0 0 0-3.2-3.2L5 16.8 4 20Z"/><path d="m14.5 6.5 3 3"/>',
     home: '<path d="m3 10.5 9-7 9 7V20a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 20V10.5Z"/><path d="M9 21v-6.5h6V21"/>',
     lock: '<rect x="4.5" y="10" width="15" height="10.5" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/>',
-    refresh: '<path d="M20 12a8 8 0 0 1-13.6 5.7M4 12a8 8 0 0 1 13.6-5.7"/><path d="M17.6 3v3.4h-3.4M6.4 21v-3.4h3.4"/>'
+    refresh: '<path d="M20 12a8 8 0 0 1-13.6 5.7M4 12a8 8 0 0 1 13.6-5.7"/><path d="M17.6 3v3.4h-3.4M6.4 21v-3.4h3.4"/>',
+    download: '<path d="M12 3v12M7 10l5 5 5-5M4 21h16"/>'
   };
   function icon(name, cls) {
     var path = ICONS[name] || ICONS.sparkles;
@@ -217,12 +218,16 @@
       log.sort(function (a, b) { return b.ts - a.ts; });
     }
 
+    var todayKeyNow = dayKey(Date.now());
+    var seedTaskList = seedTasks();
+    seedTaskList.forEach(function (t) { t.date = todayKeyNow; t.createdAt = Date.now(); });
+
     return {
       v: VERSION,
       createdAt: Date.now(),
       profile: { nick: '乐乐', grade: '初二上' },
       role: 'student',
-      tasks: seedTasks(),
+      tasks: seedTaskList,
       examGoals: seedExam(),
       mastery: seedMastery(),
       rewards: seedRewards(),
@@ -231,14 +236,17 @@
         { id: 'rd_seed2', ts: tsDaysAgo(28, 18, 40), rewardId: 'r2', name: '30 分钟游戏时间', icon: '🎮', cost: 20 }
       ],
       log: log,
-      settings: { starGoal: 200 }
+      settings: { starGoal: 200 },
+      meta: { demo: true, demoTasks: true, legacy: false, lastRoll: todayKeyNow, noticeDismissed: false }
     };
   }
 
   /* ---------- 5. 存储 / 迁移 ---------- */
   var state = null;
-  var ui = { page: 'today', tab: '全部', rewardCat: '全部', openTask: null, doneOpen: true, masteryOpen: { 语文: true, 英语: false, 数学: false, 物理: false }, calMonth: null, answers: {}, recog: null, recogBusy: false, recogCands: null };
+  var ui = { page: 'today', tab: '全部', rewardCat: '全部', openTask: null, doneOpen: true, masteryOpen: { 语文: true, 英语: false, 数学: false, 物理: false }, calMonth: null, answers: {}, recog: null, recogBusy: false, recogCands: null, demoDismissed: false };
   var rt = { timers: {}, recordings: {}, recording: null, judgeTask: null, judge: {}, speakSeq: 0, confirm: null, lastFocus: null, modalOpen: false };
+  var saveWarned = false;
+  var pendingImport = null;
 
   function safeGet(key) {
     try { return localStorage.getItem(key); } catch (e) { return null; }
@@ -247,8 +255,13 @@
     try { localStorage.setItem(key, val); return true; } catch (e) { return false; }
   }
   function save() {
-    if (!state) return;
-    safeSet(STORE_KEY, JSON.stringify(state));
+    if (!state) return false;
+    var ok = safeSet(STORE_KEY, JSON.stringify(state));
+    if (!ok && !saveWarned) {
+      saveWarned = true;
+      try { toast('本地存储失败，请尽快在「更多」里导出备份', 'warn'); } catch (e) { }
+    }
+    return ok;
   }
   function importLegacy() {
     var raw = safeGet(LEGACY_KEY);
@@ -297,7 +310,13 @@
     s.redemptions = Array.isArray(s.redemptions) ? s.redemptions : [];
     s.log = Array.isArray(s.log) ? s.log : [];
     s.settings = s.settings && typeof s.settings === 'object' ? s.settings : { starGoal: 200 };
-    var i, t;
+    s.meta = s.meta && typeof s.meta === 'object' ? s.meta : {};
+    if (typeof s.meta.demo !== 'boolean') s.meta.demo = false;
+    if (typeof s.meta.demoTasks !== 'boolean') s.meta.demoTasks = false;
+    if (typeof s.meta.legacy !== 'boolean') s.meta.legacy = false;
+    if (typeof s.meta.noticeDismissed !== 'boolean') s.meta.noticeDismissed = false;
+    if (!s.meta.lastRoll) s.meta.lastRoll = dayKey(Date.now());
+    var i, t, todayKey = dayKey(Date.now());
     for (i = 0; i < s.tasks.length; i++) {
       t = s.tasks[i]; if (!t || typeof t !== 'object') continue;
       t.id = t.id || uid('t');
@@ -305,8 +324,10 @@
       t.title = String(t.title || '未命名任务');
       t.type = t.type || 'habit';
       t.stars = Math.max(1, Math.round(num(t.stars, 1)));
+      t.date = typeof t.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(t.date) ? t.date : todayKey;
       t.done = !!t.done;
       if (!t.done) delete t.doneAt;
+      if (t.carriedFrom && !/^\d{4}-\d{2}-\d{2}$/.test(t.carriedFrom)) delete t.carriedFrom;
     }
     for (i = 0; i < s.examGoals.length; i++) {
       t = s.examGoals[i]; if (!t || typeof t !== 'object') continue;
@@ -322,6 +343,15 @@
       t.icon = String(t.icon || '🎁');
       t.cost = Math.max(1, Math.round(num(t.cost, 10)));
       t.cat = REWARD_CATS.indexOf(t.cat) > 0 ? t.cat : '心愿';
+    }
+    for (i = 0; i < s.mastery.length; i++) {
+      t = s.mastery[i]; if (!t || typeof t !== 'object') continue;
+      t.id = t.id || uid('m');
+      t.subject = MASTERY_GROUPS[t.subject] ? t.subject : '语文';
+      t.title = String(t.title || '未命名知识点');
+      t.detail = String(t.detail || '');
+      t.known = !!t.known;
+      t.grade = typeof t.grade === 'string' ? t.grade : '初二上';
     }
     return s;
   }
@@ -341,12 +371,45 @@
       s.profile.nick = legacy.nick || s.profile.nick;
       if (legacy.grade) s.profile.grade = legacy.grade;
       s.tasks = s.tasks.map(function (t) { t.done = false; delete t.doneAt; return t; });
+      s.meta.demo = false;
+      s.meta.demoTasks = true;
+      s.meta.legacy = true;
       var totals = logTotals(s.log);
       if (totals.balance < 0) {
         s.log.unshift({ id: uid('lg'), ts: Date.now(), delta: -totals.balance, reason: '旧版星星余额校正', kind: 'bonus' });
       }
     }
     return normalizeState(s);
+  }
+  function todayTasks() {
+    if (!state) return [];
+    var key = dayKey(Date.now());
+    return state.tasks.filter(function (t) { return (t.date || key) === key; });
+  }
+  function shortDayLabel(key) {
+    if (!key || !/^\d{4}-\d{2}-\d{2}$/.test(key)) return '';
+    var p = key.split('-');
+    return Number(p[1]) + '月' + Number(p[2]) + '日';
+  }
+  function rollTasksOver() {
+    if (!state) return false;
+    var today = dayKey(Date.now()), changed = false;
+    state.tasks.forEach(function (t) {
+      if (!t || typeof t !== 'object') return;
+      if (!t.date) { t.date = today; changed = true; }
+      if (!t.done && t.date < today) {
+        t.carriedFrom = t.carriedFrom || t.date;
+        t.date = today;
+        t.updatedAt = Date.now();
+        changed = true;
+      }
+    });
+    if (state.meta && state.meta.lastRoll !== today) {
+      state.meta.lastRoll = today;
+      changed = true;
+    }
+    if (changed) save();
+    return changed;
   }
   function logTotals(log) {
     var earned = 0, used = 0;
@@ -426,7 +489,7 @@
     if (!state) return;
     var totals = starTotals();
     var balance = totals.balance;
-    var undone = state.tasks.filter(function (t) { return !t.done; }).length;
+    var undone = todayTasks().filter(function (t) { return !t.done; }).length;
     var activeGoals = state.examGoals.filter(function (g) { return !g.done; }).length;
     var isParent = state.role === 'parent';
     var nick = state.profile.nick || '乐乐';
@@ -500,7 +563,7 @@
     return html;
   }
   function renderToday() {
-    var tasks = state.tasks;
+    var tasks = todayTasks();
     var doneTasks = tasks.filter(function (t) { return t.done; });
     var undone = tasks.length - doneTasks.length;
     var earned = todayStars();
@@ -516,6 +579,19 @@
       sub: '按分类添加今天的任务，完成一个就 <b>+1</b> ⭐',
       side: '<button class="btn btn-ghost btn-sm" type="button" data-act="scroll-tasks">' + icon('home') + '今天</button>'
     });
+
+    var meta = state.meta || {};
+    if ((meta.demo || meta.demoTasks) && !meta.noticeDismissed && !ui.demoDismissed) {
+      var demoText = meta.legacy
+        ? '已导入旧版星星（当前余额 ' + fmtNum(starTotals().balance) + ' 颗）。今天这 11 条是示例任务，不是孩子的真实作业；清空示例后可以让家长添加，或拍照识别。'
+        : '当前是演示数据：11 条示例任务、演示星星和流水，只保存在本机。开始使用会清空演示任务与星星，保留奖励目录。';
+      h += '<div class="demo-banner" role="status">' +
+        '<span class="demo-badge">演示</span>' +
+        '<div class="demo-copy"><strong>' + (meta.legacy ? '旧版星星已导入，任务还是示例' : '你正在看演示数据') + '</strong><p>' + esc(demoText) + '</p></div>' +
+        '<div class="demo-actions"><button class="btn btn-ghost btn-xs" type="button" data-act="demo-dismiss">先看看</button>' +
+        '<button class="btn btn-primary btn-xs" type="button" data-act="demo-clean">开始使用</button></div>' +
+        '</div>';
+    }
 
     h += '<div class="stat-row">' +
       '<div class="stat"><b>' + tasks.length + '</b><span>今日任务</span></div>' +
@@ -557,7 +633,7 @@
     /* 分类清单 */
     h += '<section class="section" id="taskListSection">' +
       '<div class="section-head"><div class="section-title">' + icon('book') + '分类任务清单 <small>' + undone + ' 条待完成</small></div>' +
-      '<div class="section-sub">完成一个 +1 ⭐</div></div>';
+      '<div class="section-sub"><button class="section-link" type="button" data-act="open-history">历史完成</button><span class="meta-dot"></span>完成一个 +1 ⭐</div></div>';
     if (tasks.length) {
       h += '<div class="chip-row task-tabs" role="tablist" aria-label="按科目筛选">';
       h += '<button class="chip' + (tab === '全部' ? ' is-active' : '') + '" type="button" data-act="tab" data-tab="全部" role="tab" aria-selected="' + (tab === '全部') + '">全部 <span class="chip-num">' + tasks.length + '</span></button>';
@@ -619,10 +695,11 @@
       '<div class="task-row' + (t.done ? ' is-done' : '') + '">' +
       '<button class="tick" type="button" data-act="toggle-task" data-id="' + esc(t.id) + '" aria-label="' + (t.done ? '已完成' : '完成任务 ' + t.title) + '" aria-pressed="' + t.done + '">' + icon('check') + '</button>' +
       '<div class="task-main" data-act="expand-task" data-id="' + esc(t.id) + '" role="button" tabindex="0" aria-expanded="' + open + '" aria-label="展开 ' + esc(t.title) + ' 的学习工具">' +
-      '<div class="task-title">' + esc(t.title) + (t.isNew ? '<i class="task-new">AI</i>' : '') + '</div>' +
+      '<div class="task-title">' + esc(t.title) + (t.isNew ? '<i class="task-new">AI</i>' : '') + (t.carriedFrom ? '<span class="task-carry">结转</span>' : '') + '</div>' +
       '<div class="task-meta"><span class="tag">' + typeTag(t.type) + '</span>' +
       (t.minutes ? '<span class="meta-dot"></span><span>' + t.minutes + ' 分钟</span>' : '') +
       (t.judge ? '<span class="meta-dot"></span><span>已判题</span>' : '') +
+      (t.carriedFrom ? '<span class="meta-dot"></span><span>从 ' + shortDayLabel(t.carriedFrom) + ' 结转</span>' : '') +
       '</div></div>' +
       '<div class="task-right"><span class="star-pill">+' + t.stars + ' <i>★</i></span>' +
       '<button class="task-expand" type="button" data-act="expand-task" data-id="' + esc(t.id) + '" aria-expanded="' + open + '" aria-label="' + (open ? '收起' : '展开') + '学习工具">' + icon('chevron') + '</button></div>' +
@@ -701,11 +778,38 @@
         '<div class="tools-row"><span class="rec-note">' + (t.subject === '运动' ? '运动前先热身，量力而行，做完记得补水。' : '做完自己的事，再回来打勾，家长端会看到记录。') + '</span>' +
         '<button class="btn btn-primary btn-sm" type="button" data-act="toggle-task" data-id="' + esc(t.id) + '">' + icon('check') + '完成打卡</button></div>';
     }
+    if (state.role === 'parent') {
+      h += '<div class="tools-admin"><span class="tiny muted">家长操作</span>' +
+        '<button class="btn btn-ghost btn-xs" type="button" data-act="edit-task" data-id="' + esc(t.id) + '">' + icon('edit') + '编辑</button>' +
+        '<button class="btn btn-ghost btn-xs" type="button" data-act="delete-task" data-id="' + esc(t.id) + '">' + icon('trash') + '删除</button></div>';
+    }
     return h + '</div>';
   }
 
   function emptyState(emoji, title, desc, action) {
     return '<div class="empty"><span class="empty-emoji" aria-hidden="true">' + emoji + '</span><strong>' + esc(title) + '</strong><p>' + esc(desc) + '</p>' + (action || '') + '</div>';
+  }
+  function openTaskHistory() {
+    var today = dayKey(Date.now());
+    var hist = state.tasks.filter(function (t) { return t.done && t.date && t.date < today; })
+      .sort(function (a, b) { return (b.doneAt || 0) - (a.doneAt || 0); });
+    var body;
+    if (!hist.length) {
+      body = '<div class="empty" style="padding:24px"><span class="empty-emoji">🗂️</span><strong>还没有历史完成</strong><p>任务完成后会在第二天进入这里，方便回看。</p></div>';
+    } else {
+      body = '<div class="history-list">' + hist.slice(0, 60).map(function (t) {
+        return '<div class="history-row"><span class="history-ico" aria-hidden="true">★</span>' +
+          '<div class="history-main"><strong>' + esc(t.title) + '</strong><small>' + shortDayLabel(t.date) + ' · ' + esc(t.subject) + '</small></div>' +
+          '<span class="history-cost">+' + t.stars + ' ★</span></div>';
+      }).join('') + '</div>' +
+        (hist.length > 60 ? '<p class="hint-line">只显示最近 60 条</p>' : '');
+    }
+    openModal({
+      title: '历史完成', icon: 'calendar',
+      sub: '按完成日期倒序，最多显示最近 60 条',
+      body: body,
+      footer: '<button class="btn btn-ghost" type="button" data-close>关闭</button>'
+    });
   }
 
   /* ---------- 8. 页面渲染 · 考试赚星星 ---------- */
@@ -762,23 +866,28 @@
 
   /* ---------- 9. 页面渲染 · 必掌握 ---------- */
   function renderMastery() {
-    var items = state.mastery;
+    var grade = state.profile.grade || '初二上';
+    var items = state.mastery.filter(function (m) { return (m.grade || '初二上') === grade; });
     var known = items.filter(function (m) { return m.known; }).length;
-    var total = items.length || 1;
-    var pct = Math.round(known / total * 100);
+    var total = items.length;
+    var pct = total ? Math.round(known / total * 100) : 0;
     var h = pageHead('mastery', {
-      title: String(state.profile.grade || '初二上').replace(/[上下]$/, '') + '必掌握',
+      title: String(grade).replace(/[上下]$/, '') + '必掌握',
       icon: 'cap',
       sub: '本学期古诗文、单词、公式和物理概念，点开一组逐个过关',
-      side: '<span class="badge badge-lilac">' + known + ' / ' + items.length + ' 已掌握</span>'
+      side: '<span class="badge badge-lilac">' + known + ' / ' + total + ' 已掌握</span>'
     });
     h += '<div class="mastery-hero">' +
       '<div class="mastery-ring" style="--p:' + pct + '" role="img" aria-label="已掌握 ' + pct + '%"><div><b>' + pct + '%</b><small>掌握度</small></div></div>' +
       '<div class="mastery-hero-body"><h3>' + (pct >= 80 ? '已经很稳了，再巩固一下细节' : pct >= 40 ? '继续推进，把薄弱项补上' : '从今天开始，一次攻一个小点') + '</h3>' +
       '<p>点击卡片右边的 ✓ 标记掌握，点小喇叭可以朗读。</p>' +
       '<div class="progress"><i style="width:' + pct + '%"></i></div></div>' +
-      '<div class="mastery-hero-side"><span class="badge badge-gold">' + (items.length - known) + ' 项待掌握</span></div>' +
+      '<div class="mastery-hero-side"><span class="badge badge-gold">' + Math.max(0, total - known) + ' 项待掌握</span></div>' +
       '</div>';
+    if (!items.length) {
+      h += emptyState('📚', '这个年级还没有必掌握内容', '目前只配置了初二上（24 项）。可以在「更多 → 修改昵称 / 年级」里切回初二上。');
+      return h;
+    }
 
     var subjects = ['语文', '英语', '数学', '物理'];
     items.forEach(function (m) { if (subjects.indexOf(m.subject) < 0) subjects.push(m.subject); });
@@ -1004,6 +1113,7 @@
     root.innerHTML = '';
     rt.modalOpen = false;
     rt.confirm = null;
+    pendingImport = null;
     document.body.style.overflow = '';
     if (rt.lastFocus && typeof rt.lastFocus.focus === 'function') { try { rt.lastFocus.focus(); } catch (e) { } }
     rt.lastFocus = null;
@@ -1078,7 +1188,7 @@
         ['初一上', '初一下', '初二上', '初二下', '初三上', '初三下'].map(function (g) {
           return '<option value="' + g + '"' + (g === state.profile.grade ? ' selected' : '') + '>' + g + '</option>';
         }).join('') + '</select></div></div>' +
-        '<p class="form-note" style="margin-top:11px">年级决定「必掌握」页面的标题和学习内容，本次按初二上配置。</p>',
+        '<p class="form-note" style="margin-top:11px">年级决定「必掌握」页面的标题和内容；目前只配置了初二上，切到其他年级会显示空状态。</p>',
       footer: '<button class="btn btn-ghost" type="button" data-close>取消</button>' +
         '<button class="btn btn-primary" type="button" data-act="save-profile">保存</button>'
     });
@@ -1091,12 +1201,110 @@
         '<a class="more-link" href="classic.html"><span class="more-ico">🗂️</span><span><strong>打开经典版工作台</strong><small>旧版完整功能仍保留</small></span>' + icon('arrowRight') + '</a>' +
         '<button class="more-link" type="button" data-act="open-profile"><span class="more-ico">👤</span><span><strong>修改昵称 / 年级</strong><small>同步侧边栏和必掌握标题</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="open-role"><span class="more-ico">🔄</span><span><strong>切换学生端 / 家长端</strong><small>当前：' + (state.role === 'parent' ? '家长端' : '学生端') + '</small></span>' + icon('arrowRight') + '</button>' +
+        '<button class="more-link" type="button" data-act="export-data"><span class="more-ico">📤</span><span><strong>导出数据备份</strong><small>下载 JSON，换设备/清缓存前先备份</small></span>' + icon('arrowRight') + '</button>' +
+        '<button class="more-link" type="button" data-act="import-data"><span class="more-ico">📥</span><span><strong>导入数据备份</strong><small>用 JSON 覆盖本机数据</small></span>' + icon('arrowRight') + '</button>' +
         '<a class="more-link" href="preview.html"><span class="more-ico">🧪</span><span><strong>打开本地测试台</strong><small>旧版双端预览工具</small></span>' + icon('arrowRight') + '</a>' +
         '<button class="more-link is-danger" type="button" data-act="open-reset"><span class="more-ico">🧹</span><span><strong>重置演示数据</strong><small>恢复初始任务、星星和奖励</small></span>' + icon('arrowRight') + '</button>' +
         '</div>' +
         '<p class="form-note" style="margin-top:11px">新版本数据保存在 lc_cockpit_v1，旧版数据仍保存在 lc_v3，两者互不覆盖。</p>',
       footer: '<button class="btn btn-ghost" type="button" data-close>关闭</button>'
     });
+  }
+  function openDemoClean() {
+    var isLegacy = !!(state.meta && state.meta.legacy);
+    openModal({
+      title: isLegacy ? '清空示例任务？' : '开始使用？', icon: 'sparkles',
+      sub: isLegacy ? '旧版星星会保留，只清空示例任务' : '会清空演示任务、演示星星和流水',
+      body: '<p>' + (isLegacy
+        ? '已导入的旧版星星余额会保留；今天这 11 条示例任务、示例考试目标会清空，奖励目录保留。之后让家长添加任务，或直接拍照识别。'
+        : '会清空 11 条演示任务、演示星星、流水和兑换记录；奖励目录和「必掌握」内容保留。') +
+        '</p><p class="form-note" style="margin-top:10px">删除后不可恢复。如果只是想先看看，点「先看看」即可；建议先导出备份。</p>',
+      footer: '<button class="btn btn-ghost" type="button" data-close>取消</button>' +
+        '<button class="btn btn-primary" type="button" data-act="do-demo-clean">' + icon('check') + '确认开始</button>'
+    });
+  }
+  function doDemoClean() {
+    var isLegacy = !!(state.meta && state.meta.legacy);
+    state.tasks = [];
+    state.examGoals = [];
+    state.mastery.forEach(function (m) { m.known = false; });
+    if (!isLegacy) {
+      state.log = [];
+      state.redemptions = [];
+    }
+    state.meta.demo = false;
+    state.meta.demoTasks = false;
+    state.meta.noticeDismissed = true;
+    state.meta.legacy = false;
+    ui.demoDismissed = true;
+    ui.tab = '全部';
+    ui.openTask = null;
+    save();
+    closeModal();
+    render();
+    toast(isLegacy ? '已清空示例任务，旧版星星已保留' : '已清空演示数据，可以开始记录自己的任务了', 'success');
+  }
+  function dismissDemo() {
+    ui.demoDismissed = true;
+    render();
+  }
+  function exportData() {
+    try {
+      var data = JSON.stringify(state, null, 2);
+      var blob = new Blob([data], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = '乐乐学习舱备份_' + dayKey(Date.now()) + '.json';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { try { URL.revokeObjectURL(url); a.remove(); } catch (e) { } }, 600);
+      toast('已导出 JSON 备份，请保存好', 'success');
+    } catch (e) {
+      toast('导出失败，请换浏览器重试', 'warn');
+    }
+  }
+  function triggerImport() {
+    var input = $('#effImportInput');
+    if (input) { input.value = ''; input.click(); }
+  }
+  function handleImportFile(file) {
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var obj;
+      try { obj = JSON.parse(String(reader.result || '')); } catch (e) { toast('文件不是有效的 JSON', 'warn'); return; }
+      if (!obj || typeof obj !== 'object' || !Array.isArray(obj.tasks) || !Array.isArray(obj.log)) {
+        toast('备份格式不对，至少需要 tasks 和 log', 'warn');
+        return;
+      }
+      pendingImport = obj;
+      openModal({
+        title: '导入备份？', icon: 'download',
+        sub: '会覆盖本机当前数据',
+        body: '<p>备份里包含 <strong>' + obj.tasks.length + '</strong> 条任务、<strong>' + obj.log.length + '</strong> 条星星流水。</p>' +
+          '<p class="form-note" style="margin-top:10px">导入会覆盖这台设备上的当前数据；建议先把当前数据导出一份。旧版 <code>lc_v3</code> 不会被改动。</p>',
+        footer: '<button class="btn btn-ghost" type="button" data-close>取消</button>' +
+          '<button class="btn btn-primary" type="button" data-act="do-import">' + icon('check') + '确认导入</button>'
+      });
+    };
+    reader.onerror = function () { toast('文件读取失败', 'warn'); };
+    reader.readAsText(file);
+  }
+  function doImport() {
+    if (!pendingImport) { closeModal(); return; }
+    try {
+      state = normalizeState(pendingImport);
+      pendingImport = null;
+      save();
+      closeModal();
+      ui.openTask = null;
+      render();
+      toast('导入成功，已恢复备份数据', 'success');
+    } catch (e) {
+      pendingImport = null;
+      toast('导入失败：备份内容不完整', 'warn');
+    }
   }
   function openResetModal() {
     openModal({
@@ -1145,7 +1353,7 @@
     var type = ($('#atType') || {}).value || 'habit';
     var stars = clamp(Math.round(num(($('#atStars') || {}).value, 1)), 1, 20);
     var minutes = Math.max(0, Math.round(num(($('#atMinutes') || {}).value, 0)));
-    var task = { id: uid('t'), subject: subject, title: title, type: type, stars: stars, done: false, isNew: true };
+    var task = { id: uid('t'), subject: subject, title: title, type: type, stars: stars, done: false, isNew: true, date: dayKey(Date.now()), createdAt: Date.now(), updatedAt: Date.now() };
     if (minutes > 0) task.minutes = minutes;
     if (type === 'timer') task.seconds = Math.max(60, (minutes || 5) * 60);
     if (type === 'words') task.words = ['study', 'practice', 'improve', 'knowledge', 'progress'];
@@ -1156,6 +1364,86 @@
     closeModal();
     setPage('today');
     toast('已添加「' + title + '」，完成就能拿星星', 'success');
+  }
+  function taskFormHTML(prefix, task) {
+    var subjects = ['语文', '数学', '英语', '物理', '阅读', '习惯', '运动'];
+    var types = [['habit', '普通打卡'], ['timer', '计时 / 倒计时'], ['recite', '背诵录音'], ['words', '单词朗读'], ['dictation', '听写练习'], ['homework', '作业拍照检查'], ['read', '知识点复习']];
+    var minutes = task && task.minutes ? task.minutes : (task && task.seconds ? Math.round(task.seconds / 60) : '');
+    return '<div class="form-grid">' +
+      '<div class="field"><label for="' + prefix + 'Subject">科目</label><select id="' + prefix + 'Subject">' + subjects.map(function (s) {
+        return '<option value="' + s + '"' + (task && task.subject === s ? ' selected' : '') + '>' + s + '</option>';
+      }).join('') + '</select></div>' +
+      '<div class="field"><label for="' + prefix + 'Type">任务类型</label><select id="' + prefix + 'Type">' + types.map(function (tp) {
+        return '<option value="' + tp[0] + '"' + (task && task.type === tp[0] ? ' selected' : '') + '>' + tp[1] + '</option>';
+      }).join('') + '</select></div>' +
+      '<div class="field field-full"><label for="' + prefix + 'Title">任务标题 <em>*</em></label><input id="' + prefix + 'Title" maxlength="40" value="' + esc(task ? task.title : '') + '" placeholder="例如：背诵《答谢中书书》并录音"></div>' +
+      '<div class="field"><label for="' + prefix + 'Stars">奖励星星</label><input id="' + prefix + 'Stars" type="number" min="1" max="20" step="1" value="' + (task ? task.stars : 1) + '"></div>' +
+      '<div class="field"><label for="' + prefix + 'Minutes">预计分钟</label><input id="' + prefix + 'Minutes" type="number" min="0" max="180" step="5" value="' + minutes + '" placeholder="10"></div>' +
+      '</div><p class="form-note" style="margin-top:11px">计时类任务会按「预计分钟」生成倒计时；留空则默认 5 分钟。</p>';
+  }
+  function readTaskForm(prefix) {
+    var title = (($('#' + prefix + 'Title') || {}).value || '').trim();
+    if (!title) { toast('先写一个任务标题', 'warn'); var el = $('#' + prefix + 'Title'); if (el) el.focus(); return null; }
+    var subject = ($('#' + prefix + 'Subject') || {}).value || '习惯';
+    var type = ($('#' + prefix + 'Type') || {}).value || 'habit';
+    var stars = clamp(Math.round(num(($('#' + prefix + 'Stars') || {}).value, 1)), 1, 20);
+    var minutes = Math.max(0, Math.round(num(($('#' + prefix + 'Minutes') || {}).value, 0)));
+    return { title: title, subject: subject, type: type, stars: stars, minutes: minutes };
+  }
+  function openEditTask(id) {
+    if (!requireParent('切换到家长端才能编辑任务')) return;
+    var t = findTask(id);
+    if (!t) return;
+    openModal({
+      title: '编辑任务', icon: 'edit',
+      sub: '改科目、类型、星星或预计分钟',
+      body: taskFormHTML('et', t),
+      footer: '<button class="btn btn-ghost" type="button" data-close>取消</button>' +
+        '<button class="btn btn-primary" type="button" data-act="submit-edit-task" data-id="' + esc(id) + '">' + icon('check') + '保存修改</button>'
+    });
+  }
+  function submitEditTask(id) {
+    if (!requireParent('切换到家长端才能编辑任务')) return;
+    var t = findTask(id);
+    if (!t) return;
+    var v = readTaskForm('et');
+    if (!v) return;
+    t.subject = v.subject; t.type = v.type; t.stars = v.stars;
+    t.title = v.title;
+    if (v.minutes > 0) t.minutes = v.minutes; else delete t.minutes;
+    if (v.type === 'timer') t.seconds = Math.max(60, (v.minutes || 5) * 60);
+    if (v.type === 'words' && (!t.words || !t.words.length)) t.words = ['study', 'practice', 'improve', 'knowledge', 'progress'];
+    if (v.type === 'dictation' && (!t.pairs || !t.pairs.length)) t.pairs = [['go', 'went'], ['take', 'took'], ['see', 'saw'], ['write', 'wrote']];
+    t.updatedAt = Date.now();
+    save();
+    closeModal();
+    render();
+    toast('任务已更新', 'success');
+  }
+  function openDeleteTask(id) {
+    if (!requireParent('切换到家长端才能删除任务')) return;
+    var t = findTask(id);
+    if (!t) return;
+    openModal({
+      title: '删除这条任务？', icon: 'trash',
+      sub: '删除后不可恢复',
+      body: '<p><strong>' + esc(t.title) + '</strong></p>' +
+        '<p class="form-note" style="margin-top:10px">' + (t.done ? '这条任务已经完成，已获得的星星不会自动退回；如要退星，请先在已完成区撤销。' : '任务还没完成，删除不会影响星星余额。') + '</p>',
+      footer: '<button class="btn btn-ghost" type="button" data-close>取消</button>' +
+        '<button class="btn btn-primary" type="button" data-act="do-delete-task" data-id="' + esc(id) + '">' + icon('trash') + '确认删除</button>'
+    });
+  }
+  function doDeleteTask(id) {
+    if (!requireParent('切换到家长端才能删除任务')) return;
+    var t = findTask(id);
+    if (!t) { closeModal(); return; }
+    stopTimer(id, true);
+    state.tasks = state.tasks.filter(function (x) { return x.id !== id; });
+    if (ui.openTask === id) ui.openTask = null;
+    save();
+    closeModal();
+    render();
+    toast('已删除「' + t.title + '」', 'success');
   }
   function openAddReward() {
     if (!requireParent('切换到家长端才能添加奖励')) return;
@@ -1616,10 +1904,17 @@
         break;
       }
       case 'more': openMoreModal(); break;
+      case 'demo-dismiss': dismissDemo(); break;
+      case 'demo-clean': openDemoClean(); break;
+      case 'do-demo-clean': doDemoClean(); break;
+      case 'open-history': openTaskHistory(); break;
+      case 'export-data': exportData(); break;
+      case 'import-data': triggerImport(); break;
+      case 'do-import': doImport(); break;
       case 'open-reset': openResetModal(); break;
       case 'do-reset': {
         try { localStorage.removeItem(STORE_KEY); } catch (err) { }
-        state = seedState();
+        state = normalizeState(seedState());
         save();
         ui.page = 'today'; ui.tab = '全部'; ui.openTask = null; ui.recog = null; ui.recogCands = null; ui.recogBusy = false;
         ui.rewardCat = '全部'; ui.calMonth = null; ui.answers = {};
@@ -1644,6 +1939,10 @@
       case 'confirm-recog': confirmRecog(); break;
       case 'toggle-task': toggleTask(id, el.closest('.tick') || el); break;
       case 'expand-task': expandTask(id); break;
+      case 'edit-task': openEditTask(id); break;
+      case 'submit-edit-task': submitEditTask(id); break;
+      case 'delete-task': openDeleteTask(id); break;
+      case 'do-delete-task': doDeleteTask(id); break;
       case 'undo-task': undoTask(id); break;
       case 'done-toggle': ui.doneOpen = !ui.doneOpen; render(); break;
       case 'timer-start': startTimer(id); break;
@@ -1719,7 +2018,31 @@
       var j = t.files && t.files[0];
       t.value = '';
       handleJudge(j);
+    } else if (t.id === 'effImportInput') {
+      var b = t.files && t.files[0];
+      t.value = '';
+      handleImportFile(b);
     }
+  }
+
+  function watchDayChange() {
+    var check = function () {
+      if (!state) return;
+      if (dayKey(Date.now()) !== state.meta.lastRoll) {
+        var changed = rollTasksOver();
+        render();
+        if (changed) toast('新的一天，未完成任务已结转到今天', 'info');
+      }
+    };
+    setInterval(check, 60000);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) check(); });
+  }
+  function registerSW() {
+    try {
+      if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+        navigator.serviceWorker.register('sw.js').catch(function () { });
+      }
+    } catch (e) { }
   }
 
   function bindEvents() {
@@ -1748,6 +2071,15 @@
       var p = currentPage();
       if (p !== ui.page) { ui.page = p; render(); }
     });
+    window.addEventListener('storage', function (e) {
+      if (e.key !== STORE_KEY || !e.newValue) return;
+      try {
+        state = normalizeState(JSON.parse(e.newValue));
+        rollTasksOver();
+        render();
+        toast('已同步另一个标签页的修改', 'info');
+      } catch (err) { }
+    });
     var mq = window.matchMedia ? window.matchMedia('(max-width: 960px)') : null;
     if (mq && mq.addEventListener) {
       mq.addEventListener('change', function (ev) { if (!ev.matches) toggleDrawer(false); });
@@ -1770,6 +2102,11 @@
       j.type = 'file'; j.id = 'effJudgeInput'; j.accept = 'image/*'; j.style.display = 'none';
       document.body.appendChild(j);
     }
+    if (!$('#effImportInput')) {
+      var b = document.createElement('input');
+      b.type = 'file'; b.id = 'effImportInput'; b.accept = 'application/json,.json'; b.style.display = 'none';
+      document.body.appendChild(b);
+    }
   }
 
   function init() {
@@ -1783,6 +2120,7 @@
       } catch (e2) { }
     }
     state = loadState();
+    rollTasksOver();
     if (params.has('parent')) state.role = 'parent';
     else if (params.has('view')) state.role = 'student';
     ui.page = currentPage();
@@ -1793,11 +2131,16 @@
     injectShell();
     bindEvents();
     render();
+    registerSW();
+    watchDayChange();
     window.__effReady = true;
     window.__eff = {
-      version: '1.0',
+      version: '1.1',
       getState: function () { return state; },
       totals: function () { return starTotals(); },
+      today: todayTasks,
+      roll: function () { var c = rollTasksOver(); render(); return c; },
+      exportJSON: function () { return JSON.stringify(state); },
       go: function (p) { setPage(p); },
       render: render
     };
