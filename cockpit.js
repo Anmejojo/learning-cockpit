@@ -1,4 +1,4 @@
-﻿/* =========================================================
+/* =========================================================
    乐乐学习舱 · 效率学习 App 风
    cockpit.js · v1.0  2026-11-25
    结构：1 常量  2 工具  3 图标  4 演示数据  5 存储/迁移
@@ -316,7 +316,7 @@
         log.push({ id: uid('lg'), ts: ts, delta: (type === 'use' || pts < 0) ? -Math.abs(pts) : Math.abs(pts), reason: p.source || p.reason || '旧版星星记录', kind: 'legacy' });
       }
     }
-    if (!log.length && !(Array.isArray(o.hw) && o.hw.length) && !(Array.isArray(o.tasks) && o.tasks.length) && !(Array.isArray(o.checks) && o.checks.length)) return null;
+    if (!log.length && !(Array.isArray(o.hw) && o.hw.length) && !(Array.isArray(o.tasks) && o.tasks.length) && !(Array.isArray(o.checks) && o.checks.length) && !(Array.isArray(o.smallGoals) && o.smallGoals.length)) return null;
     log.sort(function (a, b) { return b.ts - a.ts; });
     /* 旧数据可能很多：保留最近 1200 条，早年的净额合并成一条，保证余额不丢 */
     if (log.length > 1200) {
@@ -398,11 +398,28 @@
         });
       });
     }
+    var legacyGoals = [];
+    if (Array.isArray(o.smallGoals)) {
+      o.smallGoals.forEach(function (g) {
+        if (!g) return;
+        var to = Number(g.to), from = Number(g.from);
+        if (!isFinite(to)) return;
+        var subj = String(g.subject || '成绩').trim() || '成绩';
+        legacyGoals.push({
+          id: uid('lg_goal'), subject: SUB_SHORT[subj] ? subj : '语文',
+          title: subj + ' 小目标', target: Math.max(0, Math.round(to)),
+          from: isFinite(from) ? from : null, stars: 10,
+          done: !!g.done, doneAt: g.done ? Date.now() : 0,
+          source: 'legacy-goal'
+        });
+      });
+    }
     return {
       nick: typeof o.nick === 'string' && o.nick.trim() ? o.nick.trim() : '',
       grade: /^初[一二三][上下]$/.test(String(o.sem || '')) ? String(o.sem) : '',
       log: log,
-      tasks: legacyTasks
+      tasks: legacyTasks,
+      goals: legacyGoals
     };
   }
   function normalizeState(s) {
@@ -427,6 +444,8 @@
     if (typeof s.meta.legacyTasks !== 'number' || !isFinite(s.meta.legacyTasks)) s.meta.legacyTasks = 0;
     if (typeof s.meta.noticeDismissed !== 'boolean') s.meta.noticeDismissed = false;
     if (typeof s.meta.parentPin !== 'string') s.meta.parentPin = '';
+    if (typeof s.meta.goalsImported !== 'number') s.meta.goalsImported = 0;
+    if (typeof s.meta.recordsImported !== 'number') s.meta.recordsImported = 0;
     if (!s.meta.lastRoll) s.meta.lastRoll = dayKey(Date.now());
     var i, t, todayKey = dayKey(Date.now());
     for (i = 0; i < s.tasks.length; i++) {
@@ -447,6 +466,7 @@
       t.target = Math.max(0, Math.round(num(t.target, 90)));
       t.stars = Math.max(1, Math.round(num(t.stars, 5)));
       t.done = !!t.done;
+      if (t.from != null && isFinite(Number(t.from))) t.from = Number(t.from); else delete t.from;
     }
     for (i = 0; i < s.rewards.length; i++) {
       t = s.rewards[i]; if (!t || typeof t !== 'object') continue;
@@ -481,12 +501,71 @@
     if (!s.meta) s.meta = {};
     s.meta.catalogV = CATALOG_VERSION;
   }
+  function mergeLegacyExtras(s) {
+    if (!s || !s.meta) return false;
+    if (!safeGet(LEGACY_KEY)) return false;
+    var legacy;
+    try { legacy = importLegacy(); } catch (e) { return false; }
+    if (!legacy) return false;
+    var changed = false;
+    if (!num(s.meta.goalsImported)) {
+      if (legacy.goals && legacy.goals.length) {
+        var demoGoals = s.examGoals.length === 6 && s.examGoals.every(function (g) { return /^e[1-6]$/.test(g.id); });
+        if (demoGoals) {
+          s.examGoals = legacy.goals.slice();
+        } else {
+          legacy.goals.forEach(function (g) {
+            if (!s.examGoals.some(function (x) { return x.subject === g.subject && x.target === g.target && x.title === g.title; })) s.examGoals.push(g);
+          });
+        }
+        changed = true;
+      }
+      s.meta.goalsImported = 1;
+      changed = true;
+    }
+    if (!num(s.meta.recordsImported)) {
+      if (num(s.meta.legacyTasks) > 0) {
+        s.meta.recordsImported = 1;
+        changed = true;
+      } else if (legacy.tasks && legacy.tasks.length) {
+        var demo = !!(s.meta.demo || s.meta.demoTasks) || s.tasks.every(function (t) { return /^t\d+$/.test(t.id); });
+        if (demo) {
+          s.tasks = legacy.tasks.slice();
+          s.log = (legacy.log || []).slice();
+          s.redemptions = [];
+        } else {
+          legacy.tasks.forEach(function (t) {
+            if (!s.tasks.some(function (x) { return x.date === t.date && x.subject === t.subject && x.title === t.title; })) s.tasks.push(t);
+          });
+        }
+        s.meta.demo = false;
+        s.meta.demoTasks = false;
+        s.meta.legacy = true;
+        s.meta.legacyTasks = s.tasks.length;
+        s.meta.recordsImported = 1;
+        changed = true;
+      } else {
+        if (legacy.log && legacy.log.length && (s.meta.demo || s.meta.demoTasks || !s.log.length)) {
+          s.log = legacy.log.slice();
+          s.redemptions = [];
+          changed = true;
+        }
+        s.meta.recordsImported = 1;
+        changed = true;
+      }
+    }
+    return changed;
+  }
   function loadState() {
     var raw = safeGet(STORE_KEY);
     if (raw) {
       try {
         var saved = JSON.parse(raw);
-        if (saved && saved.v === VERSION) return normalizeState(saved);
+        if (saved && saved.v === VERSION) {
+          var st = normalizeState(saved);
+          mergeLegacyExtras(st);
+          return normalizeState(st);
+        }
       } catch (e) { /* 损坏则重建 */ }
     }
     var legacy = importLegacy();
@@ -505,6 +584,9 @@
         s.meta.demoTasks = true;
         s.meta.legacyTasks = 0;
       }
+      s.examGoals = legacy.goals || [];
+      s.meta.goalsImported = 1;
+      s.meta.recordsImported = 1;
       s.meta.demo = false;
       s.meta.legacy = true;
       var totals = logTotals(s.log);
@@ -994,7 +1076,9 @@
           '<div class="exam-info">' +
           '<div class="exam-name">' + esc(g.title) + ' <span class="score">' + g.target + ' 分</span>' +
           (g.done ? '<span class="badge badge-sage">已达成</span>' : '<span class="badge badge-muted">进行中</span>') + '</div>' +
-          '<div class="exam-meta"><span class="star-pill">+' + g.stars + ' <i>★</i></span><span>奖励星星</span><span class="meta-dot"></span><span>' + (g.done ? '已发放' : '家长确认后发放') + '</span></div>' +
+          '<div class="exam-meta"><span class="star-pill">+' + g.stars + ' <i>★</i></span><span>奖励星星</span>' +
+          (g.from != null ? '<span class="meta-dot"></span><span>起点 ' + esc(g.from) + ' 分</span>' : '') +
+          '<span class="meta-dot"></span><span>' + (g.done ? '已发放' : '家长确认后发放') + '</span></div>' +
           '</div>' +
           '<div class="exam-actions">';
         if (isParent) {
@@ -1464,7 +1548,7 @@
   function doDemoClean() {
     var isLegacy = !!(state.meta && state.meta.legacy);
     state.tasks = [];
-    state.examGoals = [];
+    if (!isLegacy) state.examGoals = [];
     state.mastery.forEach(function (m) { m.known = false; });
     if (!isLegacy) {
       state.log = [];
@@ -1473,6 +1557,8 @@
     state.meta.demo = false;
     state.meta.demoTasks = false;
     state.meta.legacyTasks = 0;
+    state.meta.goalsImported = 1;
+    state.meta.recordsImported = 1;
     state.meta.noticeDismissed = true;
     state.meta.legacy = false;
     ui.demoDismissed = true;
@@ -1481,7 +1567,7 @@
     save();
     closeModal();
     render();
-    toast(isLegacy ? '已清空示例任务，旧版星星已保留' : '已清空演示数据，可以开始记录自己的任务了', 'success');
+    toast(isLegacy ? '已清空示例任务，旧版星星和成绩目标已保留' : '已清空演示数据，可以开始记录自己的任务了', 'success');
   }
   function dismissDemo() {
     ui.demoDismissed = true;
@@ -1539,6 +1625,8 @@
     try {
       state = normalizeState(pendingImport);
       pendingImport = null;
+      state.meta.goalsImported = 1;
+      state.meta.recordsImported = 1;
       save();
       closeModal();
       ui.openTask = null;
@@ -2282,6 +2370,8 @@
       case 'do-reset': {
         try { localStorage.removeItem(STORE_KEY); } catch (err) { }
         state = normalizeState(seedState());
+        state.meta.goalsImported = 1;
+        state.meta.recordsImported = 1;
         save();
         ui.page = 'today'; ui.tab = '全部'; ui.openTask = null; ui.recog = null; ui.recogCands = null; ui.recogBusy = false;
         ui.rewardCat = '全部'; ui.calMonth = null; ui.answers = {};
@@ -2496,7 +2586,11 @@
       } catch (e2) { }
     }
     state = resetRequested ? normalizeState(seedState()) : loadState();
-    if (resetRequested) save();
+    if (resetRequested) {
+      state.meta.goalsImported = 1;
+      state.meta.recordsImported = 1;
+      save();
+    }
     rollTasksOver();
     save();
     var parentAuthed = safeSessionGet('lc_parent_ok') === '1';
