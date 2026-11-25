@@ -633,7 +633,7 @@
     /* 分类清单 */
     h += '<section class="section" id="taskListSection">' +
       '<div class="section-head"><div class="section-title">' + icon('book') + '分类任务清单 <small>' + undone + ' 条待完成</small></div>' +
-      '<div class="section-sub"><button class="section-link" type="button" data-act="open-history">历史完成</button><span class="meta-dot"></span>完成一个 +1 ⭐</div></div>';
+      '<div class="section-sub"><span>完成一个 +1 ⭐</span><span class="meta-dot"></span><button class="section-link" type="button" data-act="open-history">历史完成</button></div></div>';
     if (tasks.length) {
       h += '<div class="chip-row task-tabs" role="tablist" aria-label="按科目筛选">';
       h += '<button class="chip' + (tab === '全部' ? ' is-active' : '') + '" type="button" data-act="tab" data-tab="全部" role="tab" aria-selected="' + (tab === '全部') + '">全部 <span class="chip-num">' + tasks.length + '</span></button>';

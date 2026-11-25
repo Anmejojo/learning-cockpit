@@ -283,7 +283,7 @@ ul,ol{margin:0;padding:0;list-style:none}
 .section-title{display:flex;align-items:center;gap:7px;font-size:14px;font-weight:800;letter-spacing:-.1px}
 .section-title .ico{width:17px;height:17px;color:var(--muted)}
 .section-title small{font-size:10.5px;font-weight:600;color:var(--muted-2);margin-left:2px}
-.section-sub{font-size:11.5px;color:var(--muted)}
+.section-sub{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .section-link{font-size:11.5px;font-weight:700;color:var(--primary);display:inline-flex;align-items:center;gap:3px}
 
 .chip-row{display:flex;gap:7px;flex-wrap:wrap}
