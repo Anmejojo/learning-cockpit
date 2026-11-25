@@ -1,12 +1,12 @@
 {
-  "name": "阿勒学习驾驶舱",
-  "short_name": "学习驾驶舱",
+  "name": "乐乐学习舱",
+  "short_name": "学习舱",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#101014",
-  "theme_color": "#1c1b21",
+  "orientation": "any",
+  "background_color": "#f6f2f8",
+  "theme_color": "#f6f2f8",
   "lang": "zh-CN",
   "icons": [
     {
@@ -30,14 +30,14 @@
   ],
   "shortcuts": [
     {
-      "name": "家长版",
-      "short_name": "家长",
-      "url": "./index.html"
+      "name": "学生端（打卡赚星）",
+      "short_name": "学生端",
+      "url": "./index.html?view"
     },
     {
-      "name": "孩子版（只看+打卡）",
-      "short_name": "孩子",
-      "url": "./index.html?view"
+      "name": "家长端（布置与确认）",
+      "short_name": "家长端",
+      "url": "./index.html?parent"
     }
   ]
 }
