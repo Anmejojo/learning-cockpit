@@ -258,7 +258,7 @@
     if (!o || typeof o !== 'object') return null;
     var log = [], i, p, pts, ts, type;
     if (Array.isArray(o.points)) {
-      for (i = 0; i < o.points.length && i < 200; i++) {
+      for (i = 0; i < o.points.length; i++) {
         p = o.points[i] || {};
         pts = Number(p.points != null ? p.points : (p.n != null ? p.n : p.delta));
         if (!pts) continue;
@@ -270,7 +270,17 @@
     }
     if (!log.length) return null;
     log.sort(function (a, b) { return b.ts - a.ts; });
-    return { nick: typeof o.nick === 'string' && o.nick.trim() ? o.nick.trim() : '', log: log };
+    /* 旧数据可能很多：保留最近 1200 条，早年的净额合并成一条，保证余额不丢 */
+    if (log.length > 1200) {
+      var totalDelta = 0, keptDelta = 0;
+      for (i = 0; i < log.length; i++) totalDelta += log[i].delta;
+      for (i = 0; i < 1200; i++) keptDelta += log[i].delta;
+      log = log.slice(0, 1200);
+      if (totalDelta !== keptDelta) {
+        log.push({ id: uid('lg'), ts: log[log.length - 1].ts - 1, delta: totalDelta - keptDelta, reason: '历史星星合并', kind: 'legacy' });
+      }
+    }
+    return { nick: typeof o.nick === 'string' && o.nick.trim() ? o.nick.trim() : '', grade: /^初[一二三][上下]$/.test(String(o.sem || '')) ? String(o.sem) : '', log: log };
   }
   function normalizeState(s) {
     var base = seedState();
@@ -329,6 +339,7 @@
       s.log = legacy.log;
       s.redemptions = [];
       s.profile.nick = legacy.nick || s.profile.nick;
+      if (legacy.grade) s.profile.grade = legacy.grade;
       s.tasks = s.tasks.map(function (t) { t.done = false; delete t.doneAt; return t; });
       var totals = logTotals(s.log);
       if (totals.balance < 0) {
@@ -380,7 +391,12 @@
   function changeStars(delta, reason, kind) {
     if (!delta) return;
     state.log.unshift({ id: uid('lg'), ts: Date.now(), delta: Math.round(delta), reason: String(reason || '星星调整'), kind: kind || 'task' });
-    if (state.log.length > 600) state.log = state.log.slice(0, 600);
+    if (state.log.length > 1500) {
+      var cut = state.log.slice(1500), carry = 0, ci;
+      for (ci = 0; ci < cut.length; ci++) carry += num(cut[ci].delta);
+      state.log = state.log.slice(0, 1500);
+      if (carry) state.log.push({ id: uid('lg'), ts: cut[cut.length - 1].ts - 1, delta: carry, reason: '历史星星合并', kind: 'legacy' });
+    }
     save();
     renderChrome();
   }
