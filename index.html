@@ -3,60 +3,94 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#1c1b21">
+<meta name="theme-color" content="#f6f2f8">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="学习驾驶舱">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="乐乐学习舱">
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<title>阿勒学习驾驶舱</title>
-<link rel="stylesheet" href="styles.css?v11110048">
+<link rel="apple-touch-icon" href="avatar-lele.png">
+<title>乐乐学习舱 · 今天要做</title>
+<link rel="stylesheet" href="cockpit.css?v=eff2">
 </head>
-<body class="workspace">
-<aside class="app-sidebar">
-  <button class="app-brand" type="button" data-home>
-    <span class="app-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3.4 18a10 10 0 1 1 17.2 0M12 13l4-4"/><circle cx="12" cy="13" r="1.6" fill="currentColor"/></svg></span>
-    <span>学习驾驶舱</span>
-  </button>
-  <nav class="tabs" id="tabNav" aria-label="学习导航">
-    <div class="nav-caption">学习</div>
-    <button class="tab-btn active" type="button" data-tab="today" aria-current="page"><span class="tab-label">今日</span></button>
-    <button class="tab-btn" type="button" data-tab="checkin"><span class="tab-label">作业与打卡</span></button>
-    <button class="tab-btn" type="button" data-tab="scores"><span class="tab-label">成绩</span></button>
-    <button class="tab-btn" type="button" data-tab="mistake"><span class="tab-label">错题本</span></button>
-    <button class="tab-btn" type="button" data-tab="word"><span class="tab-label">单词</span></button>
-    <button class="tab-btn" type="button" data-tab="write"><span class="tab-label">硬笔字</span></button>
-    <div class="nav-caption">成长</div>
-    <button class="tab-btn" type="button" data-tab="chat"><span class="tab-label">小搭</span></button>
-    <button class="tab-btn" type="button" data-tab="points"><span class="tab-label">积分奖励</span></button>
-    <button class="tab-btn" type="button" data-tab="settings"><span class="tab-label">设置</span></button>
-    <button class="tab-btn" type="button" data-tab="more" aria-controls="moreSheet" aria-expanded="false"><span class="tab-label">更多</span></button>
-  </nav>
-  <div class="app-profile" id="appProfile"></div>
-</aside>
-<div class="app-shell">
-  <header class="topbar">
-    <div class="app-home-title" id="appHomeTitle"></div>
-    <div class="app-page-title">
-      <button class="app-mobile-home" type="button" data-home aria-label="返回首页"><span aria-hidden="true">‹</span></button>
-      <div id="appPageTitle"></div>
+<body>
+<div class="eff-app" id="effApp">
+  <div class="eff-mobile-scrim" id="effScrim" aria-hidden="true"></div>
+  <aside class="eff-sidebar" id="effSidebar" aria-label="学习导航">
+    <div class="eff-side-inner">
+      <div class="eff-brand">
+        <span class="eff-brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M4.2 16.6a4.2 4.2 0 0 1 .4-8.38A5.7 5.7 0 0 1 15.3 7a4.1 4.1 0 0 1 4.4 6.9 4 4 0 0 1-3.1 5.2H7.1a4.2 4.2 0 0 1-2.9-2.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8.6 12.2h.01M13.5 12.2h.01M9.6 15.1c1.2.8 2.9.8 4.1 0" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
+        </span>
+        <span class="eff-brand-copy"><strong>乐乐学习舱</strong><small>LELE'S STUDY SPACE</small></span>
+        <button class="eff-mobile-close" id="effMobileClose" type="button" aria-label="关闭菜单">×</button>
+      </div>
+
+      <div class="eff-profile-card">
+        <div class="eff-avatar"><img src="avatar-lele.png" alt="乐乐头像"></div>
+        <div class="eff-profile-copy">
+          <strong id="effRoleName">学生端</strong>
+          <span id="effRoleDesc">打卡 · 兑换奖励</span>
+        </div>
+        <button class="eff-switch" id="effRoleSwitch" type="button">切换</button>
+      </div>
+
+      <div class="eff-star-card">
+        <div class="eff-star-main">
+          <span class="eff-star-icon" aria-hidden="true">★</span>
+          <div><b id="effSideBalance">65</b><small>颗星星</small></div>
+        </div>
+        <div class="eff-star-meta"><span>太阳星</span><span id="effSideStreak">连续 16 天</span></div>
+        <div class="eff-star-bar"><i id="effSideBar"></i></div>
+        <div class="eff-spark eff-spark-a">✦</div><div class="eff-spark eff-spark-b">✧</div>
+      </div>
+
+      <nav class="eff-nav" id="effNav" aria-label="主要功能">
+        <button class="eff-nav-btn is-active" type="button" data-page="today"><span class="eff-nav-ico" data-ico="sun"></span><span>今天要做</span><em id="effNavTodo">10</em></button>
+        <button class="eff-nav-btn" type="button" data-page="exam"><span class="eff-nav-ico" data-ico="target"></span><span>考试赚星星</span><em id="effNavExam">6</em></button>
+        <button class="eff-nav-btn" type="button" data-page="mastery"><span class="eff-nav-ico" data-ico="cap"></span><span id="effNavMasteryLabel">初二必掌握</span></button>
+        <button class="eff-nav-btn" type="button" data-page="stars"><span class="eff-nav-ico" data-ico="trophy"></span><span>我的星星</span></button>
+        <button class="eff-nav-btn" type="button" data-page="rewards"><span class="eff-nav-ico" data-ico="gift"></span><span>我的要兑换</span></button>
+      </nav>
+
+      <div class="eff-side-foot">
+        <button class="eff-user" id="effUser" type="button">
+          <span class="eff-mini-avatar"><img src="avatar-lele.png" alt=""></span>
+          <span><strong id="effUserName">乐乐</strong><small id="effUserStreak">已打卡 40 次</small></span>
+        </button>
+        <button class="eff-exit" id="effExit" type="button" title="更多功能">更多</button>
+        <button class="eff-exit" id="effLogout" type="button" title="退出演示">退出</button>
+      </div>
     </div>
-    <div class="app-status">
-      <span class="app-role" id="modeBadge"></span>
-      <button type="button" id="cloudBadge" title="查看同步状态或重试" aria-label="连接中…"><span class="cloud-indicator" aria-hidden="true"></span><span class="cloud-label">连接中…</span></button>
-      <div class="app-home-actions" id="appHomeActions"></div>
-      <button type="button" class="home-btn quiet app-chat-button" id="appChat" aria-label="小搭" title="小搭"><span>小搭</span></button>
+  </aside>
+
+  <main class="eff-main" id="effMain">
+    <header class="eff-mobile-bar">
+      <button class="eff-menu-btn" id="effMenuBtn" type="button" aria-label="打开导航"><span></span><span></span><span></span></button>
+      <span class="eff-mobile-title">乐乐学习舱</span>
+      <button class="eff-mobile-stars" id="effMobileStars" type="button"><span>★</span><b id="effMobileBalance">65</b></button>
+    </header>
+
+    <div class="eff-page-wrap">
+      <div class="eff-cloud" id="effCloud" aria-hidden="true">
+        <svg viewBox="0 0 144 98" role="img">
+          <path class="cloud-stroke" d="M35 76C21 76 12 66 13 54c1-10 8-17 18-19 4-14 16-22 29-21 12 1 21 8 25 19 13-2 25 6 27 18 2 12-6 22-18 25H35Z"/>
+          <ellipse cx="55" cy="50" rx="4.6" ry="5.3" fill="#4f4653"/><ellipse cx="92" cy="50" rx="4.6" ry="5.3" fill="#4f4653"/>
+          <circle cx="56.5" cy="48.5" r="1.4" fill="#fff"/><circle cx="93.5" cy="48.5" r="1.4" fill="#fff"/>
+          <path d="M65 60c5 4.5 13 4.5 18 0" fill="none" stroke="#4f4653" stroke-width="2.3" stroke-linecap="round"/>
+          <ellipse cx="40" cy="59" rx="7" ry="3.4" fill="#f6b6bd" opacity=".75"/><ellipse cx="108" cy="59" rx="7" ry="3.4" fill="#f6b6bd" opacity=".75"/>
+        </svg>
+      </div>
+      <section class="eff-page" id="effPage" tabindex="-1" aria-live="polite"></section>
+      <p class="eff-footer-note">把今天最重要的事，一件一件完成。</p>
     </div>
-  </header>
-  <main class="content" id="appContent" tabindex="-1"></main>
-  <div class="app-scroll-hint" id="appScrollHint" aria-hidden="true"></div>
+  </main>
 </div>
-<div id="moreSheet"></div>
-<div class="toast" id="toast" role="status"></div>
-<script src="room.js?v11110048"></script>
-<script src="wall.js?v11110048"></script>
-<script src="app.js?v11110048"></script>
+
+<div class="eff-toast" id="effToast" role="status" aria-live="polite"></div>
+<div class="eff-modal-root" id="effModalRoot" aria-hidden="true"></div>
+<div class="eff-burst-layer" id="effBurstLayer" aria-hidden="true"></div>
+<script src="cockpit.js?v=eff2"></script>
 </body>
 </html>
