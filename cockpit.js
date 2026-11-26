@@ -18,7 +18,8 @@
   var SUB_SHORT = { 语文: '语', 数学: '数', 英语: '英', 物理: '物', 化学: '化', 生物: '生', 历史: '史', 道法: '道', 地理: '地', 阅读: '阅', 习惯: '惯', 运动: '动', 体育: '体' };
   var TASK_SUBJECTS = ['语文', '数学', '英语', '物理', '化学', '生物', '历史', '道法', '地理', '阅读', '习惯', '运动', '体育'];
   var REWARD_CATS = ['全部', '游戏', '零食', '出行', '文具', '心愿', '电脑'];
-  var CATALOG_VERSION = 2;
+  var CATALOG_VERSION = 3;
+  var PC_PRICE_PER_STAR = 20;
   var CHAT_AI_URL = 'https://jiajia-study-d6gjyod13d77728d6-1483465315.ap-shanghai.app.tcloudbase.com/ai';
   var CLOUD_REST = 'https://jiajia-study-d6gjyod13d77728d6.api.tcloudbasegateway.com/v1/rdb/rest/study_data';
   var CLOUD_KEY = 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjNhNjk3Y2I2LWRjMDMtNGFkMi04ZGQ2LTFkMWNjNjZhNGQ5MSJ9.eyJpc3MiOiJodHRwczovL2ppYWppYS1zdHVkeS1kNmdqeW9kMTNkNzc3MjhkNi5hcC1zaGFuZ2hhaS50Y2ItYXBpLnRlbmNlbnRjbG91ZGFwaS5jb20iLCJzdWIiOiJhbm9uIiwiYXVkIjoiamlhamlhLXN0dWR5LWQ2Z2p5b2QxM2Q3NzcyOGQ2IiwiZXhwIjo0MDkyNTI4NDk2LCJpYXQiOjE3ODg4NDUyOTYsIm5vbmNlIjoiODhqMEJEQV9Tci1qTVNMT1BhVWFBZyIsImF0X2hhc2giOiI4OGowQkRBX1NyLWpNU0xPUGFVYUFnIiwibmFtZSI6IkFub255bW91cyIsInNjb3BlIjoiYW5vbnltb3VzIiwicHJvamVjdF9pZCI6ImppYWppYS1zdHVkeS1kNmdqeW9kMTNkNzc3MjhkNiIsIm1ldGEiOnsicGxhdGZvcm0iOiJQdWJsaXNoYWJsZUtleSJ9LCJyb2xlIjoiYW5vbiIsImlzX2Fub255bW91cyI6dHJ1ZSwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiYW5vbnltb3VzIiwicHJvdmlkZXJzIjpbImFub255bW91cyJdfSwidXNlcl9tZXRhZGF0YSI6eyJuYW1lIjoiQW5vbnltb3VzIn0sInVzZXJfdHlwZSI6IiIsImNsaWVudF90eXBlIjoiY2xpZW50X3VzZXIiLCJpc19zeXN0ZW1fYWRtaW4iOmZhbHNlfQ.Mp-ZotDDKuzD-fXrSi9TvnFQLh_HhZqfy3ZHON4TWnhbuG6y2atGQSk6fjYMJqNX3QYajY5ZaQ3gAcrLYUF_Sx3CFRj3Ugeask5lKlWFnlEkn7PpY9joBFcSP7-TXeNwssT4FoiuqlzoEetJw8pQFtTo8iB3vOYLBsWAw5O3uNPysNWRN9YKA3RXSvcqQOOMMWXjmVEJsuTLzK_w0VmuahW_RyXIvJk_mpnZ-PeAA21uWhGJws5spytiKEyG9OXen4_SeICfTUYBxLncReGrluLxRU9nyDnPTyq3aKemz0I5AbPJdngwsRtxk3W17Os6OxvUBwbWfGbeJOwFn74O8Q';
@@ -193,29 +194,30 @@
       { id: 'r13', name: '和同学打篮球', icon: '🏀', cost: 18, cat: '出行' }
     ].concat(legacyComputerRewards());
   }
+  function priceToStars(price) { return Math.max(1, Math.round(num(price) / PC_PRICE_PER_STAR)); }
   function legacyComputerRewards() {
     return [
-      { id: 'pc_mousepad', name: '鼠标垫', icon: '🖱️', cost: 30, cat: '电脑', detail: '初二上期中 · 主科均分≥100' },
-      { id: 'pc_mouse', name: '鼠标', icon: '🐭', cost: 200, cat: '电脑', detail: '初二上期中 · 主科均分≥100' },
-      { id: 'pc_powerstrip', name: '排插', icon: '🔌', cost: 100, cat: '电脑', detail: '初二上期中 · 主科均分≥100' },
-      { id: 'pc_keyboard', name: '键盘', icon: '⌨️', cost: 400, cat: '电脑', detail: '初二上期末 · 总分≥508' },
-      { id: 'pc_headset', name: '耳机', icon: '🎧', cost: 350, cat: '电脑', detail: '初二上期末 · 总分≥508' },
-      { id: 'pc_webcam', name: '摄像头', icon: '🎥', cost: 200, cat: '电脑', detail: '初二上期末 · 总分≥508' },
-      { id: 'pc_speaker', name: '音响', icon: '🔊', cost: 400, cat: '电脑', detail: '初二下期中 · 总分≥517' },
-      { id: 'pc_case', name: '机箱', icon: '🎒', cost: 350, cat: '电脑', detail: '初二下期中 · 总分≥517' },
-      { id: 'pc_gamepad', name: '游戏手柄', icon: '🕹️', cost: 350, cat: '电脑', detail: '初二下期中 · 总分≥517' },
-      { id: 'pc_ssd', name: 'SSD 1TB', icon: '💾', cost: 500, cat: '电脑', detail: '初二下期末 · 总分≥538' },
-      { id: 'pc_cooler', name: '散热器', icon: '❄️', cost: 300, cat: '电脑', detail: '初二下期末 · 总分≥538' },
-      { id: 'pc_psu', name: '电源 750W', icon: '⚡', cost: 500, cat: '电脑', detail: '初三上期中 · 总分≥580' },
-      { id: 'pc_hdd', name: '机械硬盘', icon: '💽', cost: 500, cat: '电脑', detail: '初三上期中 · 总分≥580' },
-      { id: 'pc_ram', name: '内存 32G', icon: '🧠', cost: 600, cat: '电脑', detail: '初三上期末 · 总分≥610' },
-      { id: 'pc_motherboard', name: '主板', icon: '🔧', cost: 1000, cat: '电脑', detail: '一模≥600 · 初三下开学' },
-      { id: 'pc_monitor', name: '显示器 2K', icon: '📺', cost: 1200, cat: '电脑', detail: '二模≥610 · 初三下期中' },
-      { id: 'pc_cpu', name: 'CPU', icon: '🧮', cost: 1500, cat: '电脑', detail: '三模≥615 · 中考前冲刺' },
-      { id: 'pc_gpu', name: '显卡', icon: '🎮', cost: 2500, cat: '电脑', detail: '中考≥625 · 中考达标' },
-      { id: 'game_switch', name: 'Switch 游戏机', icon: '🎮', cost: 3508, cat: '游戏', detail: '积分兑换 · 游戏机大奖' },
-      { id: 'game_zelda', name: '塞尔达游戏', icon: '🗡️', cost: 287, cat: '游戏', detail: '积分兑换 · Switch 游戏卡带' }
-    ];
+      { id: 'pc_mousepad', name: '鼠标垫', icon: '🖱️', price: 30, cat: '电脑', detail: '初二上期中 · 主科均分≥100' },
+      { id: 'pc_mouse', name: '鼠标', icon: '🐭', price: 200, cat: '电脑', detail: '初二上期中 · 主科均分≥100' },
+      { id: 'pc_powerstrip', name: '排插', icon: '🔌', price: 100, cat: '电脑', detail: '初二上期中 · 主科均分≥100' },
+      { id: 'pc_keyboard', name: '键盘', icon: '⌨️', price: 400, cat: '电脑', detail: '初二上期末 · 总分≥508' },
+      { id: 'pc_headset', name: '耳机', icon: '🎧', price: 350, cat: '电脑', detail: '初二上期末 · 总分≥508' },
+      { id: 'pc_webcam', name: '摄像头', icon: '🎥', price: 200, cat: '电脑', detail: '初二上期末 · 总分≥508' },
+      { id: 'pc_speaker', name: '音响', icon: '🔊', price: 400, cat: '电脑', detail: '初二下期中 · 总分≥517' },
+      { id: 'pc_case', name: '机箱', icon: '🎒', price: 350, cat: '电脑', detail: '初二下期中 · 总分≥517' },
+      { id: 'pc_gamepad', name: '游戏手柄', icon: '🕹️', price: 350, cat: '电脑', detail: '初二下期中 · 总分≥517' },
+      { id: 'pc_ssd', name: 'SSD 1TB', icon: '💾', price: 500, cat: '电脑', detail: '初二下期末 · 总分≥538' },
+      { id: 'pc_cooler', name: '散热器', icon: '❄️', price: 300, cat: '电脑', detail: '初二下期末 · 总分≥538' },
+      { id: 'pc_psu', name: '电源 750W', icon: '⚡', price: 500, cat: '电脑', detail: '初三上期中 · 总分≥580' },
+      { id: 'pc_hdd', name: '机械硬盘', icon: '💽', price: 500, cat: '电脑', detail: '初三上期中 · 总分≥580' },
+      { id: 'pc_ram', name: '内存 32G', icon: '🧠', price: 600, cat: '电脑', detail: '初三上期末 · 总分≥610' },
+      { id: 'pc_motherboard', name: '主板', icon: '🔧', price: 1000, cat: '电脑', detail: '一模≥600 · 初三下开学' },
+      { id: 'pc_monitor', name: '显示器 2K', icon: '📺', price: 1200, cat: '电脑', detail: '二模≥610 · 初三下期中' },
+      { id: 'pc_cpu', name: 'CPU', icon: '🧮', price: 1500, cat: '电脑', detail: '三模≥615 · 中考前冲刺' },
+      { id: 'pc_gpu', name: '显卡', icon: '🎮', price: 2500, cat: '电脑', detail: '中考≥625 · 中考达标' },
+      { id: 'game_switch', name: 'Switch 游戏机', icon: '🎮', price: 3508, cat: '游戏', detail: '积分兑换 · 游戏机大奖' },
+      { id: 'game_zelda', name: '塞尔达游戏', icon: '🗡️', price: 287, cat: '游戏', detail: '积分兑换 · Switch 游戏卡带' }
+    ].map(function (r) { r.cost = priceToStars(r.price); return r; });
   }
   function seedState() {
     var rnd = mulberry32(20261125);
@@ -838,6 +840,7 @@
       t.cost = Math.max(1, Math.round(num(t.cost, 10)));
       t.cat = REWARD_CATS.indexOf(t.cat) > 0 ? t.cat : '心愿';
       t.detail = String(t.detail || '');
+      if (t.price != null && isFinite(Number(t.price))) t.price = Number(t.price); else delete t.price;
     }
     ensureCatalogRewards(s);
     for (i = 0; i < s.mastery.length; i++) {
@@ -883,12 +886,20 @@
   }
   function ensureCatalogRewards(s) {
     if (!s || !Array.isArray(s.rewards)) return;
-    if (num(s.meta && s.meta.catalogV) >= CATALOG_VERSION) return;
+    var oldV = num(s.meta && s.meta.catalogV);
+    if (oldV >= CATALOG_VERSION) return;
     var ids = {}, names = {};
     s.rewards.forEach(function (r) { if (!r) return; ids[r.id] = 1; names[r.name] = 1; });
     legacyComputerRewards().forEach(function (r) {
-      if (ids[r.id] || names[r.name]) return;
-      s.rewards.push({ id: r.id, name: r.name, icon: r.icon, cost: r.cost, cat: r.cat, detail: r.detail });
+      var ex = ids[r.id] ? s.rewards.filter(function (x) { return x && x.id === r.id; })[0] : null;
+      if (ex) {
+        ex.price = r.price;
+        ex.cost = r.cost;
+        ex.updatedAt = Date.now();
+        return;
+      }
+      if (oldV >= 2 || names[r.name]) return;
+      s.rewards.push({ id: r.id, name: r.name, icon: r.icon, price: r.price, cost: r.cost, cat: r.cat, detail: r.detail });
     });
     if (!s.meta) s.meta = {};
     s.meta.catalogV = CATALOG_VERSION;
@@ -1721,7 +1732,7 @@
           '<div class="reward-ico cat-' + esc(r.cat) + '" aria-hidden="true">' + esc(r.icon) + '</div>' +
           '<div class="reward-name" title="' + esc(r.detail || '') + '">' + esc(r.name) + '</div>' +
           (r.detail ? '<div class="reward-detail" title="' + esc(r.detail) + '">' + esc(r.detail) + '</div>' : '') +
-          '<div class="reward-cost"><i>★</i>' + r.cost + ' 颗</div>' +
+          '<div class="reward-cost" title="' + (r.price ? '真实价 ¥' + esc(r.price) + ' · 20 元 = 1 颗星' : '') + '"><i>★</i>' + r.cost + ' 颗</div>' +
           '<button class="reward-btn' + (short ? ' is-short' : '') + '" type="button" data-act="redeem" data-id="' + esc(r.id) + '">' + (short ? '还差 ' + (r.cost - balance) + ' ★' : '立即兑换') + '</button>' +
           '</div>';
       }).join('') + '</div>';
@@ -2518,6 +2529,7 @@
         '<div class="field"><label for="erCost">所需星星</label><input id="erCost" type="number" min="1" max="999" step="1" value="' + r.cost + '"></div>' +
         '<div class="field field-full"><label for="erCat">分类</label><select id="erCat">' + cats + '</select></div>' +
         '</div>' + (r.detail ? '<p class="form-note" style="margin-top:11px">旧版条件：' + esc(r.detail) + '（仅展示，不参与兑换判断）</p>' : '') +
+        (r.price ? '<p class="form-note" style="margin-top:11px">真实价格 ¥' + esc(r.price) + '，按 20 元 = 1 颗星换算；手动改星星会覆盖换算价。</p>' : '') +
         '<p class="form-note" style="margin-top:11px">删除奖励不会删除已产生的兑换记录。</p>',
       footer: '<button class="btn btn-soft" type="button" data-act="delete-reward" data-id="' + esc(id) + '">' + icon('trash') + '删除</button>' +
         '<button class="btn btn-ghost" type="button" data-close>取消</button>' +
@@ -2668,6 +2680,7 @@
       sub: '兑换后星星会从账户扣除',
       body: '<div class="modal-reward-preview"><div class="reward-ico cat-' + esc(r.cat) + '" aria-hidden="true">' + esc(r.icon) + '</div>' +
         '<strong>' + esc(r.name) + '</strong><div class="cost">' + r.cost + ' 颗星星</div>' +
+        (r.price ? '<div class="detail">真实价 ¥' + esc(r.price) + ' · 按 20 元 = 1 颗星</div>' : '') +
         (r.detail ? '<div class="detail">' + esc(r.detail) + '</div>' : '') +
         '<div class="after">兑换后剩余 ' + (totals.balance - r.cost) + ' 颗</div></div>' +
         '<div class="confirm-hint">' + icon('info') + '<span>兑换后请找家长领取奖励，兑换记录会保存在「我的要兑换」页面。</span></div>',
