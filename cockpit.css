@@ -1074,7 +1074,7 @@ body[data-role="parent"] .task-row .tick{border-style:dashed;background:#fbf8fd}
   .eff-star-main small{font-size:8px;margin-left:0;display:block;margin-top:1px}
   .eff-star-meta,.eff-star-bar,.eff-spark{display:none}
   .eff-nav{gap:3px;margin-top:0}
-  .eff-nav-btn{flex-direction:column;gap:2px;padding:7px 1px;font-size:9.5px;line-height:1.2;text-align:center;border-radius:9px}
+  .eff-nav-btn{flex-direction:column;gap:2px;padding:7px 1px;font-size:10.5px;line-height:1.2;text-align:center;border-radius:9px}
   .eff-nav-btn > span:nth-child(2){white-space:normal;overflow:visible;text-overflow:clip;word-break:keep-all;font-weight:700}
   .eff-nav-ico{width:22px;height:22px}
   .eff-nav-btn.is-active::before{display:none}
