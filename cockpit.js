@@ -19,6 +19,7 @@
   var TASK_SUBJECTS = ['语文', '数学', '英语', '物理', '化学', '生物', '历史', '道法', '地理', '阅读', '习惯', '运动', '体育'];
   var REWARD_CATS = ['全部', '游戏', '零食', '出行', '文具', '心愿', '电脑'];
   var CATALOG_VERSION = 2;
+  var CHAT_AI_URL = 'https://jiajia-study-d6gjyod13d77728d6-1483465315.ap-shanghai.app.tcloudbase.com/ai';
   var WEEK_CN = ['日', '一', '二', '三', '四', '五', '六'];
   var WEEK_FULL = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
   var MASTERY_GROUPS = {
@@ -263,14 +264,16 @@
       ],
       log: log,
       settings: { starGoal: 200 },
-      meta: { demo: true, demoTasks: true, legacy: false, legacyTasks: 0, lastRoll: todayKeyNow, noticeDismissed: false, parentPin: '', catalogV: CATALOG_VERSION }
+      chat: [],
+      chatMem: [],
+      meta: { demo: true, demoTasks: true, legacy: false, legacyTasks: 0, lastRoll: todayKeyNow, noticeDismissed: false, parentPin: '', catalogV: CATALOG_VERSION, goalsImported: 0, recordsImported: 0, chatImported: 0 }
     };
   }
 
   /* ---------- 5. 存储 / 迁移 ---------- */
   var state = null;
   var ui = { page: 'today', tab: '全部', rewardCat: '全部', openTask: null, doneOpen: true, masteryOpen: { 语文: true, 英语: false, 数学: false, 物理: false }, calMonth: null, answers: {}, recog: null, recogBusy: false, recogCands: null, demoDismissed: false };
-  var rt = { timers: {}, recordings: {}, recording: null, judgeTask: null, judge: {}, speakSeq: 0, confirm: null, lastFocus: null, modalOpen: false };
+  var rt = { timers: {}, recordings: {}, recording: null, judgeTask: null, judge: {}, speakSeq: 0, confirm: null, lastFocus: null, modalOpen: false, chatOffline: false };
   var saveWarned = false;
   var pendingImport = null;
 
@@ -316,7 +319,7 @@
         log.push({ id: uid('lg'), ts: ts, delta: (type === 'use' || pts < 0) ? -Math.abs(pts) : Math.abs(pts), reason: p.source || p.reason || '旧版星星记录', kind: 'legacy' });
       }
     }
-    if (!log.length && !(Array.isArray(o.hw) && o.hw.length) && !(Array.isArray(o.tasks) && o.tasks.length) && !(Array.isArray(o.checks) && o.checks.length) && !(Array.isArray(o.smallGoals) && o.smallGoals.length)) return null;
+    if (!log.length && !(Array.isArray(o.hw) && o.hw.length) && !(Array.isArray(o.tasks) && o.tasks.length) && !(Array.isArray(o.checks) && o.checks.length) && !(Array.isArray(o.smallGoals) && o.smallGoals.length) && !(Array.isArray(o._chat) && o._chat.length) && !(Array.isArray(o._mem) && o._mem.length)) return null;
     log.sort(function (a, b) { return b.ts - a.ts; });
     /* 旧数据可能很多：保留最近 1200 条，早年的净额合并成一条，保证余额不丢 */
     if (log.length > 1200) {
@@ -414,12 +417,34 @@
         });
       });
     }
+    var legacyChat = [], legacyMem = [];
+    if (Array.isArray(o._chat)) {
+      o._chat.slice(-300).forEach(function (m) {
+        if (!m || !m.text) return;
+        var txt = String(m.text).replace(/\[\[[^\]]*\]\]/g, '').replace(/\s+/g, ' ').trim();
+        if (!txt) return;
+        var ts = Number(m.ts) || (m.date ? new Date(m.date + 'T20:00:00').getTime() : Date.now());
+        legacyChat.push({
+          id: uid('c'), ts: ts, role: m.role === 'u' ? 'u' : 'a', text: txt.slice(0, 1200),
+          img: (typeof m.img === 'string' && /^https?:\/\//.test(m.img)) ? m.img : ''
+        });
+      });
+    }
+    if (Array.isArray(o._mem)) {
+      o._mem.slice(-40).forEach(function (m) {
+        var tex = m && (typeof m === 'string' ? m : m.text);
+        if (!tex) return;
+        legacyMem.push({ id: uid('cm'), text: String(tex).slice(0, 120), tags: (m && m.tags) || [], at: Number(m && m.at) || Date.now() });
+      });
+    }
     return {
       nick: typeof o.nick === 'string' && o.nick.trim() ? o.nick.trim() : '',
       grade: /^初[一二三][上下]$/.test(String(o.sem || '')) ? String(o.sem) : '',
       log: log,
       tasks: legacyTasks,
-      goals: legacyGoals
+      goals: legacyGoals,
+      chat: legacyChat,
+      chatMem: legacyMem
     };
   }
   function normalizeState(s) {
@@ -436,6 +461,8 @@
     s.rewards = Array.isArray(s.rewards) ? s.rewards : base.rewards;
     s.redemptions = Array.isArray(s.redemptions) ? s.redemptions : [];
     s.log = Array.isArray(s.log) ? s.log : [];
+    s.chat = Array.isArray(s.chat) ? s.chat : [];
+    s.chatMem = Array.isArray(s.chatMem) ? s.chatMem : [];
     s.settings = s.settings && typeof s.settings === 'object' ? s.settings : { starGoal: 200 };
     s.meta = s.meta && typeof s.meta === 'object' ? s.meta : {};
     if (typeof s.meta.demo !== 'boolean') s.meta.demo = false;
@@ -446,6 +473,7 @@
     if (typeof s.meta.parentPin !== 'string') s.meta.parentPin = '';
     if (typeof s.meta.goalsImported !== 'number') s.meta.goalsImported = 0;
     if (typeof s.meta.recordsImported !== 'number') s.meta.recordsImported = 0;
+    if (typeof s.meta.chatImported !== 'number') s.meta.chatImported = 0;
     if (!s.meta.lastRoll) s.meta.lastRoll = dayKey(Date.now());
     var i, t, todayKey = dayKey(Date.now());
     for (i = 0; i < s.tasks.length; i++) {
@@ -487,6 +515,19 @@
       t.known = !!t.known;
       t.grade = typeof t.grade === 'string' ? t.grade : '初二上';
     }
+    s.chat = s.chat.filter(function (m) { return m && typeof m === 'object' && (m.text || m.pending); }).map(function (m) {
+      var txt = String(m.text || '');
+      if (m.pending) { txt = txt || '（刚才那条没回完，你再说一次？）'; }
+      return {
+        id: m.id || uid('c'), ts: Number(m.ts) || Date.now(),
+        role: m.role === 'u' ? 'u' : 'a', text: txt.slice(0, 1200),
+        img: (typeof m.img === 'string' && /^https?:\/\//.test(m.img)) ? m.img : ''
+      };
+    }).slice(-300);
+    s.chatMem = s.chatMem.filter(function (m) { return m && (typeof m === 'string' || m.text); }).map(function (m) {
+      var tex = typeof m === 'string' ? m : m.text;
+      return { id: (m && m.id) || uid('cm'), text: String(tex).slice(0, 120), tags: (m && m.tags) || [], at: Number(m && m.at) || Date.now() };
+    }).slice(-40);
     return s;
   }
   function ensureCatalogRewards(s) {
@@ -554,6 +595,29 @@
         changed = true;
       }
     }
+    if (!num(s.meta.chatImported)) {
+      if (legacy.chat && legacy.chat.length) {
+        var wasDemoChat = !!(s.meta.demo || s.meta.demoTasks) || s.chat.length === 0;
+        if (wasDemoChat) {
+          s.chat = legacy.chat.slice();
+        } else {
+          legacy.chat.forEach(function (m) {
+            if (!s.chat.some(function (x) { return x.ts === m.ts && x.role === m.role && x.text === m.text; })) s.chat.push(m);
+          });
+        }
+        s.chat = s.chat.slice(-300);
+        changed = true;
+      }
+      if (legacy.chatMem && legacy.chatMem.length) {
+        legacy.chatMem.forEach(function (m) {
+          if (!s.chatMem.some(function (x) { return x.text === m.text; })) s.chatMem.push(m);
+        });
+        s.chatMem = s.chatMem.slice(-40);
+        changed = true;
+      }
+      s.meta.chatImported = 1;
+      changed = true;
+    }
     return changed;
   }
   function loadState() {
@@ -585,8 +649,11 @@
         s.meta.legacyTasks = 0;
       }
       s.examGoals = legacy.goals || [];
+      s.chat = legacy.chat || [];
+      s.chatMem = legacy.chatMem || [];
       s.meta.goalsImported = 1;
       s.meta.recordsImported = 1;
+      s.meta.chatImported = 1;
       s.meta.demo = false;
       s.meta.legacy = true;
       var totals = logTotals(s.log);
@@ -1500,6 +1567,144 @@
         '<button class="btn btn-ghost" type="button" data-close>取消</button>'
     });
   }
+  function chatToken() {
+    return safeGet('lc_tok') || safeGet('lc_demo_tok') || '';
+  }
+  function chatTime(ts) {
+    var d = new Date(ts);
+    return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  }
+  function chatMessagesHTML() {
+    var msgs = state.chat.slice(-80);
+    if (!msgs.length) {
+      return '<div class="chat-empty"><span>☁️</span><strong>我是小搭</strong><p>题不会、今天有点累、想说说学校的事，都可以跟我说。<br>旧版的聊天记录已经搬过来了。</p></div>';
+    }
+    return msgs.map(function (m) {
+      if (m.pending) {
+        return '<div class="chat-msg is-a"><div class="chat-bubble chat-typing">小搭正在想…</div></div>';
+      }
+      var body = '<div class="chat-bubble">' + esc(m.text) + (m.img ? '<img class="chat-img" src="' + esc(m.img) + '" alt="聊天图片">' : '') + '</div>' +
+        '<div class="chat-time">' + chatTime(m.ts) + '</div>';
+      return '<div class="chat-msg ' + (m.role === 'u' ? 'is-u' : 'is-a') + '">' + body + '</div>';
+    }).join('');
+  }
+  function chatMemHTML() {
+    if (!state.chatMem.length) return '';
+    return '<details class="chat-mem"><summary>小搭记得的事 <b>' + state.chatMem.length + '</b></summary><div class="chat-mem-list">' +
+      state.chatMem.map(function (m) { return '<span class="chat-mem-item">' + esc(m.text) + '</span>'; }).join('') +
+      '</div></details>';
+  }
+  function chatModeHTML() {
+    var online = !!chatToken();
+    var label = online ? (rt.chatOffline ? '在线暂时不可用，已用离线回复' : '在线小搭') : '离线陪聊';
+    return '<div class="chat-mode" id="chatMode"><span class="chat-dot ' + (online && !rt.chatOffline ? 'is-on' : '') + '"></span>' + label +
+      (online ? '' : '<span class="chat-mode-tip">在经典版设置 AI 口令后可在线</span>') + '</div>';
+  }
+  function chatShellHTML() {
+    return '<div class="chat-shell">' +
+      chatModeHTML() + chatMemHTML() +
+      '<div class="chat-messages" id="chatMessages">' + chatMessagesHTML() + '</div>' +
+      '<div class="chat-compose"><input id="chatInput" maxlength="500" autocomplete="off" placeholder="跟小搭说点什么…" aria-label="给小搭发消息">' +
+      '<button class="btn btn-primary btn-sm" type="button" data-act="chat-send">发送</button></div>' +
+      '</div>';
+  }
+  function openChat() {
+    openModal({
+      title: '小搭', icon: 'users',
+      sub: '陪你做题、听你说说话',
+      body: chatShellHTML(),
+      footer: '<span class="foot-note">聊天记录保存在本机；有旧版 AI 口令时可在线回复</span>' +
+        '<button class="btn btn-ghost" type="button" data-close>关闭</button>'
+    });
+    setTimeout(function () {
+      scrollChat();
+      var inp = $('#chatInput');
+      if (inp) { try { inp.focus(); } catch (e) { } }
+    }, 80);
+  }
+  function refreshChat() {
+    var box = $('#chatMessages');
+    if (!box) return;
+    box.innerHTML = chatMessagesHTML();
+    var mode = $('#chatMode');
+    if (mode) mode.outerHTML = chatModeHTML();
+    var mem = $('.chat-mem');
+    if (mem) {
+      var wrap = mem.parentNode;
+      var html = chatMemHTML();
+      if (html) mem.outerHTML = html; else mem.remove();
+    } else if (state.chatMem.length) {
+      var shell = $('.chat-shell');
+      if (shell) shell.insertAdjacentHTML('afterbegin', chatMemHTML());
+    }
+    scrollChat();
+  }
+  function scrollChat() {
+    var box = $('#chatMessages');
+    if (box) box.scrollTop = box.scrollHeight;
+  }
+  function localChatReply(text) {
+    var t = String(text || '').trim();
+    var mk = t.match(/^(?:帮我)?记住[，,：: ]*(.{1,60})$/);
+    if (mk && mk[1]) {
+      var memo = mk[1].trim();
+      if (!state.chatMem.some(function (m) { return m.text === memo; })) {
+        state.chatMem.push({ id: uid('cm'), text: memo, tags: [], at: Date.now() });
+        state.chatMem = state.chatMem.slice(-40);
+      }
+      return '记住了：' + memo + '。以后我会记得这件事。';
+    }
+    if (/累|烦|难受|不想|困|崩溃|压力/.test(t)) return '先歇两分钟，喝口水。今天不用把所有事都做完，挑最小的一件开始就行。';
+    if (/不会|不懂|怎么做|题|数学|英语|语文|物理/.test(t)) return '先别急着看答案。把题目里已知的条件圈出来，告诉我你卡在哪一步？我陪你找第一步。';
+    if (/你好|在吗|小搭|hi|hello/i.test(t)) return '我在。今天想先聊哪件事？';
+    if (/谢谢|知道了|好的/.test(t)) return '嗯，我在。需要的时候再叫我。';
+    return '我在听。是作业、考试，还是今天心情？说具体一点，我好接住。';
+  }
+  function aiChat(text) {
+    var token = chatToken();
+    if (!token) return Promise.resolve(null);
+    var hist = state.chat.filter(function (m) { return !m.pending && m.text; }).slice(-8).map(function (m) {
+      return (m.role === 'u' ? '他：' : '你：') + m.text;
+    }).join('\n');
+    var prompt = '你是「小搭」，一个比初二学生大两届的高中男生，是他的同龄学习搭档，不是老师也不是家长。用微信口气，1-3 句话，不超过 80 字；只给思路和第一步，不给最终答案；不评判、不提成绩、不催；他情绪低落时先接住情绪。\n【最近对话】\n' + hist + '\n他：' + String(text).slice(0, 500);
+    return fetch(CHAT_AI_URL, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: token, prompt: prompt, image: '', kbq: '' })
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      return (j && j.ok && j.text) ? String(j.text).replace(/\s+/g, ' ').trim().slice(0, 600) : null;
+    }).catch(function () { return null; });
+  }
+  function sendChat() {
+    var inp = $('#chatInput');
+    if (!inp) return;
+    var text = String(inp.value || '').trim();
+    if (!text) return;
+    if (state.chat.some(function (m) { return m.pending; })) return;
+    state.chat.push({ id: uid('c'), ts: Date.now(), role: 'u', text: text.slice(0, 500) });
+    if (state.chat.length > 300) state.chat = state.chat.slice(-300);
+    var pending = { id: uid('c'), ts: Date.now(), role: 'a', text: '', pending: true };
+    state.chat.push(pending);
+    inp.value = '';
+    save();
+    refreshChat();
+    aiChat(text).then(function (reply) {
+      if (!reply) {
+        rt.chatOffline = !!chatToken();
+        reply = localChatReply(text);
+      }
+      pending.text = reply;
+      pending.pending = false;
+      pending.ts = Date.now();
+      save();
+      refreshChat();
+    }).catch(function () {
+      rt.chatOffline = !!chatToken();
+      pending.text = localChatReply(text);
+      pending.pending = false;
+      save();
+      refreshChat();
+    });
+  }
   function openProfileModal() {
     openModal({
       title: '我的资料', icon: 'edit',
@@ -1525,6 +1730,7 @@
         '<button class="more-link" type="button" data-act="open-role"><span class="more-ico">🔄</span><span><strong>切换学生端 / 家长端</strong><small>当前：' + (state.role === 'parent' ? '家长端' : '学生端') + '</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="export-data"><span class="more-ico">📤</span><span><strong>导出数据备份</strong><small>下载 JSON，换设备/清缓存前先备份</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="import-data"><span class="more-ico">📥</span><span><strong>导入数据备份</strong><small>用 JSON 覆盖本机数据</small></span>' + icon('arrowRight') + '</button>' +
+        '<button class="more-link" type="button" data-act="open-chat"><span class="more-ico">💬</span><span><strong>打开小搭</strong><small>聊天记录已从旧版导入</small></span>' + icon('arrowRight') + '</button>' +
         '<a class="more-link" href="preview.html"><span class="more-ico">🧪</span><span><strong>打开本地测试台</strong><small>旧版双端预览工具</small></span>' + icon('arrowRight') + '</a>' +
         '<button class="more-link is-danger" type="button" data-act="open-reset"><span class="more-ico">🧹</span><span><strong>重置演示数据</strong><small>恢复初始任务、星星和奖励</small></span>' + icon('arrowRight') + '</button>' +
         '</div>' +
@@ -1559,6 +1765,7 @@
     state.meta.legacyTasks = 0;
     state.meta.goalsImported = 1;
     state.meta.recordsImported = 1;
+    state.meta.chatImported = 1;
     state.meta.noticeDismissed = true;
     state.meta.legacy = false;
     ui.demoDismissed = true;
@@ -1627,6 +1834,7 @@
       pendingImport = null;
       state.meta.goalsImported = 1;
       state.meta.recordsImported = 1;
+      state.meta.chatImported = 1;
       save();
       closeModal();
       ui.openTask = null;
@@ -2363,6 +2571,8 @@
       case 'demo-clean': openDemoClean(); break;
       case 'do-demo-clean': doDemoClean(); break;
       case 'open-history': openTaskHistory(); break;
+      case 'open-chat': closeModal(); setTimeout(openChat, 60); break;
+      case 'chat-send': sendChat(); break;
       case 'export-data': exportData(); break;
       case 'import-data': triggerImport(); break;
       case 'do-import': doImport(); break;
@@ -2372,6 +2582,7 @@
         state = normalizeState(seedState());
         state.meta.goalsImported = 1;
         state.meta.recordsImported = 1;
+        state.meta.chatImported = 1;
         save();
         ui.page = 'today'; ui.tab = '全部'; ui.openTask = null; ui.recog = null; ui.recogCands = null; ui.recogBusy = false;
         ui.rewardCat = '全部'; ui.calMonth = null; ui.answers = {};
@@ -2461,6 +2672,7 @@
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     }
     if (rt.modalOpen && e.key === 'Enter' && e.target && e.target.tagName === 'INPUT') {
+      if (e.target.id === 'chatInput') { e.preventDefault(); sendChat(); return; }
       var submit = $('#effModalRoot [data-act^="submit-"]');
       if (submit) { e.preventDefault(); submit.click(); }
     }
@@ -2572,6 +2784,14 @@
       b.type = 'file'; b.id = 'effImportInput'; b.accept = 'application/json,.json'; b.style.display = 'none';
       document.body.appendChild(b);
     }
+    if (!$('#effXiaodaFab')) {
+      var fab = document.createElement('button');
+      fab.type = 'button'; fab.id = 'effXiaodaFab'; fab.className = 'eff-xiaoda-fab';
+      fab.setAttribute('aria-label', '打开小搭');
+      fab.innerHTML = '<span class="fab-ico">' + icon('sparkles') + '</span><span>小搭</span>';
+      fab.addEventListener('click', openChat);
+      document.body.appendChild(fab);
+    }
   }
 
   function init() {
@@ -2589,6 +2809,7 @@
     if (resetRequested) {
       state.meta.goalsImported = 1;
       state.meta.recordsImported = 1;
+      state.meta.chatImported = 1;
       save();
     }
     rollTasksOver();
