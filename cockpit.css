@@ -6,6 +6,12 @@
         9 弹窗/提示/动画  10 响应式
    ========================================================= */
 
+.skip-link{
+  position:fixed;left:12px;top:-48px;z-index:300;background:var(--ink);color:#fff;
+  padding:10px 14px;border-radius:9px;font-size:12px;font-weight:750;transition:top .15s;
+}
+.skip-link:focus{top:12px;outline:3px solid #fff;outline-offset:2px}
+
 /* ---------- 1. 基础 ---------- */
 :root{
   --bg:#f7f3f8;
@@ -874,6 +880,8 @@ body[data-role="parent"] .task-row .tick{border-style:dashed;background:#fbf8fd}
 .report-title{font-size:10px;font-weight:850;color:var(--ink-2);margin-bottom:4px}
 .report-row{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);padding:3px 0;border-bottom:1px dashed #f2ebf6}
 .report-row b{color:var(--ink-2)}
+.csv-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}
+.csv-actions .btn{flex:1;min-width:100px;height:34px;font-size:11px}
 
 /* ---------- 9. 弹窗 / 提示 / 动画 ---------- */
 .eff-toast{

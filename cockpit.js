@@ -13,6 +13,7 @@
   var BACKUP_KEY = 'lc_backups_v1';
   var LEGACY_KEY = 'lc_v3';
   var VERSION = 1;
+  var APP_VERSION = 'eff31';
   var PAGES = ['today', 'exam', 'mastery', 'stars', 'rewards'];
   var PAGE_TITLES = { today: '今天要做', exam: '考试赚星星', mastery: '初二必掌握', stars: '我的星星', rewards: '我的要兑换' };
   var SUB_ORDER = ['语文', '数学', '英语', '物理', '化学', '生物', '历史', '道法', '地理', '阅读', '习惯', '运动', '体育'];
@@ -1605,17 +1606,32 @@
   }
   function render() {
     if (!state) return;
+    var pageEl = $('#effPage');
+    if (!pageEl) return;
+    var focusSel = null;
+    var ae = document.activeElement;
+    if (ae && ae !== document.body && pageEl.contains(ae)) {
+      if (ae.id) focusSel = '#' + ae.id;
+      else if (ae.getAttribute('data-act')) {
+        focusSel = '[data-act="' + ae.getAttribute('data-act') + '"]';
+        if (ae.getAttribute('data-id')) focusSel += '[data-id="' + ae.getAttribute('data-id') + '"]';
+      }
+    }
     var html = '';
     if (ui.page === 'today') html = renderToday();
     else if (ui.page === 'exam') html = renderExam();
     else if (ui.page === 'mastery') html = renderMastery();
     else if (ui.page === 'stars') html = renderStars();
     else if (ui.page === 'rewards') html = renderRewards();
-    var pageEl = $('#effPage');
-    if (!pageEl) return;
     pageEl.innerHTML = html;
     pageEl.setAttribute('data-page', ui.page);
     renderChrome();
+    if (focusSel) {
+      try {
+        var nf = document.querySelector(focusSel);
+        if (nf && typeof nf.focus === 'function') nf.focus({ preventScroll: true });
+      } catch (e2) { }
+    }
     cloudRenderBadge();
   }
 
@@ -2737,6 +2753,7 @@
         '<button class="more-link" type="button" data-act="import-data"><span class="more-ico">📥</span><span><strong>导入数据备份</strong><small>用 JSON 覆盖本机数据</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="open-backups"><span class="more-ico">🗂️</span><span><strong>本机自动备份</strong><small>每天留一份，最近 7 份可恢复</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="open-weekly-report"><span class="more-ico">📊</span><span><strong>家长周报</strong><small>最近 7 天完成、星星、科目、兑换</small></span>' + icon('arrowRight') + '</button>' +
+        '<button class="more-link" type="button" data-act="open-csv"><span class="more-ico">📑</span><span><strong>导出 CSV</strong><small>任务 / 星星流水 / 兑换记录</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="open-chat"><span class="more-ico">💬</span><span><strong>打开小搭</strong><small>聊天记录已从旧版导入</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="open-judge-records"><span class="more-ico">📸</span><span><strong>判题记录</strong><small>小搭分析过的作业，家长可回看</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="toggle-approval"><span class="more-ico">✅</span><span><strong>完成需家长确认</strong><small>' + (state.meta && state.meta.requireApproval ? '已开启：孩子提交，家长确认后加星' : '已关闭：孩子点完成立即加星') + '</small></span>' + icon('arrowRight') + '</button>' +
@@ -2745,7 +2762,7 @@
         '<a class="more-link" href="preview.html"><span class="more-ico">🧪</span><span><strong>打开本地测试台</strong><small>旧版双端预览工具</small></span>' + icon('arrowRight') + '</a>' +
         '<button class="more-link is-danger" type="button" data-act="open-reset"><span class="more-ico">🧹</span><span><strong>重置演示数据</strong><small>恢复初始任务、星星和奖励</small></span>' + icon('arrowRight') + '</button>' +
         '</div>' +
-        '<p class="form-note" style="margin-top:11px">新版本数据保存在 lc_cockpit_v1，旧版数据仍保存在 lc_v3，两者互不覆盖。</p>',
+        '<p class="form-note" style="margin-top:11px">版本 ' + APP_VERSION + ' · 数据保存在 lc_cockpit_v1，旧版数据仍保存在 lc_v3，两者互不覆盖。</p>',
       footer: '<button class="btn btn-ghost" type="button" data-close>关闭</button>'
     });
   }
@@ -2795,6 +2812,47 @@
     }
     render();
   }
+  function exportCSV(kind) {
+    if (!requireParent('切换到家长端才能导出 CSV')) return;
+    var rows = [], name = '乐乐学习舱';
+    if (kind === 'tasks') {
+      name += '_任务_' + dayKey(Date.now());
+      rows.push(['日期', '科目', '任务', '类型', '星星', '状态', '重复', '完成时间']);
+      state.tasks.forEach(function (t) {
+        rows.push([t.date || '', t.subject || '', t.title || '', t.type || '', t.stars, t.done ? '已完成' : (t.pendingApproval ? '待确认' : '未完成'), t.repeat ? repeatLabel(t.repeat) : '', t.doneAt ? new Date(t.doneAt).toLocaleString('zh-CN') : '']);
+      });
+    } else if (kind === 'log') {
+      name += '_星星流水_' + dayKey(Date.now());
+      rows.push(['时间', '类型', '变动', '原因', 'ref']);
+      state.log.forEach(function (e) { rows.push([new Date(num(e.ts)).toLocaleString('zh-CN'), e.kind || '', e.delta, e.reason || '', e.ref || '']); });
+    } else {
+      name += '_兑换记录_' + dayKey(Date.now());
+      rows.push(['兑换时间', '奖励', '星星', '状态', '领取时间']);
+      state.redemptions.forEach(function (x) { rows.push([new Date(num(x.ts)).toLocaleString('zh-CN'), x.name || '', x.cost, x.status === 'pending' ? '待领取' : '已领取', x.fulfilledAt ? new Date(x.fulfilledAt).toLocaleString('zh-CN') : '']); });
+    }
+    var csv = '\ufeff' + rows.map(function (r) { return r.map(function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }).join(','); }).join('\r\n');
+    try {
+      var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = name + '.csv';
+      document.body.appendChild(a); a.click();
+      setTimeout(function () { try { URL.revokeObjectURL(url); a.remove(); } catch (e) { } }, 600);
+      toast('已导出 CSV', 'success');
+    } catch (e) { toast('CSV 导出失败', 'warn'); }
+  }
+  function openCSV() {
+    if (!requireParent('切换到家长端才能导出 CSV')) return;
+    openModal({
+      title: '导出 CSV', icon: 'download',
+      sub: '可用 Excel / Numbers 打开',
+      body: '<p>选择要导出的表格。CSV 只含文字数据，不含照片缩略图。</p><div class="csv-actions">' +
+        '<button class="btn btn-soft" type="button" data-act="export-csv" data-kind="tasks">任务清单</button>' +
+        '<button class="btn btn-soft" type="button" data-act="export-csv" data-kind="log">星星流水</button>' +
+        '<button class="btn btn-soft" type="button" data-act="export-csv" data-kind="redemptions">兑换记录</button></div>',
+      footer: '<button class="btn btn-ghost" type="button" data-close>关闭</button>'
+    });
+  }
   function exportData() {
     try {
       var data = JSON.stringify(state, null, 2);
@@ -2828,15 +2886,39 @@
       pendingImport = obj;
       openModal({
         title: '导入备份？', icon: 'download',
-        sub: '会覆盖本机当前数据',
+        sub: '选择覆盖或合并',
         body: '<p>备份里包含 <strong>' + obj.tasks.length + '</strong> 条任务、<strong>' + obj.log.length + '</strong> 条星星流水。</p>' +
-          '<p class="form-note" style="margin-top:10px">导入会覆盖这台设备上的当前数据；建议先把当前数据导出一份。旧版 <code>lc_v3</code> 不会被改动。</p>',
+          '<p class="form-note" style="margin-top:10px">覆盖 = 用备份替换本机；合并 = 保留两边，按更新时间取较新的一条。建议先把当前数据导出一份。</p>',
         footer: '<button class="btn btn-ghost" type="button" data-close>取消</button>' +
-          '<button class="btn btn-primary" type="button" data-act="do-import">' + icon('check') + '确认导入</button>'
+          '<button class="btn btn-soft" type="button" data-act="merge-import">合并</button>' +
+          '<button class="btn btn-primary" type="button" data-act="do-import">' + icon('check') + '覆盖导入</button>'
       });
     };
     reader.onerror = function () { toast('文件读取失败', 'warn'); };
     reader.readAsText(file);
+  }
+  function mergeImport() {
+    if (!pendingImport) { closeModal(); return; }
+    try {
+      var incoming = normalizeState(pendingImport);
+      var merged = cloudMerge(state, incoming, true);
+      merged.meta.cloudEnabled = state.meta.cloudEnabled;
+      merged.meta.syncId = state.meta.syncId;
+      merged.meta.syncCode = state.meta.syncCode;
+      merged.meta.syncEnc = state.meta.syncEnc;
+      merged.meta.deviceId = state.meta.deviceId;
+      merged.meta.devices = state.meta.devices;
+      state = normalizeState(merged);
+      pendingImport = null;
+      save();
+      closeModal();
+      ui.openTask = null;
+      render();
+      toast('已合并备份，两边数据都保留', 'success');
+    } catch (e) {
+      pendingImport = null;
+      toast('合并失败：备份内容不完整', 'warn');
+    }
   }
   function doImport() {
     if (!pendingImport) { closeModal(); return; }
@@ -3763,10 +3845,13 @@
       case 'export-data': exportData(); break;
       case 'open-backups': closeModal(); setTimeout(openBackups, 60); break;
       case 'open-weekly-report': closeModal(); setTimeout(openWeeklyReport, 60); break;
+      case 'open-csv': closeModal(); setTimeout(openCSV, 60); break;
+      case 'export-csv': exportCSV(el.getAttribute('data-kind')); break;
       case 'restore-backup': restoreBackup(el.getAttribute('data-ts')); break;
       case 'do-restore-backup': doRestoreBackup(el.getAttribute('data-ts')); break;
       case 'import-data': triggerImport(); break;
       case 'do-import': doImport(); break;
+      case 'merge-import': mergeImport(); break;
       case 'open-reset': openResetModal(); break;
       case 'do-reset': {
         try { localStorage.removeItem(STORE_KEY); } catch (err) { }
