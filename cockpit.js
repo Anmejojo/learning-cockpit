@@ -371,6 +371,7 @@
   }
   function cloudKeyLog(e) {
     if (!e) return '';
+    if (e.ref) return 'ref:' + e.ref;
     return 'lg:' + num(e.ts) + '|' + num(e.delta) + '|' + String(e.reason || '') + '|' + String(e.kind || '');
   }
   function cloudKeyChat(m) {
@@ -904,6 +905,7 @@
       t.pendingApproval = !!t.pendingApproval;
       if (t.pendingApproval) t.done = false;
       if (!t.pendingApproval) delete t.submittedAt;
+      t.awardSeq = Math.max(0, Math.round(num(t.awardSeq, 0)));
       if (t.done) {
         if (t.awardedStars == null) t.awardedStars = t.stars;
         else t.awardedStars = Math.max(1, Math.round(num(t.awardedStars, t.stars)));
@@ -917,6 +919,7 @@
       t.target = Math.max(0, Math.round(num(t.target, 90)));
       t.stars = Math.max(1, Math.round(num(t.stars, 5)));
       t.done = !!t.done;
+      t.awardSeq = Math.max(0, Math.round(num(t.awardSeq, 0)));
       if (t.done) {
         if (t.awardedStars == null) t.awardedStars = t.stars;
         else t.awardedStars = Math.max(1, Math.round(num(t.awardedStars, t.stars)));
@@ -1195,9 +1198,11 @@
     }
     return streak;
   }
-  function changeStars(delta, reason, kind) {
+  function changeStars(delta, reason, kind, ref) {
     if (!delta) return;
-    state.log.unshift({ id: uid('lg'), ts: Date.now(), delta: Math.round(delta), reason: String(reason || '星星调整'), kind: kind || 'task' });
+    var entry = { id: uid('lg'), ts: Date.now(), delta: Math.round(delta), reason: String(reason || '星星调整'), kind: kind || 'task' };
+    if (ref) entry.ref = String(ref);
+    state.log.unshift(entry);
     if (state.log.length > 1500) {
       var cut = state.log.slice(1500), carry = 0, ci;
       for (ci = 0; ci < cut.length; ci++) carry += num(cut[ci].delta);
@@ -2857,8 +2862,9 @@
     t.done = true;
     t.doneAt = Date.now();
     t.awardedStars = t.stars;
+    t.awardSeq = num(t.awardSeq, 0) + 1;
     t.updatedAt = Date.now();
-    changeStars(t.stars, '完成 · ' + t.title, 'task');
+    changeStars(t.stars, '完成 · ' + t.title, 'task', 'task:' + t.id + ':' + t.awardSeq);
     save();
     if (ui.openTask === id) ui.openTask = null;
     stopTimer(id, true);
@@ -2877,8 +2883,9 @@
     t.done = true;
     t.doneAt = Date.now();
     t.awardedStars = t.stars;
+    t.awardSeq = num(t.awardSeq, 0) + 1;
     t.updatedAt = Date.now();
-    changeStars(t.stars, '完成 · ' + t.title, 'task');
+    changeStars(t.stars, '完成 · ' + t.title, 'task', 'task:' + t.id + ':' + t.awardSeq);
     save();
     render();
     toast('已确认，+' + t.stars + ' 颗星星', 'success');
@@ -2912,7 +2919,7 @@
     delete t.doneAt;
     delete t.awardedStars;
     t.updatedAt = Date.now();
-    changeStars(-undoAmount, '撤销 · ' + t.title, 'undo');
+    changeStars(-undoAmount, '撤销 · ' + t.title, 'undo', 'task-undo:' + t.id + ':' + num(t.awardSeq, 0));
     save();
     render();
     toast('已撤销，' + undoAmount + ' 颗星星已扣回', 'info');
@@ -2928,8 +2935,9 @@
     g.done = true;
     g.doneAt = Date.now();
     g.awardedStars = g.stars;
+    g.awardSeq = num(g.awardSeq, 0) + 1;
     g.updatedAt = Date.now();
-    changeStars(g.stars, '达成考试目标 · ' + g.title + ' ' + g.target + ' 分', 'exam');
+    changeStars(g.stars, '达成考试目标 · ' + g.title + ' ' + g.target + ' 分', 'exam', 'exam:' + g.id + ':' + g.awardSeq);
     save();
     var rect = el ? el.getBoundingClientRect() : null;
     render();
@@ -2946,7 +2954,7 @@
     delete g.doneAt;
     delete g.awardedStars;
     g.updatedAt = Date.now();
-    changeStars(-undoExamAmount, '撤销考试奖励 · ' + g.title, 'exam');
+    changeStars(-undoExamAmount, '撤销考试奖励 · ' + g.title, 'exam', 'exam-undo:' + g.id + ':' + num(g.awardSeq, 0));
     save();
     render();
     toast('已撤销，星星已扣回', 'info');
