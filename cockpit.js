@@ -821,6 +821,10 @@
       t.stars = Math.max(1, Math.round(num(t.stars, 1)));
       t.date = typeof t.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(t.date) ? t.date : todayKey;
       t.done = !!t.done;
+      if (t.done) {
+        if (t.awardedStars == null) t.awardedStars = t.stars;
+        else t.awardedStars = Math.max(1, Math.round(num(t.awardedStars, t.stars)));
+      } else delete t.awardedStars;
       if (!t.done) delete t.doneAt;
       if (t.carriedFrom && !/^\d{4}-\d{2}-\d{2}$/.test(t.carriedFrom)) delete t.carriedFrom;
     }
@@ -830,6 +834,10 @@
       t.target = Math.max(0, Math.round(num(t.target, 90)));
       t.stars = Math.max(1, Math.round(num(t.stars, 5)));
       t.done = !!t.done;
+      if (t.done) {
+        if (t.awardedStars == null) t.awardedStars = t.stars;
+        else t.awardedStars = Math.max(1, Math.round(num(t.awardedStars, t.stars)));
+      } else delete t.awardedStars;
       if (t.from != null && isFinite(Number(t.from))) t.from = Number(t.from); else delete t.from;
     }
     for (i = 0; i < s.rewards.length; i++) {
@@ -2492,9 +2500,10 @@
       body: '<div class="form-grid">' +
         '<div class="field field-full"><label for="arName">奖励名称 <em>*</em></label><input id="arName" maxlength="24" placeholder="例如：周末去看一场电影"></div>' +
         '<div class="field"><label for="arIcon">图标（一个 emoji）</label><input id="arIcon" maxlength="4" value="🎁"></div>' +
+        '<div class="field"><label for="arPrice">真实价格（元，可选）</label><input id="arPrice" type="number" min="0" max="99999" step="1" placeholder="例如：30"></div>' +
         '<div class="field"><label for="arCost">所需星星</label><input id="arCost" type="number" min="1" max="999" step="1" value="30"></div>' +
-        '<div class="field field-full"><label for="arCat">分类</label><select id="arCat">' + cats + '</select></div>' +
-        '</div><p class="form-note" style="margin-top:11px">奖励会出现在「我的要兑换」里，星星够时孩子可以自己兑换。</p>',
+        '<div class="field"><label for="arCat">分类</label><select id="arCat">' + cats + '</select></div>' +
+        '</div><p class="form-note" style="margin-top:11px">填真实价格会按「20 元 = 1 颗星」自动算星星；留空就用手动星星。真实价格只作说明，不影响兑换判断。</p>',
       footer: '<button class="btn btn-ghost" type="button" data-close>取消</button>' +
         '<button class="btn btn-primary" type="button" data-act="submit-reward">' + icon('plus') + '添加奖励</button>'
     });
@@ -2504,9 +2513,12 @@
     var name = (($('#arName') || {}).value || '').trim();
     if (!name) { toast('给奖励起个名字吧', 'warn'); var el = $('#arName'); if (el) el.focus(); return; }
     var emoji = (($('#arIcon') || {}).value || '🎁').trim().slice(0, 4) || '🎁';
-    var cost = clamp(Math.round(num(($('#arCost') || {}).value, 30)), 1, 999);
+    var price = Math.max(0, Math.round(num(($('#arPrice') || {}).value, 0)));
+    var cost = price > 0 ? priceToStars(price) : clamp(Math.round(num(($('#arCost') || {}).value, 30)), 1, 999);
     var cat = ($('#arCat') || {}).value || '心愿';
-    state.rewards.unshift({ id: uid('r'), name: name, icon: emoji, cost: cost, cat: cat, updatedAt: Date.now() });
+    var reward = { id: uid('r'), name: name, icon: emoji, cost: cost, cat: cat, updatedAt: Date.now() };
+    if (price > 0) reward.price = price;
+    state.rewards.unshift(reward);
     save();
     closeModal();
     ui.rewardCat = '全部';
@@ -2526,8 +2538,9 @@
       body: '<div class="form-grid">' +
         '<div class="field field-full"><label for="erName">奖励名称 <em>*</em></label><input id="erName" maxlength="24" value="' + esc(r.name) + '"></div>' +
         '<div class="field"><label for="erIcon">图标（emoji）</label><input id="erIcon" maxlength="4" value="' + esc(r.icon) + '"></div>' +
+        '<div class="field"><label for="erPrice">真实价格（元，可选）</label><input id="erPrice" type="number" min="0" max="99999" step="1" value="' + (r.price || '') + '" placeholder="留空=手动星星"></div>' +
         '<div class="field"><label for="erCost">所需星星</label><input id="erCost" type="number" min="1" max="999" step="1" value="' + r.cost + '"></div>' +
-        '<div class="field field-full"><label for="erCat">分类</label><select id="erCat">' + cats + '</select></div>' +
+        '<div class="field"><label for="erCat">分类</label><select id="erCat">' + cats + '</select></div>' +
         '</div>' + (r.detail ? '<p class="form-note" style="margin-top:11px">旧版条件：' + esc(r.detail) + '（仅展示，不参与兑换判断）</p>' : '') +
         (r.price ? '<p class="form-note" style="margin-top:11px">真实价格 ¥' + esc(r.price) + '，按 20 元 = 1 颗星换算；手动改星星会覆盖换算价。</p>' : '') +
         '<p class="form-note" style="margin-top:11px">删除奖励不会删除已产生的兑换记录。</p>',
@@ -2544,7 +2557,14 @@
     if (!name) { toast('奖励名称不能为空', 'warn'); return; }
     r.name = name;
     r.icon = (($('#erIcon') || {}).value || '🎁').trim().slice(0, 4) || '🎁';
-    r.cost = clamp(Math.round(num(($('#erCost') || {}).value, 10)), 1, 999);
+    var price = Math.max(0, Math.round(num(($('#erPrice') || {}).value, 0)));
+    if (price > 0) {
+      r.price = price;
+      r.cost = priceToStars(price);
+    } else {
+      delete r.price;
+      r.cost = clamp(Math.round(num(($('#erCost') || {}).value, 10)), 1, 999);
+    }
     r.cat = ($('#erCat') || {}).value || '心愿';
     r.updatedAt = Date.now();
     save();
@@ -2728,6 +2748,7 @@
     if (t.done) { toast('这条已完成，可以在「已完成」里撤销', 'warn'); return; }
     t.done = true;
     t.doneAt = Date.now();
+    t.awardedStars = t.stars;
     t.updatedAt = Date.now();
     changeStars(t.stars, '完成 · ' + t.title, 'task');
     save();
@@ -2743,14 +2764,16 @@
     var t = findTask(id);
     if (!t || !t.done) return;
     if (!requireStudent('切换到学生端才能撤销打卡')) return;
-    if (starTotals().balance - t.stars < 0) { toast('星星已经花掉了，暂时不能撤销这条', 'warn'); return; }
+    var undoAmount = Math.max(1, Math.round(num(t.awardedStars, t.stars)));
+    if (starTotals().balance - undoAmount < 0) { toast('星星已经花掉了，暂时不能撤销这条', 'warn'); return; }
     t.done = false;
     delete t.doneAt;
+    delete t.awardedStars;
     t.updatedAt = Date.now();
-    changeStars(-t.stars, '撤销 · ' + t.title, 'undo');
+    changeStars(-undoAmount, '撤销 · ' + t.title, 'undo');
     save();
     render();
-    toast('已撤销，' + t.stars + ' 颗星星已扣回', 'info');
+    toast('已撤销，' + undoAmount + ' 颗星星已扣回', 'info');
   }
   function expandTask(id) {
     ui.openTask = ui.openTask === id ? null : id;
@@ -2762,6 +2785,7 @@
     if (!g || g.done) return;
     g.done = true;
     g.doneAt = Date.now();
+    g.awardedStars = g.stars;
     g.updatedAt = Date.now();
     changeStars(g.stars, '达成考试目标 · ' + g.title + ' ' + g.target + ' 分', 'exam');
     save();
@@ -2774,11 +2798,13 @@
     if (!requireParent('只有家长端可以撤销')) return;
     var g = state.examGoals.filter(function (x) { return x.id === id; })[0];
     if (!g || !g.done) return;
-    if (starTotals().balance - g.stars < 0) { toast('星星已经花掉了，暂时不能撤销', 'warn'); return; }
+    var undoExamAmount = Math.max(1, Math.round(num(g.awardedStars, g.stars)));
+    if (starTotals().balance - undoExamAmount < 0) { toast('星星已经花掉了，暂时不能撤销', 'warn'); return; }
     g.done = false;
     delete g.doneAt;
+    delete g.awardedStars;
     g.updatedAt = Date.now();
-    changeStars(-g.stars, '撤销考试奖励 · ' + g.title, 'exam');
+    changeStars(-undoExamAmount, '撤销考试奖励 · ' + g.title, 'exam');
     save();
     render();
     toast('已撤销，星星已扣回', 'info');
