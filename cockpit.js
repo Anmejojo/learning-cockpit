@@ -315,7 +315,8 @@
   }
   function cloudOn() { return !!(state && state.meta && state.meta.cloudEnabled); }
   function cloudStatusText() {
-    if (!cloudOn()) return '本地模式';
+    if (!cloudOn()) return navigator.onLine ? '本地模式' : '离线 · 数据在本机';
+    if (!navigator.onLine) return '离线 · 待联网同步';
     if (cloud.busy) return '同步中…';
     if (cloud.err) return '同步失败：' + cloud.err;
     if (cloud.pending) return '待同步';
@@ -600,11 +601,9 @@
         cloudPull(false).then(function (ok) { if (!ok) cloudPush(false); });
       }, 900);
     }
-    window.addEventListener('online', function () { if (cloudOn()) cloudSyncNow(false); });
     document.addEventListener('visibilitychange', function () {
       if (!document.hidden && cloudOn() && Date.now() - cloud.last > 60000) cloudPull(false);
-    });
-  }
+    });  }
 
   function importLegacy() {
     var raw = safeGet(LEGACY_KEY);
@@ -3214,7 +3213,19 @@
   function registerSW() {
     try {
       if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
-        navigator.serviceWorker.register('sw.js').catch(function () { });
+        navigator.serviceWorker.register('sw.js').then(function (reg) {
+          function notify() {
+            if (navigator.serviceWorker.controller) toast('新版本已就绪，重新打开后生效', 'info');
+          }
+          if (reg.waiting) notify();
+          reg.addEventListener('updatefound', function () {
+            var nw = reg.installing;
+            if (!nw) return;
+            nw.addEventListener('statechange', function () {
+              if (nw.state === 'installed' && navigator.serviceWorker.controller) notify();
+            });
+          });
+        }).catch(function () { });
       }
     } catch (e) { }
   }
@@ -3341,6 +3352,15 @@
     bindEvents();
     render();
     cloudInit();
+    window.addEventListener('offline', function () {
+      cloudRenderBadge();
+      try { toast('已离线，任务和星星仍保存在本机', 'warn'); } catch (e) { }
+    });
+    window.addEventListener('online', function () {
+      cloudRenderBadge();
+      try { toast('网络已恢复', 'success'); } catch (e) { }
+      if (cloudOn()) cloudSyncNow(false);
+    });
     registerSW();
     watchDayChange();
     window.__effReady = true;

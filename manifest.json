@@ -1,13 +1,17 @@
 {
   "name": "乐乐学习舱",
   "short_name": "学习舱",
+  "description": "乐乐的学习任务、星星奖励和小搭助手",
+  "id": "./index.html",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "landscape",
   "background_color": "#f6f2f8",
   "theme_color": "#f6f2f8",
   "lang": "zh-CN",
+  "categories": ["education", "productivity"],
   "icons": [
     {
       "src": "icon-192.png",

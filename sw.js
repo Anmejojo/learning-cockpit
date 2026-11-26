@@ -1,13 +1,17 @@
-﻿/* 阿勒学习驾驶舱 · Service Worker
+/* 阿勒学习驾驶舱 · Service Worker
    作用：① 安卓 Chrome 可"安装成应用" ② 断网也能打开壳 ③ 静态资源缓存加速
    注意：AI 请求、云存储图片、数据库走网络，不缓存 */
-const CACHE = 'lc-shell-v48'
+const CACHE = 'lc-shell-v49'
 const ASSETS = ['./', './index.html', './classic.html', './学习驾驶舱.html', './styles.css', './cockpit.css', './cockpit.js', './avatar-lele.png', './manifest.json', './icon-192.png', './icon-512.png', './icon-180.png', './font-inter.woff2', './font-mono.woff2', './words-8.json', './words-zk.json', './app.js', './room.js', './wall.js', './cockpit-hero.webp', './build-hero.webp']
 ASSETS.push('./reward-photos/studio.webp','./reward-photos/switch-cartridges.webp','./reward-photos/zelda-cartridge.webp',...Array.from({length:20},(_,i)=>'./reward-photos/'+String(i+1).padStart(2,'0')+'.webp'))
 
 self.addEventListener('install', function (e) {
   self.skipWaiting()
-  e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(ASSETS).catch(function () {}) }))
+  e.waitUntil(caches.open(CACHE).then(function (c) {
+    return Promise.all(ASSETS.map(function (u) {
+      return c.add(u).catch(function () { return null })
+    }))
+  }))
 })
 
 self.addEventListener('activate', function (e) {
@@ -18,8 +22,11 @@ self.addEventListener('activate', function (e) {
   )
 })
 
-self.addEventListener('fetch', function (e) {
-  const req = e.request
+self.addEventListener('message', function (e) {
+  if (e.data === 'skipWaiting') self.skipWaiting()
+})
+
+self.addEventListener('fetch', function (e) {  const req = e.request
   if (req.method !== 'GET') return
   let u
   try { u = new URL(req.url) } catch (err) { return }
@@ -39,7 +46,7 @@ self.addEventListener('fetch', function (e) {
         return caches.open(CACHE).then(async function (cache) {
           const match = await cache.match(req) || await cache.match(u.pathname)
           if (match) return match
-          if (req.mode === 'navigate') return await cache.match('./index.html') || Response.error()
+          if (req.mode === 'navigate') return await cache.match('./index.html') || await cache.match('./') || Response.error()
           return Response.error()
         })
       })

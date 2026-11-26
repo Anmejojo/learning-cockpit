@@ -15,8 +15,8 @@
   --panel-warm:#fffbf6;
   --ink:#38303f;
   --ink-2:#5b5265;
-  --muted:#8d8397;
-  --muted-2:#aaa1b3;
+  --muted:#7f748a;
+  --muted-2:#948a9e;
   --line:#e9e1ee;
   --line-strong:#ded3e7;
   --primary:#e9615a;
@@ -52,6 +52,7 @@
 
 *,*::before,*::after{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+body{-webkit-tap-highlight-color:transparent;overscroll-behavior-y:none}
 body{
   margin:0;min-height:100vh;font-family:var(--font);font-size:14px;line-height:1.55;
   color:var(--ink);background:var(--bg);
@@ -1366,6 +1367,42 @@ body[data-role="parent"] .task-row .tick{border-style:dashed;background:#fbf8fd}
   .chat-mode-tip{display:none}
   .eff-cloud-badge{justify-content:center;padding:6px 2px;margin-bottom:2px}
   .eff-cloud-badge .cloud-label{display:none}
+}
+
+/* ---------- 13. 安全区 / 触控 / 可见性 ---------- */
+@supports (padding: env(safe-area-inset-top)) {
+  .eff-sidebar{
+    padding-left:env(safe-area-inset-left);
+    padding-top:env(safe-area-inset-top);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .eff-main{
+    padding-left:env(safe-area-inset-left);
+    padding-right:env(safe-area-inset-right);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .eff-modal-root{
+    padding:calc(20px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left));
+  }
+  .eff-toast{bottom:calc(30px + env(safe-area-inset-bottom))}
+  .eff-xiaoda-fab{bottom:calc(24px + env(safe-area-inset-bottom));right:calc(24px + env(safe-area-inset-right))}
+}
+@media (max-width:720px){
+  @supports (padding: env(safe-area-inset-bottom)) {
+    .eff-xiaoda-fab{bottom:calc(20px + env(safe-area-inset-bottom));right:calc(14px + env(safe-area-inset-right))}
+    .eff-toast{bottom:calc(18px + env(safe-area-inset-bottom))}
+  }
+}
+@supports (height: 100dvh){
+  .eff-app,.eff-main{min-height:100dvh}
+}
+@media (pointer:coarse){
+  .eff-nav-btn{min-height:44px}
+  .icon-btn,.modal-x{min-width:36px;min-height:36px}
+  .reward-btn{min-height:36px}
+}
+@media (max-width:720px){
+  .field input,.field select,.field textarea,.chat-compose input{font-size:16px}
 }
 
 
