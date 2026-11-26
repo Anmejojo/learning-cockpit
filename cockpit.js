@@ -2985,6 +2985,7 @@
         var t2 = findTask(id);
         if (t2) {
           t2.judge = { ts: result.ts, ok: !!reply, text: text.slice(0, 1200), thumb: img.thumb };
+          t2.updatedAt = Date.now();
           save();
         }
         state.chat.push({ id: uid('c'), ts: Date.now(), role: 'u', text: '（上传了作业照片）', img: img.thumb });
