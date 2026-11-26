@@ -273,7 +273,7 @@
   /* ---------- 5. 存储 / 迁移 ---------- */
   var state = null;
   var ui = { page: 'today', tab: '全部', rewardCat: '全部', openTask: null, doneOpen: true, masteryOpen: { 语文: true, 英语: false, 数学: false, 物理: false }, calMonth: null, answers: {}, recog: null, recogBusy: false, recogCands: null, demoDismissed: false };
-  var rt = { timers: {}, recordings: {}, recording: null, judgeTask: null, judge: {}, speakSeq: 0, confirm: null, lastFocus: null, modalOpen: false, chatOffline: false };
+  var rt = { timers: {}, recordings: {}, recording: null, judgeTask: null, judge: {}, speakSeq: 0, confirm: null, lastFocus: null, modalOpen: false, chatOffline: false, chatImage: null };
   var saveWarned = false;
   var pendingImport = null;
 
@@ -518,12 +518,21 @@
     s.chat = s.chat.filter(function (m) { return m && typeof m === 'object' && (m.text || m.pending); }).map(function (m) {
       var txt = String(m.text || '');
       if (m.pending) { txt = txt || '（刚才那条没回完，你再说一次？）'; }
+      var img = (typeof m.img === 'string' && (/^https?:\/\//.test(m.img) || (/^data:image\//.test(m.img) && m.img.length <= 60000))) ? m.img : '';
       return {
         id: m.id || uid('c'), ts: Number(m.ts) || Date.now(),
-        role: m.role === 'u' ? 'u' : 'a', text: txt.slice(0, 1200),
-        img: (typeof m.img === 'string' && /^https?:\/\//.test(m.img)) ? m.img : ''
+        role: m.role === 'u' ? 'u' : 'a', text: txt.slice(0, 1200), img: img
       };
     }).slice(-300);
+    /* 聊天图片最多保留最近 20 张，避免 localStorage 被缩略图撑爆 */
+    (function () {
+      var imgKept = 0;
+      for (var ci = s.chat.length - 1; ci >= 0; ci--) {
+        if (!s.chat[ci].img) continue;
+        if (imgKept >= 20) s.chat[ci].img = '';
+        else imgKept++;
+      }
+    })();
     s.chatMem = s.chatMem.filter(function (m) { return m && (typeof m === 'string' || m.text); }).map(function (m) {
       var tex = typeof m === 'string' ? m : m.text;
       return { id: (m && m.id) || uid('cm'), text: String(tex).slice(0, 120), tags: (m && m.tags) || [], at: Number(m && m.at) || Date.now() };
@@ -1057,14 +1066,17 @@
         '<div class="tools-tip">' + icon('info') + '<span>先盖住答案听写，写完再点「显示答案」自己批改。</span></div>';
     } else if (t.type === 'homework') {
       var j = rt.judge[t.id] || t.judge;
-      h += '<div class="tools-head"><span class="tools-title">' + icon('camera') + '作业拍照 · AI 检查</span>' +
-        '<span class="badge ' + (j && !j.busy ? 'badge-sage' : 'badge-muted') + '">' + (j && j.busy ? '检查中…' : j ? '已判题' : '未检查') + '</span></div>' +
-        '<div class="tools-row"><button class="btn btn-primary btn-sm" type="button" data-act="judge-homework" data-id="' + esc(t.id) + '">' + icon('camera') + '拍照 / 上传作业</button>' +
-        '<span class="tiny muted">判题结果会同步给家长端</span></div>';
+      h += '<div class="tools-head"><span class="tools-title">' + icon('camera') + '作业拍照 · 小搭分析</span>' +
+        '<span class="badge ' + (j && !j.busy ? (j.ok ? 'badge-sage' : 'badge-gold') : 'badge-muted') + '">' + (j && j.busy ? '小搭正在看…' : j ? (j.ok ? '已分析' : '已保存照片') : '未上传') + '</span></div>' +
+        '<div class="tools-row"><button class="btn btn-primary btn-sm" type="button" data-act="judge-homework" data-id="' + esc(t.id) + '">' + icon('camera') + '拍照 / 让小搭分析</button>' +
+        '<span class="tiny muted">结果会保存在任务里，家长端可见</span></div>';
       if (j && !j.busy) {
-        h += '<div class="homework-result">' + icon('check') + 'AI 检查完成：' + (j.count || 3) + ' 道题' + (j.ok === false ? '有 1 处需要订正' : '全部正确') + '，家长端可见</div>';
+        h += '<div class="homework-result">' +
+          (j.thumb ? '<img class="homework-shot" src="' + esc(j.thumb) + '" alt="作业照片">' : '') +
+          '<div class="homework-copy">' + (j.ok ? icon('check') : icon('info')) +
+          '<span>' + esc(j.text || '已上传照片，但没有可分析的文字结果。') + '</span></div></div>';
       }
-      h += '<div class="tools-tip">' + icon('info') + '<span>拍清楚题面再上传，判题结果只是参考，订正后可以再拍一次。</span></div>';
+      h += '<div class="tools-tip">' + icon('info') + '<span>拍清楚题面再上传，小搭会先识别科目/题号，再指出空题或可疑错误，只给思路和第一步。</span></div>';
     } else if (t.type === 'read') {
       if (t.passage) h += '<div class="passage">' + esc(t.passage) + '</div>';
       h += '<div class="tools-row" style="margin-top:9px">' +
@@ -1420,6 +1432,7 @@
     rt.modalOpen = false;
     rt.confirm = null;
     pendingImport = null;
+    rt.chatImage = null;
     document.body.style.overflow = '';
     if (rt.lastFocus && typeof rt.lastFocus.focus === 'function') { try { rt.lastFocus.focus(); } catch (e) { } }
     rt.lastFocus = null;
@@ -1598,13 +1611,78 @@
     var online = !!chatToken();
     var label = online ? (rt.chatOffline ? '在线暂时不可用，已用离线回复' : '在线小搭') : '离线陪聊';
     return '<div class="chat-mode" id="chatMode"><span class="chat-dot ' + (online && !rt.chatOffline ? 'is-on' : '') + '"></span>' + label +
-      (online ? '' : '<span class="chat-mode-tip">在经典版设置 AI 口令后可在线</span>') + '</div>';
+      (online ? '' : '<span class="chat-mode-tip">在「更多 → AI 口令」设置后可在线</span>') + '</div>';
+  }
+  function chatPreviewHTML() {
+    if (!rt.chatImage) return '';
+    return '<div class="chat-image-card"><img src="' + esc(rt.chatImage.thumb) + '" alt="待发送的作业照片"><span>' + esc(rt.chatImage.name) + '</span>' +
+      '<button type="button" data-act="chat-remove-image" aria-label="移除图片">×</button></div>';
+  }
+  function refreshChatPreview() {
+    var box = $('#chatImagePreview');
+    if (box) box.innerHTML = chatPreviewHTML();
+  }
+  function compressImageFile(file, maxDim, quality) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        var img = new Image();
+        img.onload = function () {
+          try {
+            var scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+            var cv = document.createElement('canvas');
+            cv.width = Math.max(1, Math.round(img.width * scale));
+            cv.height = Math.max(1, Math.round(img.height * scale));
+            cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+            resolve(cv.toDataURL('image/jpeg', quality));
+          } catch (e) { reject(e); }
+        };
+        img.onerror = reject;
+        img.src = reader.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+  function prepareChatImage(file) {
+    return compressImageFile(file, 1000, 0.72).then(function (full) {
+      if (full.length > 82000) {
+        return compressImageFile(file, 720, 0.58).then(function (f2) {
+          return f2.length > 82000 ? compressImageFile(file, 540, 0.5) : f2;
+        });
+      }
+      return full;
+    }).then(function (full) {
+      return compressImageFile(file, 360, 0.55).then(function (thumb) {
+        return { full: full, thumb: thumb, name: file.name || '作业照片' };
+      });
+    });
+  }
+  function pickChatImage() {
+    var input = $('#chatImageInput');
+    if (input) { input.value = ''; input.click(); }
+  }
+  function handleChatImage(file) {
+    if (!file) return;
+    if (!/^image\//.test(file.type || '')) { toast('请选择图片文件', 'warn'); return; }
+    toast('正在压缩作业照片…', 'info');
+    prepareChatImage(file).then(function (img) {
+      rt.chatImage = img;
+      refreshChatPreview();
+      toast('照片已就绪，可以发送或补充一句话', 'success');
+      var inp = $('#chatInput');
+      if (inp) { try { inp.focus(); } catch (e) { } }
+    }).catch(function () {
+      toast('图片处理失败，换一张试试', 'warn');
+    });
   }
   function chatShellHTML() {
     return '<div class="chat-shell">' +
       chatModeHTML() + chatMemHTML() +
       '<div class="chat-messages" id="chatMessages">' + chatMessagesHTML() + '</div>' +
-      '<div class="chat-compose"><input id="chatInput" maxlength="500" autocomplete="off" placeholder="跟小搭说点什么…" aria-label="给小搭发消息">' +
+      '<div class="chat-image-preview" id="chatImagePreview">' + chatPreviewHTML() + '</div>' +
+      '<div class="chat-compose"><button class="chat-tool" type="button" data-act="chat-pick-image" aria-label="上传作业照片" title="上传作业照片">' + icon('camera') + '</button>' +
+      '<input id="chatInput" maxlength="500" autocomplete="off" placeholder="跟小搭说点什么…" aria-label="给小搭发消息">' +
       '<button class="btn btn-primary btn-sm" type="button" data-act="chat-send">发送</button></div>' +
       '</div>';
   }
@@ -1660,37 +1738,60 @@
     if (/谢谢|知道了|好的/.test(t)) return '嗯，我在。需要的时候再叫我。';
     return '我在听。是作业、考试，还是今天心情？说具体一点，我好接住。';
   }
-  function aiChat(text) {
+  function aiChat(text, image) {
     var token = chatToken();
     if (!token) return Promise.resolve(null);
     var hist = state.chat.filter(function (m) { return !m.pending && m.text; }).slice(-8).map(function (m) {
       return (m.role === 'u' ? '他：' : '你：') + m.text;
     }).join('\n');
-    var prompt = '你是「小搭」，一个比初二学生大两届的高中男生，是他的同龄学习搭档，不是老师也不是家长。用微信口气，1-3 句话，不超过 80 字；只给思路和第一步，不给最终答案；不评判、不提成绩、不催；他情绪低落时先接住情绪。\n【最近对话】\n' + hist + '\n他：' + String(text).slice(0, 500);
+    var prompt;
+    if (image) {
+      prompt = '这是乐乐上传的作业/试卷照片。请按下面结构简短分析，不要编：\n' +
+        '1) 先说你看到的科目和大致内容；\n' +
+        '2) 列出能看清的题号/题目；\n' +
+        '3) 指出空题或可疑错误；\n' +
+        '4) 每道需要讲的问题只给思路和第一步，不给最终答案；\n' +
+        '5) 看不清就明确说“照片看不清”，不要猜。\n' +
+        '最后用一句话告诉他下一步做什么。用 1-2-3 列，语气像小搭，短一点。' +
+        (text ? '\n他同时说：' + String(text).slice(0, 300) : '') +
+        '\n【最近对话】\n' + hist;
+    } else {
+      prompt = '你是「小搭」，一个比初二学生大两届的高中男生，是他的同龄学习搭档，不是老师也不是家长。用微信口气，1-3 句话，不超过 80 字；只给思路和第一步，不给最终答案；不评判、不提成绩、不催；他情绪低落时先接住情绪。\n【最近对话】\n' + hist + '\n他：' + String(text).slice(0, 500);
+    }
     return fetch(CHAT_AI_URL, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: token, prompt: prompt, image: '', kbq: '' })
+      body: JSON.stringify({ token: token, prompt: prompt, image: image || '', kbq: '' })
     }).then(function (r) { return r.json(); }).then(function (j) {
-      return (j && j.ok && j.text) ? String(j.text).replace(/\s+/g, ' ').trim().slice(0, 600) : null;
+      return (j && j.ok && j.text) ? String(j.text).replace(/\s+/g, ' ').trim().slice(0, 1200) : null;
     }).catch(function () { return null; });
   }
   function sendChat() {
     var inp = $('#chatInput');
     if (!inp) return;
     var text = String(inp.value || '').trim();
-    if (!text) return;
+    var image = rt.chatImage;
+    if (!text && !image) return;
     if (state.chat.some(function (m) { return m.pending; })) return;
-    state.chat.push({ id: uid('c'), ts: Date.now(), role: 'u', text: text.slice(0, 500) });
+    var shown = text || '（发了张作业照片）';
+    state.chat.push({ id: uid('c'), ts: Date.now(), role: 'u', text: shown.slice(0, 500), img: image ? image.thumb : '' });
     if (state.chat.length > 300) state.chat = state.chat.slice(-300);
     var pending = { id: uid('c'), ts: Date.now(), role: 'a', text: '', pending: true };
     state.chat.push(pending);
+    rt.chatImage = null;
     inp.value = '';
+    refreshChatPreview();
     save();
     refreshChat();
-    aiChat(text).then(function (reply) {
+    aiChat(text, image ? image.full : '').then(function (reply) {
       if (!reply) {
         rt.chatOffline = !!chatToken();
-        reply = localChatReply(text);
+        if (image) {
+          reply = chatToken()
+            ? '在线分析暂时没成功，照片我先留在这条消息里。你可以先自己圈出不会的题，等网络好了再发我一次。'
+            : '我现在没有 AI 口令，也没有联网，读不了图片里的字。让家长在「更多 → AI 口令」里设置一下；这次我先只记下你上传了作业。';
+        } else {
+          reply = localChatReply(text);
+        }
       }
       pending.text = reply;
       pending.pending = false;
@@ -1699,11 +1800,41 @@
       refreshChat();
     }).catch(function () {
       rt.chatOffline = !!chatToken();
-      pending.text = localChatReply(text);
+      pending.text = image ? '这张作业照片我暂时没分析出来。你可以先说说卡在哪一题，我陪你理思路。' : localChatReply(text);
       pending.pending = false;
       save();
       refreshChat();
     });
+  }
+  function openAiTokenModal() {
+    if (!requireParent('切换到家长端才能设置 AI 口令')) return;
+    var has = !!chatToken();
+    openModal({
+      title: 'AI 口令', icon: 'lock',
+      sub: '用于小搭在线回复和作业分析',
+      body: '<div class="field"><label for="aiTok">旧版 AI 口令</label><input id="aiTok" type="password" autocomplete="off" placeholder="' + (has ? '已设置，输入新口令可替换' : '粘贴旧版小搭的 AI 口令') + '"></div>' +
+        '<p class="form-note" style="margin-top:10px">' + (has ? '已检测到本机有口令，小搭可在线。' : '当前是本机离线陪聊；口令只保存在这台设备，不会写进备份。') + ' 口令与经典版共用同一个浏览器本地存储。</p>',
+      footer: (has ? '<button class="btn btn-soft" type="button" data-act="clear-ai-token">清除口令</button>' : '') +
+        '<button class="btn btn-ghost" type="button" data-close>取消</button>' +
+        '<button class="btn btn-primary" type="button" data-act="save-ai-token">保存口令</button>'
+    });
+  }
+  function saveAiToken() {
+    if (!requireParent('切换到家长端才能设置 AI 口令')) return;
+    var v = (($('#aiTok') || {}).value || '').trim();
+    if (!v) { toast('先粘贴 AI 口令', 'warn'); return; }
+    safeSet('lc_tok', v);
+    rt.chatOffline = false;
+    closeModal();
+    toast('AI 口令已保存，小搭现在可以在线分析作业了', 'success');
+    if (rt.modalOpen) refreshChat();
+  }
+  function clearAiToken() {
+    if (!requireParent('切换到家长端才能清除 AI 口令')) return;
+    try { localStorage.removeItem('lc_tok'); localStorage.removeItem('lc_demo_tok'); } catch (e) { }
+    rt.chatOffline = false;
+    closeModal();
+    toast('已清除 AI 口令，小搭切回离线陪聊', 'info');
   }
   function openProfileModal() {
     openModal({
@@ -1731,6 +1862,7 @@
         '<button class="more-link" type="button" data-act="export-data"><span class="more-ico">📤</span><span><strong>导出数据备份</strong><small>下载 JSON，换设备/清缓存前先备份</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="import-data"><span class="more-ico">📥</span><span><strong>导入数据备份</strong><small>用 JSON 覆盖本机数据</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="open-chat"><span class="more-ico">💬</span><span><strong>打开小搭</strong><small>聊天记录已从旧版导入</small></span>' + icon('arrowRight') + '</button>' +
+        '<button class="more-link" type="button" data-act="open-ai-token"><span class="more-ico">🔑</span><span><strong>AI 口令</strong><small>' + (chatToken() ? '已检测到口令，小搭可在线分析作业' : '未设置；设置后小搭可在线分析作业') + '</small></span>' + icon('arrowRight') + '</button>' +
         '<a class="more-link" href="preview.html"><span class="more-ico">🧪</span><span><strong>打开本地测试台</strong><small>旧版双端预览工具</small></span>' + icon('arrowRight') + '</a>' +
         '<button class="more-link is-danger" type="button" data-act="open-reset"><span class="more-ico">🧹</span><span><strong>重置演示数据</strong><small>恢复初始任务、星星和奖励</small></span>' + icon('arrowRight') + '</button>' +
         '</div>' +
@@ -2506,17 +2638,38 @@
   function handleJudge(file) {
     var id = rt.judgeTask;
     if (!id || !file) return;
+    if (!/^image\//.test(file.type || '')) { toast('请选择图片文件', 'warn'); return; }
     rt.judge[id] = { busy: true };
     render();
-    toast('AI 正在检查作业…', 'info');
-    setTimeout(function () {
+    toast('小搭正在看这张作业…', 'info');
+    prepareChatImage(file).then(function (img) {
       var task = findTask(id);
-      var result = { busy: false, ok: true, count: 3, ts: Date.now() };
-      rt.judge[id] = result;
-      if (task) { task.judge = { ts: result.ts, ok: true, count: 3 }; save(); }
+      if (task) { task.judge = { ts: Date.now(), busy: true, thumb: img.thumb }; save(); }
+      rt.judge[id] = { busy: true, thumb: img.thumb };
       render();
-      toast('检查完成：3 道题全部正确 ✅ 家长端可见', 'success');
-    }, 900);
+      return aiChat('请分析这张作业/笔记照片：先识别科目和题号，指出空题或可疑错误，只给思路和第一步，不要直接给答案；看不清就直说。', img.full).then(function (reply) {
+        var text = reply || (chatToken()
+          ? '在线分析暂时没成功，照片已保存。可以先说说你卡在哪一题，我陪你理思路。'
+          : '现在没有 AI 口令，读不了图片里的字。照片已保存；家长可在「更多 → AI 口令」设置后重新拍一次。');
+        var result = { busy: false, ok: !!reply, text: text, thumb: img.thumb, ts: Date.now() };
+        rt.judge[id] = result;
+        var t2 = findTask(id);
+        if (t2) {
+          t2.judge = { ts: result.ts, ok: !!reply, text: text.slice(0, 1200), thumb: img.thumb };
+          save();
+        }
+        state.chat.push({ id: uid('c'), ts: Date.now(), role: 'u', text: '（上传了作业照片）', img: img.thumb });
+        state.chat.push({ id: uid('c'), ts: Date.now() + 1, role: 'a', text: text.slice(0, 1200) });
+        state.chat = state.chat.slice(-300);
+        save();
+        render();
+        toast(reply ? '小搭分析完成，结果已记在任务里' : '照片已保存，配置 AI 口令后可重新分析', reply ? 'success' : 'warn');
+      });
+    }).catch(function () {
+      rt.judge[id] = { busy: false, ok: false, text: '图片处理失败，换一张试试。', ts: Date.now() };
+      render();
+      toast('图片处理失败，换一张试试', 'warn');
+    });
   }
 
   /* ---------- 18. 事件绑定 ---------- */
@@ -2573,6 +2726,11 @@
       case 'open-history': openTaskHistory(); break;
       case 'open-chat': closeModal(); setTimeout(openChat, 60); break;
       case 'chat-send': sendChat(); break;
+      case 'chat-pick-image': pickChatImage(); break;
+      case 'chat-remove-image': rt.chatImage = null; refreshChatPreview(); break;
+      case 'open-ai-token': closeModal(); setTimeout(openAiTokenModal, 60); break;
+      case 'save-ai-token': saveAiToken(); break;
+      case 'clear-ai-token': clearAiToken(); break;
       case 'export-data': exportData(); break;
       case 'import-data': triggerImport(); break;
       case 'do-import': doImport(); break;
@@ -2699,6 +2857,10 @@
       var b = t.files && t.files[0];
       t.value = '';
       handleImportFile(b);
+    } else if (t.id === 'chatImageInput') {
+      var ci = t.files && t.files[0];
+      t.value = '';
+      handleChatImage(ci);
     }
   }
 
@@ -2791,6 +2953,11 @@
       fab.innerHTML = '<span class="fab-ico">' + icon('sparkles') + '</span><span>小搭</span>';
       fab.addEventListener('click', openChat);
       document.body.appendChild(fab);
+    }
+    if (!$('#chatImageInput')) {
+      var chatImg = document.createElement('input');
+      chatImg.type = 'file'; chatImg.id = 'chatImageInput'; chatImg.accept = 'image/*'; chatImg.style.display = 'none';
+      document.body.appendChild(chatImg);
     }
   }
 

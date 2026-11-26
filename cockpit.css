@@ -501,10 +501,13 @@ body[data-role="parent"] .task-row .tick{border-style:dashed;background:#fbf8fd}
 }
 .passage b{color:var(--primary-deep)}
 .homework-result{
-  display:flex;align-items:center;gap:7px;font-size:11px;color:var(--sage-deep);font-weight:700;
-  background:#f3fbf6;border:1px solid #d9eee1;border-radius:8px;padding:6px 9px;margin-top:8px;
+  display:flex;align-items:flex-start;gap:9px;font-size:11px;color:var(--ink-2);font-weight:600;
+  background:#f3fbf6;border:1px solid #d9eee1;border-radius:9px;padding:8px 10px;margin-top:8px;line-height:1.6;
 }
-.homework-result .ico{width:14px;height:14px}
+.homework-result .ico{width:14px;height:14px;color:var(--sage-deep);flex:none;margin-top:2px}
+.homework-shot{width:58px;height:58px;flex:none;object-fit:cover;border-radius:7px;border:1px solid #fff;box-shadow:0 2px 6px rgba(60,100,75,.12)}
+.homework-copy{flex:1;min-width:0;display:flex;align-items:flex-start;gap:5px}
+.homework-copy span{white-space:pre-wrap;word-break:break-word}
 
 .done-section{margin-top:16px}
 .done-toggle{
@@ -1310,6 +1313,21 @@ body[data-role="parent"] .task-row .tick{border-style:dashed;background:#fbf8fd}
 .chat-typing{color:var(--muted);font-size:11.5px;font-style:italic}
 .chat-img{max-width:180px;max-height:160px;border-radius:8px;margin-top:5px;display:block}
 .chat-compose{display:flex;align-items:center;gap:7px;padding-top:8px;border-top:1px dashed #eee5f3}
+.chat-tool{
+  width:36px;height:36px;flex:none;border-radius:10px;display:grid;place-items:center;
+  color:var(--lilac-deep);background:var(--lilac-soft);border:1px solid #e6daf6;transition:.16s;
+}
+.chat-tool:hover{background:#ece2fa;transform:translateY(-1px)}
+.chat-tool .ico{width:17px;height:17px}
+.chat-image-preview:empty{display:none}
+.chat-image-card{
+  display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;
+  background:linear-gradient(120deg,#fbf8fd,#fff);border:1px solid #eee5f4;
+}
+.chat-image-card img{width:42px;height:42px;object-fit:cover;border-radius:7px;border:1px solid #fff;box-shadow:0 2px 6px rgba(90,60,100,.1)}
+.chat-image-card span{flex:1;min-width:0;font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-image-card button{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:var(--muted);font-size:15px;line-height:1}
+.chat-image-card button:hover{background:#fdeceb;color:var(--primary)}
 .chat-compose input{
   flex:1;min-width:0;height:36px;border:1px solid #e7ddec;background:#fdfbfe;border-radius:10px;
   padding:0 11px;font-size:12.5px;color:var(--ink);outline:none;
