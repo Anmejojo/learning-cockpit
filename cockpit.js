@@ -10,6 +10,7 @@
 
   /* ---------- 1. 常量 ---------- */
   var STORE_KEY = 'lc_cockpit_v1';
+  var BACKUP_KEY = 'lc_backups_v1';
   var LEGACY_KEY = 'lc_v3';
   var VERSION = 1;
   var PAGES = ['today', 'exam', 'mastery', 'stars', 'rewards'];
@@ -337,8 +338,97 @@
   function safeSessionRemove(key) {
     try { sessionStorage.removeItem(key); } catch (e) { }
   }
+  function readBackups() {
+    try {
+      var a = JSON.parse(safeGet(BACKUP_KEY) || '[]');
+      return Array.isArray(a) ? a.filter(function (x) { return x && x.data && x.ts; }) : [];
+    } catch (e) { return []; }
+  }
+  function backupSlim() {
+    var c = JSON.parse(JSON.stringify(state));
+    (c.chat || []).forEach(function (m) { if (m) delete m.img; });
+    (c.tasks || []).forEach(function (t) { if (t && t.judge) delete t.judge.thumb; });
+    return c;
+  }
+  function maybeAutoBackup() {
+    if (!state || !state.meta) return;
+    var day = dayKey(Date.now());
+    if (state.meta.lastBackupDay === day) return;
+    var arr = readBackups();
+    if (arr[0] && dayKey(arr[0].ts) === day) { state.meta.lastBackupDay = day; return; }
+    arr.unshift({ ts: Date.now(), data: backupSlim() });
+    arr = arr.slice(0, 7);
+    while (arr.length && !safeSet(BACKUP_KEY, JSON.stringify(arr))) arr.pop();
+    state.meta.lastBackupDay = day;
+  }
+  function openWeeklyReport() {
+    if (!requireParent('切换到家长端才能看周报')) return;
+    var end = Date.now(), start = end - 7 * 86400000;
+    var done = state.tasks.filter(function (t) { return t.done && num(t.doneAt) >= start; });
+    var earned = 0, used = 0;
+    state.log.forEach(function (e) { if (num(e.ts) >= start) { if (e.delta > 0) earned += e.delta; else used += -e.delta; } });
+    var pending = state.tasks.filter(function (t) { return t.pendingApproval; }).length;
+    var subject = {};
+    done.forEach(function (t) { subject[t.subject || '其他'] = (subject[t.subject || '其他'] || 0) + 1; });
+    var red = state.redemptions.filter(function (x) { return num(x.ts) >= start; }).length;
+    var rows = Object.keys(subject).sort(function (a, b) { return subject[b] - subject[a]; }).map(function (s) {
+      return '<div class="report-row"><span>' + esc(s) + '</span><b>' + subject[s] + '</b></div>';
+    }).join('');
+    openModal({
+      title: '家长周报', icon: 'chart',
+      sub: '最近 7 天 · ' + new Date(start).getMonth() + '/' + new Date(start).getDate() + '–' + new Date(end).getMonth() + '/' + new Date(end).getDate(),
+      body: '<div class="report-grid"><div class="report-stat"><b>' + done.length + '</b><span>完成任务</span></div><div class="report-stat is-gold"><b>+' + earned + '</b><span>获得星星</span></div><div class="report-stat"><b>−' + used + '</b><span>使用星星</span></div><div class="report-stat"><b>' + pending + '</b><span>待确认</span></div></div>' +
+        '<div class="report-section"><div class="report-title">科目分布</div>' + (rows || '<p class="form-note">这周还没有完成记录。</p>') + '</div>' +
+        '<div class="report-section"><div class="report-title">兑换与提醒</div><p class="form-note">这周兑换 <b>' + red + '</b> 次。' + (pending ? '还有 ' + pending + ' 条任务等确认。' : '没有待确认任务。') + '</p></div>',
+      footer: '<button class="btn btn-ghost" type="button" data-close>关闭</button>'
+    });
+  }
+  function openBackups() {
+    if (!requireParent('切换到家长端才能看本机备份')) return;
+    var arr = readBackups();
+    var body = !arr.length
+      ? '<div class="judge-empty"><span>🗂️</span><strong>还没有本机备份</strong><p>每天第一次保存会自动留一份；照片缩略图不进入备份，文字/任务/星星会保留。</p></div>'
+      : '<div class="backup-list">' + arr.map(function (b) {
+        var d = new Date(b.ts), s = b.data || {};
+        return '<div class="backup-row"><div class="backup-main"><strong>' + d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + '</strong>' +
+          '<small>' + ((s.tasks || []).length) + ' 条任务 · ' + ((s.log || []).length) + ' 条流水 · ' + ((s.redemptions || []).length) + ' 条兑换</small></div>' +
+          '<button class="btn btn-ghost btn-xs" type="button" data-act="restore-backup" data-ts="' + b.ts + '">恢复</button></div>';
+      }).join('') + '</div><p class="form-note" style="margin-top:8px">最多保留 7 份；恢复会覆盖当前本机数据，建议先导出 JSON。</p>';
+    openModal({
+      title: '本机自动备份', icon: 'archive',
+      sub: '每天首次保存留一份 · 最近 ' + arr.length + ' 份',
+      body: body,
+      footer: '<button class="btn btn-ghost" type="button" data-close>关闭</button><button class="btn btn-primary" type="button" data-act="export-data">导出当前备份</button>'
+    });
+  }
+  function restoreBackup(ts) {
+    if (!requireParent('切换到家长端才能恢复备份')) return;
+    var b = readBackups().filter(function (x) { return String(x.ts) === String(ts); })[0];
+    if (!b) { toast('备份不存在', 'warn'); return; }
+    openModal({
+      title: '恢复这份备份？', icon: 'archive',
+      sub: new Date(b.ts).toLocaleString('zh-CN'),
+      body: '<p>会覆盖当前本机的任务、星星、奖励、兑换和聊天文字。照片缩略图不在备份里。</p>',
+      footer: '<button class="btn btn-ghost" type="button" data-close>取消</button><button class="btn btn-primary" type="button" data-act="do-restore-backup" data-ts="' + b.ts + '">确认恢复</button>'
+    });
+  }
+  function doRestoreBackup(ts) {
+    if (!requireParent('切换到家长端才能恢复备份')) return;
+    var b = readBackups().filter(function (x) { return String(x.ts) === String(ts); })[0];
+    if (!b) return;
+    try {
+      state = normalizeState(b.data);
+      ensureDevice();
+      state.meta.lastBackupDay = dayKey(Date.now());
+      save();
+      closeModal();
+      render();
+      toast('已恢复备份', 'success');
+    } catch (e) { toast('备份损坏，恢复失败', 'warn'); }
+  }
   function save() {
     if (!state) return false;
+    maybeAutoBackup();
     if (state.meta) state.meta.updatedAt = Date.now();
     var ok = safeSet(STORE_KEY, JSON.stringify(state));
     if (!ok && !saveWarned) {
@@ -1059,6 +1149,11 @@
     s.mastery = Array.isArray(s.mastery) ? s.mastery : base.mastery;
     s.rewards = Array.isArray(s.rewards) ? s.rewards : base.rewards;
     s.redemptions = Array.isArray(s.redemptions) ? s.redemptions : [];
+    s.redemptions.forEach(function (x) {
+      if (!x || typeof x !== 'object') return;
+      if (x.status !== 'pending' && x.status !== 'done') x.status = 'done';
+      if (x.fulfilledAt) x.fulfilledAt = num(x.fulfilledAt);
+    });
     s.log = Array.isArray(s.log) ? s.log : [];
     s.chat = Array.isArray(s.chat) ? s.chat : [];
     s.chatMem = Array.isArray(s.chatMem) ? s.chatMem : [];
@@ -2095,13 +2190,16 @@
     }
     h += '</div>';
 
-    h += '<section class="reward-history"><div class="section-head"><div class="section-title">' + icon('clock') + '兑换记录</div><span class="section-sub">兑换后请找家长领取</span></div>';
+    var pendingRewards = state.redemptions.filter(function (x) { return x.status === 'pending'; }).length;
+    h += '<section class="reward-history"><div class="section-head"><div class="section-title">' + icon('clock') + '兑换记录</div><span class="section-sub">' + (pendingRewards ? pendingRewards + ' 个待领取' : '兑换后请找家长领取') + '</span></div>';
     if (!state.redemptions.length) {
       h += '<div class="empty" style="padding:24px"><span class="empty-emoji">🧾</span><strong>还没有兑换记录</strong><p>攒够星星后，来这里换第一个奖励。</p></div>';
     } else {
       h += '<div class="history-list">' + state.redemptions.slice(0, 10).map(function (x) {
-        return '<div class="history-row"><span class="history-ico" aria-hidden="true">' + esc(x.icon || '🎁') + '</span>' +
-          '<div class="history-main"><strong>' + esc(x.name) + '</strong><small>' + dateLabel(x.ts) + ' · 已找家长领取</small></div>' +
+        var pending = x.status === 'pending';
+        return '<div class="history-row' + (pending ? ' is-pending' : '') + '"><span class="history-ico" aria-hidden="true">' + esc(x.icon || '🎁') + '</span>' +
+          '<div class="history-main"><strong>' + esc(x.name) + '</strong><small>' + dateLabel(x.ts) + ' · ' + (pending ? '待家长确认领取' : '已领取') + '</small></div>' +
+          (pending && state.role === 'parent' ? '<button class="history-fulfill" type="button" data-act="fulfill-redemption" data-id="' + esc(x.id) + '">标记已领取</button>' : '') +
           '<span class="history-cost">−' + x.cost + ' ★</span></div>';
       }).join('') + '</div>';
     }
@@ -2637,6 +2735,8 @@
         '<button class="more-link" type="button" data-act="open-role"><span class="more-ico">🔄</span><span><strong>切换学生端 / 家长端</strong><small>当前：' + (state.role === 'parent' ? '家长端' : '学生端') + '</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="export-data"><span class="more-ico">📤</span><span><strong>导出数据备份</strong><small>下载 JSON，换设备/清缓存前先备份</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="import-data"><span class="more-ico">📥</span><span><strong>导入数据备份</strong><small>用 JSON 覆盖本机数据</small></span>' + icon('arrowRight') + '</button>' +
+        '<button class="more-link" type="button" data-act="open-backups"><span class="more-ico">🗂️</span><span><strong>本机自动备份</strong><small>每天留一份，最近 7 份可恢复</small></span>' + icon('arrowRight') + '</button>' +
+        '<button class="more-link" type="button" data-act="open-weekly-report"><span class="more-ico">📊</span><span><strong>家长周报</strong><small>最近 7 天完成、星星、科目、兑换</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="open-chat"><span class="more-ico">💬</span><span><strong>打开小搭</strong><small>聊天记录已从旧版导入</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="open-judge-records"><span class="more-ico">📸</span><span><strong>判题记录</strong><small>小搭分析过的作业，家长可回看</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="toggle-approval"><span class="more-ico">✅</span><span><strong>完成需家长确认</strong><small>' + (state.meta && state.meta.requireApproval ? '已开启：孩子提交，家长确认后加星' : '已关闭：孩子点完成立即加星') + '</small></span>' + icon('arrowRight') + '</button>' +
@@ -3125,8 +3225,18 @@
         '<button class="btn btn-gold" type="button" data-act="confirm-redeem" data-id="' + esc(r.id) + '">确认兑换</button>'
     });
   }
-  function confirmRedeem(id) {
-    var r = state.rewards.filter(function (x) { return x.id === id; })[0];
+  function fulfillRedemption(id) {
+    if (!requireParent('切换到家长端才能标记领取')) return;
+    var x = state.redemptions.filter(function (r) { return r.id === id; })[0];
+    if (!x || x.status !== 'pending') return;
+    x.status = 'done';
+    x.fulfilledAt = Date.now();
+    x.updatedAt = Date.now();
+    save();
+    render();
+    toast('已标记领取：' + x.name, 'success');
+  }
+  function confirmRedeem(id) {    var r = state.rewards.filter(function (x) { return x.id === id; })[0];
     if (!r) { closeModal(); return; }
     var totals = starTotals();
     if (totals.balance < r.cost) {
@@ -3134,7 +3244,7 @@
       toast('星星不够了，先去完成任务吧', 'warn');
       return;
     }
-    state.redemptions.unshift({ id: uid('rd'), ts: Date.now(), rewardId: r.id, name: r.name, icon: r.icon, cost: r.cost });
+    state.redemptions.unshift({ id: uid('rd'), ts: Date.now(), rewardId: r.id, name: r.name, icon: r.icon, cost: r.cost, status: 'pending', fulfilledAt: 0 });
     if (state.redemptions.length > 80) state.redemptions = state.redemptions.slice(0, 80);
     changeStars(-r.cost, '兑换 · ' + r.name, 'reward');
     save();
@@ -3651,6 +3761,10 @@
       case 'edit-judge': openEditJudge(id); break;
       case 'submit-judge-edit': submitEditJudge(id); break;
       case 'export-data': exportData(); break;
+      case 'open-backups': closeModal(); setTimeout(openBackups, 60); break;
+      case 'open-weekly-report': closeModal(); setTimeout(openWeeklyReport, 60); break;
+      case 'restore-backup': restoreBackup(el.getAttribute('data-ts')); break;
+      case 'do-restore-backup': doRestoreBackup(el.getAttribute('data-ts')); break;
       case 'import-data': triggerImport(); break;
       case 'do-import': doImport(); break;
       case 'open-reset': openResetModal(); break;
@@ -3718,6 +3832,7 @@
       case 'do-delete-exam': doDeleteExam(id); break;
       case 'redeem': openRedeem(id); break;
       case 'confirm-redeem': confirmRedeem(id); break;
+      case 'fulfill-redemption': fulfillRedemption(id); break;
       case 'exam-done': markExam(id, el); break;
       case 'exam-undo': undoExam(id); break;
       case 'approve-task': approveTask(id); break;
