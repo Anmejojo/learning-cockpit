@@ -1,4 +1,4 @@
-/* =========================================================
+﻿/* =========================================================
    乐乐学习舱 · 效率学习 App 风
    cockpit.js · v1.0  2026-11-25
    结构：1 常量  2 工具  3 图标  4 演示数据  5 存储/迁移
@@ -36,6 +36,31 @@
     } catch (e) {
       return String(100000000 + Math.floor(Math.random() * 900000000));
     }
+  }
+  var SYNC_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  function normalizeSyncCode(raw) {
+    var s = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (s.indexOf('LC') === 0) s = s.slice(2);
+    if (s.length !== 12) return '';
+    for (var i = 0; i < s.length; i++) if (SYNC_ALPHABET.indexOf(s.charAt(i)) < 0) return '';
+    return 'LC-' + s.slice(0, 4) + '-' + s.slice(4, 8) + '-' + s.slice(8, 12);
+  }
+  function newSyncCode() {
+    var raw = '';
+    try {
+      var a = new Uint32Array(12);
+      crypto.getRandomValues(a);
+      for (var i = 0; i < 12; i++) raw += SYNC_ALPHABET.charAt(a[i] % SYNC_ALPHABET.length);
+    } catch (e) {
+      for (var j = 0; j < 12; j++) raw += SYNC_ALPHABET.charAt(Math.floor(Math.random() * SYNC_ALPHABET.length));
+    }
+    return 'LC-' + raw.slice(0, 4) + '-' + raw.slice(4, 8) + '-' + raw.slice(8, 12);
+  }
+  function syncCodeToId(code) {
+    var s = String(code || '').replace(/[^A-Z0-9]/g, '');
+    var h = 2166136261;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return String(100000000 + ((h >>> 0) % 900000000));
   }
   var cloud = { enabled: false, busy: false, applying: false, timer: null, last: 0, pending: false, err: '', fail: 0, ver: null };
   var WEEK_CN = ['日', '一', '二', '三', '四', '五', '六'];
@@ -286,7 +311,7 @@
       chat: [],
       chatMem: [],
       _del: {},
-      meta: { demo: true, demoTasks: true, legacy: false, legacyTasks: 0, lastRoll: todayKeyNow, noticeDismissed: false, parentPin: '', parentPinAt: 0, catalogV: CATALOG_VERSION, goalsImported: 0, recordsImported: 0, chatImported: 0, requireApproval: false, cloudEnabled: false, syncId: '', updatedAt: Date.now() }
+      meta: { demo: true, demoTasks: true, legacy: false, legacyTasks: 0, lastRoll: todayKeyNow, noticeDismissed: false, parentPin: '', parentPinAt: 0, catalogV: CATALOG_VERSION, goalsImported: 0, recordsImported: 0, chatImported: 0, requireApproval: false, cloudEnabled: false, syncId: '', syncCode: '', syncEnc: false, updatedAt: Date.now() }
     };
   }
 
@@ -350,6 +375,44 @@
     var h = { 'Authorization': 'Bearer ' + CLOUD_KEY, 'Accept': 'application/json' };
     if (extra) for (var k in extra) h[k] = extra[k];
     return h;
+  }
+  function bytesToB64(bytes) {
+    var s = '';
+    for (var i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(s);
+  }
+  function b64ToBytes(str) {
+    var bin = atob(String(str || ''));
+    var out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  var syncKeyCache = {};
+  function syncCryptoKey(code, id) {
+    var key = String(code || '') + '|' + String(id || '');
+    if (syncKeyCache[key]) return syncKeyCache[key];
+    if (!window.crypto || !crypto.subtle) return Promise.reject(new Error('当前浏览器不支持加密'));
+    var raw = new TextEncoder().encode(String(code || '').replace(/[^A-Z0-9]/g, ''));
+    var salt = new TextEncoder().encode('lc-sync-v1|' + String(id || ''));
+    syncKeyCache[key] = crypto.subtle.importKey('raw', raw, 'PBKDF2', false, ['deriveKey']).then(function (base) {
+      return crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt: salt, iterations: 120000, hash: 'SHA-256' },
+        base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+      );
+    });
+    return syncKeyCache[key];
+  }
+  async function encryptCloudData(data, code, id) {
+    var key = await syncCryptoKey(code, id);
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, new TextEncoder().encode(JSON.stringify(data)));
+    return { enc: 1, v: 1, iv: bytesToB64(iv), ct: bytesToB64(new Uint8Array(ct)) };
+  }
+  async function decryptCloudData(data, code, id) {
+    if (!data || !data.enc) return data;
+    var key = await syncCryptoKey(code, id);
+    var pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64ToBytes(data.iv) }, key, b64ToBytes(data.ct));
+    return JSON.parse(new TextDecoder().decode(pt));
   }
   async function cloudFetchRow() {
     var rid = cloudRowId();
@@ -420,6 +483,8 @@
     var baseMeta = (localNewer ? l : r).meta || {};
     out.meta.parentPin = baseMeta.parentPin || l.meta.parentPin || r.meta.parentPin || '';
     out.meta.syncId = l.meta.syncId || r.meta.syncId || '';
+    out.meta.syncCode = l.meta.syncCode || r.meta.syncCode || '';
+    out.meta.syncEnc = !!l.meta.syncEnc;
     var lp = num(l.meta.parentPinAt), rp = num(r.meta.parentPinAt);
     if (lp || rp) out.meta.parentPin = lp >= rp ? l.meta.parentPin : r.meta.parentPin;
     out.meta.parentPinAt = Math.max(lp, rp);
@@ -455,7 +520,10 @@
     try {
       var localAtStart = num(state.meta.updatedAt);
       var row = await cloudFetchRow();
-      var remote = row && row.data ? normalizeState(row.data) : null;
+      var code = state.meta.syncCode || state.meta.syncId || '';
+      var rid = cloudRowId();
+      var remote = null;
+      if (row && row.data) remote = normalizeState(await decryptCloudData(row.data, code, rid));
       if (!remote) { if (manual) toast('云端还没有数据，本机会先上传一份', 'info'); return false; }
       var local = state;
       if (local.meta.demo && !remote.meta.demo) {
@@ -498,8 +566,10 @@
       for (var attempt = 0; attempt < 3 && !ok; attempt++) {
         var localAtStart = num(state.meta.updatedAt);
         var rid = cloudRowId();
+        var code = state.meta.syncCode || state.meta.syncId || '';
         var row = await cloudFetchRow();
-        var remote = row && row.data ? normalizeState(row.data) : null;
+        var remote = null;
+        if (row && row.data) remote = normalizeState(await decryptCloudData(row.data, code, rid));
         var local = state;
         var localNewer = num(local.meta.updatedAt) >= num(remote && remote.meta.updatedAt);
         var m;
@@ -511,13 +581,14 @@
         m.meta.updatedAt = Date.now();
         merged = m;
         if (remote && JSON.stringify(normalizeState(m)) === JSON.stringify(remote)) { ok = true; break; }
+        var payload = state.meta.syncEnc ? await encryptCloudData(m, code, rid) : m;
         var iso = new Date().toISOString();
         var r;
         if (row && row.updated_at) {
           r = await fetch(CLOUD_REST + '?id=eq.' + rid + '&updated_at=eq.' + encodeURIComponent(row.updated_at) + '&select=id', {
             method: 'PATCH',
             headers: cloudHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }),
-            body: JSON.stringify({ data: m, updated_at: iso })
+            body: JSON.stringify({ data: payload, updated_at: iso })
           });
           if (r.ok) {
             var arr = await r.json().catch(function () { return null; });
@@ -529,7 +600,7 @@
           r = await fetch(CLOUD_REST + '?id=eq.' + rid, {
             method: 'PATCH',
             headers: cloudHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
-            body: JSON.stringify({ data: m, updated_at: iso })
+            body: JSON.stringify({ data: payload, updated_at: iso })
           });
           if (r.ok) ok = true;
           else throw new Error('HTTP ' + r.status);
@@ -537,7 +608,7 @@
           r = await fetch(CLOUD_REST, {
             method: 'POST',
             headers: cloudHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
-            body: JSON.stringify({ id: Number(rid), data: m, updated_at: iso })
+            body: JSON.stringify({ id: Number(rid), data: payload, updated_at: iso })
           });
           if (r.ok) ok = true;
           else if (r.status === 409) continue;
@@ -603,28 +674,30 @@
   }
   function openCloudModal() {
     var on = cloudOn();
-    var code = state.meta && state.meta.syncId ? String(state.meta.syncId) : '';
+    var code = state.meta && (state.meta.syncCode || state.meta.syncId) ? String(state.meta.syncCode || state.meta.syncId) : '';
     openModal({
       title: '多端同步', icon: 'cloud',
       sub: on ? cloudStatusText() : '只给自家设备同步，用家庭同步码配对',
       body: '<div class="cloud-panel"><span class="cloud-big-dot' + (on && !cloud.err ? ' is-on' : '') + '"></span><div><strong>' + esc(cloudStatusText()) + '</strong>' +
-        '<p>' + (on ? '本机修改会自动合并上传；另一台设备输入同一个同步码即可加入。' : '开启后会生成一个家庭同步码；另一台设备输入同一个码加入。') + '</p></div></div>' +
+        '<p>' + (on ? '本机修改会自动合并上传；另一台设备输入同一个同步码即可加入。' : '开启后会生成一个加密家庭同步码；另一台设备输入同一个码加入。') + '</p></div></div>' +
         (on
           ? '<div class="cloud-code"><span>家庭同步码</span><b>' + esc(code) + '</b><button class="btn btn-ghost btn-xs" type="button" data-act="cloud-copy">复制</button></div>' +
-            '<p class="form-note" style="margin-top:8px">换设备时在新设备输入这个码。重置同步码后，旧设备需要重新加入。</p>'
-          : '<div class="field" style="margin-top:11px"><label for="cloudCode">已有家庭同步码（没有就点「新建同步」）</label><input id="cloudCode" inputmode="numeric" maxlength="12" placeholder="输入另一台设备的 9 位同步码"></div>') +
-        '<p class="form-note" style="margin-top:11px">数据存到家庭独立的腾讯云行，不再使用固定 id=2。同步包含任务、星星、奖励、成绩目标、小搭聊天/判题缩略图和家长 PIN 哈希；数据未做端到端加密。</p>' +
+            '<p class="form-note" style="margin-top:8px">' + (state.meta.syncEnc ? '数据已用这个同步码端到端加密。' : '这是旧版数字码，数据未加密；建议重置为加密码。') + '重置同步码后，旧设备需要重新加入。</p>'
+          : '<div class="field" style="margin-top:11px"><label for="cloudCode">已有家庭同步码（没有就点「新建加密同步」）</label><input id="cloudCode" maxlength="24" placeholder="LC-XXXX-XXXX-XXXX 或旧 9 位数字"></div>') +
+        '<p class="form-note" style="margin-top:11px">数据存到家庭独立的腾讯云行。新同步码使用 AES-GCM 端到端加密，包含任务、星星、奖励、成绩目标、小搭聊天/判题缩略图和家长 PIN 哈希。</p>' +
         (cloud.err ? '<p class="form-note" style="color:#b44">最近错误：' + esc(cloud.err) + '</p>' : ''),
       footer: on
         ? '<button class="btn btn-soft" type="button" data-act="cloud-reset">重置同步码</button><button class="btn btn-ghost" type="button" data-act="cloud-off">关闭同步</button><button class="btn btn-primary" type="button" data-act="cloud-now">立即同步</button>'
-        : '<button class="btn btn-ghost" type="button" data-close>取消</button><button class="btn btn-soft" type="button" data-act="cloud-join">加入已有</button><button class="btn btn-primary" type="button" data-act="cloud-on">新建同步</button>'
+        : '<button class="btn btn-ghost" type="button" data-close>取消</button><button class="btn btn-soft" type="button" data-act="cloud-join">加入已有</button><button class="btn btn-primary" type="button" data-act="cloud-on">新建加密同步</button>'
     });
   }
   function enableCloud() {
     if (!requireParent('切换到家长端才能开启多端同步')) return;
     var migrated = false;
-    if (!state.meta.syncId) {
-      state.meta.syncId = newSyncId();
+    if (!state.meta.syncId && !state.meta.syncCode) {
+      state.meta.syncCode = newSyncCode();
+      state.meta.syncId = syncCodeToId(state.meta.syncCode);
+      state.meta.syncEnc = true;
       migrated = true;
     }
     state.meta.cloudEnabled = true;
@@ -633,26 +706,39 @@
     cloud.enabled = true;
     closeModal();
     cloudRenderBadge();
-    toast('已开启多端同步，正在和云端合并…', 'info');
+    toast('已开启加密同步，正在和云端合并…', 'info');
     var run = function () { cloudSyncNow(true); };
     if (migrated) migrateLegacyCloudRow(state.meta.syncId).then(run, run);
     else run();
   }
   function joinCloud() {
     if (!requireParent('切换到家长端才能加入多端同步')) return;
-    var code = (($('#cloudCode') || {}).value || '').trim();
-    if (!/^\d{6,12}$/.test(code)) { toast('同步码应为 6–12 位数字', 'warn'); return; }
-    state.meta.syncId = code;
+    var raw = (($('#cloudCode') || {}).value || '').trim();
+    var code = normalizeSyncCode(raw);
+    if (code) {
+      state.meta.syncCode = code;
+      state.meta.syncId = syncCodeToId(code);
+      state.meta.syncEnc = true;
+    } else if (/^\d{6,12}$/.test(raw)) {
+      state.meta.syncCode = '';
+      state.meta.syncId = raw;
+      state.meta.syncEnc = false;
+    } else {
+      toast('同步码格式不对：应像 LC-XXXX-XXXX-XXXX，或旧 9 位数字', 'warn');
+      return;
+    }
     state.meta.cloudEnabled = true;
     state.meta.updatedAt = Date.now();
     save();
     closeModal();
     cloudRenderBadge();
     toast('已加入同步，正在拉取云端数据…', 'info');
-    cloudPull(true).then(function (ok) { if (!ok) cloudPush(true); });
+    cloudPull(true).then(function (ok) {
+      if (!ok) cloudPush(true);
+    });
   }
   function copyCloudCode() {
-    var code = state.meta && state.meta.syncId ? String(state.meta.syncId) : '';
+    var code = state.meta && (state.meta.syncCode || state.meta.syncId) ? String(state.meta.syncCode || state.meta.syncId) : '';
     if (!code) return;
     try {
       navigator.clipboard.writeText(code).then(function () { toast('同步码已复制', 'success'); }, function () { toast('同步码：' + code, 'info'); });
@@ -660,12 +746,14 @@
   }
   function resetCloudCode() {
     if (!requireParent('切换到家长端才能重置同步码')) return;
-    state.meta.syncId = newSyncId();
+    state.meta.syncCode = newSyncCode();
+    state.meta.syncId = syncCodeToId(state.meta.syncCode);
+    state.meta.syncEnc = true;
     state.meta.updatedAt = Date.now();
     save();
     closeModal();
     cloudRenderBadge();
-    toast('已重置同步码，旧设备需要重新加入', 'info');
+    toast('已重置加密同步码，旧设备需要重新加入', 'info');
     cloudSyncNow(true);
   }
   async function migrateLegacyCloudRow(newId) {
@@ -677,9 +765,10 @@
       var target = await fetch(CLOUD_REST + '?id=eq.' + newId + '&select=id', { headers: cloudHeaders(), cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; });
       if (Array.isArray(target) && target.length) return false;
       var iso = new Date().toISOString();
+      var payload = state.meta.syncEnc ? await encryptCloudData(oldRow.data, state.meta.syncCode, newId) : oldRow.data;
       var r = await fetch(CLOUD_REST, {
         method: 'POST', headers: cloudHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
-        body: JSON.stringify({ id: Number(newId), data: oldRow.data, updated_at: iso })
+        body: JSON.stringify({ id: Number(newId), data: payload, updated_at: iso })
       });
       return !!r.ok;
     } catch (e) { return false; }
@@ -699,7 +788,14 @@
   function cloudInit() {
     cloud.enabled = cloudOn();
     if (cloud.enabled && !state.meta.syncId) {
-      state.meta.syncId = newSyncId();
+      if (state.meta.syncCode) {
+        state.meta.syncId = syncCodeToId(state.meta.syncCode);
+        state.meta.syncEnc = true;
+      } else {
+        state.meta.syncCode = newSyncCode();
+        state.meta.syncId = syncCodeToId(state.meta.syncCode);
+        state.meta.syncEnc = true;
+      }
       save();
     }
     cloudRenderBadge();
@@ -890,6 +986,8 @@
     if (typeof s.meta.requireApproval !== 'boolean') s.meta.requireApproval = false;
     if (typeof s.meta.cloudEnabled !== 'boolean') s.meta.cloudEnabled = false;
     if (typeof s.meta.syncId !== 'string' || !/^\d{6,12}$/.test(s.meta.syncId)) s.meta.syncId = '';
+    if (typeof s.meta.syncCode !== 'string') s.meta.syncCode = '';
+    if (typeof s.meta.syncEnc !== 'boolean') s.meta.syncEnc = false;
     if (typeof s.meta.updatedAt !== 'number') s.meta.updatedAt = Date.now();
     if (!s.meta.lastRoll) s.meta.lastRoll = dayKey(Date.now());
     var i, t, todayKey = dayKey(Date.now());
@@ -3656,7 +3754,16 @@
       render: render,
       cloudSync: cloudSyncNow,
       cloudState: function () { return { enabled: cloudOn(), busy: cloud.busy, pending: cloud.pending, last: cloud.last, err: cloud.err }; },
-      cloudMergeTest: function (a, b, preferA) { return cloudMerge(a, b, preferA === undefined ? true : !!preferA); }
+      cloudMergeTest: function (a, b, preferA) { return cloudMerge(a, b, preferA === undefined ? true : !!preferA); },
+      cryptTest: function () {
+        var code = newSyncCode();
+        var id = syncCodeToId(code);
+        return encryptCloudData({ ok: 42 }, code, id).then(function (enc) {
+          return decryptCloudData(enc, code, id).then(function (dec) {
+            return { code: code, id: id, enc: enc.enc, ok: dec.ok };
+          });
+        });
+      }
     };
     if (ui.page !== 'today') {
       try { window.scrollTo(0, 0); } catch (e3) { }
