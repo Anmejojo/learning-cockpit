@@ -440,6 +440,7 @@
       if (!remote) { if (manual) toast('云端还没有数据，本机会先上传一份', 'info'); return false; }
       var local = state;
       if (local.meta.demo && !remote.meta.demo) {
+        if (num(state.meta.updatedAt) !== localAtStart) { cloudSchedule(); return false; }
         cloudApply(remote);
         cloud.last = Date.now(); cloud.err = ''; cloud.pending = false;
         toast('已载入云端的真实数据', 'success');
