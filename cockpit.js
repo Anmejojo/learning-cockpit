@@ -24,6 +24,19 @@
   var CLOUD_REST = 'https://jiajia-study-d6gjyod13d77728d6.api.tcloudbasegateway.com/v1/rdb/rest/study_data';
   var CLOUD_KEY = 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjNhNjk3Y2I2LWRjMDMtNGFkMi04ZGQ2LTFkMWNjNjZhNGQ5MSJ9.eyJpc3MiOiJodHRwczovL2ppYWppYS1zdHVkeS1kNmdqeW9kMTNkNzc3MjhkNi5hcC1zaGFuZ2hhaS50Y2ItYXBpLnRlbmNlbnRjbG91ZGFwaS5jb20iLCJzdWIiOiJhbm9uIiwiYXVkIjoiamlhamlhLXN0dWR5LWQ2Z2p5b2QxM2Q3NzcyOGQ2IiwiZXhwIjo0MDkyNTI4NDk2LCJpYXQiOjE3ODg4NDUyOTYsIm5vbmNlIjoiODhqMEJEQV9Tci1qTVNMT1BhVWFBZyIsImF0X2hhc2giOiI4OGowQkRBX1NyLWpNU0xPUGFVYUFnIiwibmFtZSI6IkFub255bW91cyIsInNjb3BlIjoiYW5vbnltb3VzIiwicHJvamVjdF9pZCI6ImppYWppYS1zdHVkeS1kNmdqeW9kMTNkNzc3MjhkNiIsIm1ldGEiOnsicGxhdGZvcm0iOiJQdWJsaXNoYWJsZUtleSJ9LCJyb2xlIjoiYW5vbiIsImlzX2Fub255bW91cyI6dHJ1ZSwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiYW5vbnltb3VzIiwicHJvdmlkZXJzIjpbImFub255bW91cyJdfSwidXNlcl9tZXRhZGF0YSI6eyJuYW1lIjoiQW5vbnltb3VzIn0sInVzZXJfdHlwZSI6IiIsImNsaWVudF90eXBlIjoiY2xpZW50X3VzZXIiLCJpc19zeXN0ZW1fYWRtaW4iOmZhbHNlfQ.Mp-ZotDDKuzD-fXrSi9TvnFQLh_HhZqfy3ZHON4TWnhbuG6y2atGQSk6fjYMJqNX3QYajY5ZaQ3gAcrLYUF_Sx3CFRj3Ugeask5lKlWFnlEkn7PpY9joBFcSP7-TXeNwssT4FoiuqlzoEetJw8pQFtTo8iB3vOYLBsWAw5O3uNPysNWRN9YKA3RXSvcqQOOMMWXjmVEJsuTLzK_w0VmuahW_RyXIvJk_mpnZ-PeAA21uWhGJws5spytiKEyG9OXen4_SeICfTUYBxLncReGrluLxRU9nyDnPTyq3aKemz0I5AbPJdngwsRtxk3W17Os6OxvUBwbWfGbeJOwFn74O8Q';
   var CLOUD_ID = 2;
+  function cloudRowId() {
+    var sid = state && state.meta ? String(state.meta.syncId || '') : '';
+    return /^\d{6,12}$/.test(sid) ? sid : String(CLOUD_ID);
+  }
+  function newSyncId() {
+    try {
+      var a = new Uint32Array(1);
+      crypto.getRandomValues(a);
+      return String(100000000 + (a[0] % 900000000));
+    } catch (e) {
+      return String(100000000 + Math.floor(Math.random() * 900000000));
+    }
+  }
   var cloud = { enabled: false, busy: false, applying: false, timer: null, last: 0, pending: false, err: '', fail: 0, ver: null };
   var WEEK_CN = ['日', '一', '二', '三', '四', '五', '六'];
   var WEEK_FULL = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
@@ -273,7 +286,7 @@
       chat: [],
       chatMem: [],
       _del: {},
-      meta: { demo: true, demoTasks: true, legacy: false, legacyTasks: 0, lastRoll: todayKeyNow, noticeDismissed: false, parentPin: '', parentPinAt: 0, catalogV: CATALOG_VERSION, goalsImported: 0, recordsImported: 0, chatImported: 0, requireApproval: false, cloudEnabled: false, updatedAt: Date.now() }
+      meta: { demo: true, demoTasks: true, legacy: false, legacyTasks: 0, lastRoll: todayKeyNow, noticeDismissed: false, parentPin: '', parentPinAt: 0, catalogV: CATALOG_VERSION, goalsImported: 0, recordsImported: 0, chatImported: 0, requireApproval: false, cloudEnabled: false, syncId: '', updatedAt: Date.now() }
     };
   }
 
@@ -339,7 +352,8 @@
     return h;
   }
   async function cloudFetchRow() {
-    var r = await fetch(CLOUD_REST + '?id=eq.' + CLOUD_ID + '&select=id,data,updated_at', { headers: cloudHeaders(), cache: 'no-store' });
+    var rid = cloudRowId();
+    var r = await fetch(CLOUD_REST + '?id=eq.' + rid + '&select=id,data,updated_at', { headers: cloudHeaders(), cache: 'no-store' });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     var arr = await r.json();
     return (Array.isArray(arr) && arr[0]) ? arr[0] : null;
@@ -404,6 +418,7 @@
     out.meta = Object.assign({}, (localNewer ? r : l).meta || {}, (localNewer ? l : r).meta || {});
     var baseMeta = (localNewer ? l : r).meta || {};
     out.meta.parentPin = baseMeta.parentPin || l.meta.parentPin || r.meta.parentPin || '';
+    out.meta.syncId = l.meta.syncId || r.meta.syncId || '';
     var lp = num(l.meta.parentPinAt), rp = num(r.meta.parentPinAt);
     if (lp || rp) out.meta.parentPin = lp >= rp ? l.meta.parentPin : r.meta.parentPin;
     out.meta.parentPinAt = Math.max(lp, rp);
@@ -481,6 +496,7 @@
     try {
       for (var attempt = 0; attempt < 3 && !ok; attempt++) {
         var localAtStart = num(state.meta.updatedAt);
+        var rid = cloudRowId();
         var row = await cloudFetchRow();
         var remote = row && row.data ? normalizeState(row.data) : null;
         var local = state;
@@ -497,7 +513,7 @@
         var iso = new Date().toISOString();
         var r;
         if (row && row.updated_at) {
-          r = await fetch(CLOUD_REST + '?id=eq.' + CLOUD_ID + '&updated_at=eq.' + encodeURIComponent(row.updated_at) + '&select=id', {
+          r = await fetch(CLOUD_REST + '?id=eq.' + rid + '&updated_at=eq.' + encodeURIComponent(row.updated_at) + '&select=id', {
             method: 'PATCH',
             headers: cloudHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }),
             body: JSON.stringify({ data: m, updated_at: iso })
@@ -509,7 +525,7 @@
           } else if (r.status === 409) continue;
           else throw new Error('HTTP ' + r.status + ' ' + String(await r.text().catch(function () { return ''; })).slice(0, 90));
         } else if (row) {
-          r = await fetch(CLOUD_REST + '?id=eq.' + CLOUD_ID, {
+          r = await fetch(CLOUD_REST + '?id=eq.' + rid, {
             method: 'PATCH',
             headers: cloudHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
             body: JSON.stringify({ data: m, updated_at: iso })
@@ -520,7 +536,7 @@
           r = await fetch(CLOUD_REST, {
             method: 'POST',
             headers: cloudHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
-            body: JSON.stringify({ id: CLOUD_ID, data: m, updated_at: iso })
+            body: JSON.stringify({ id: Number(rid), data: m, updated_at: iso })
           });
           if (r.ok) ok = true;
           else if (r.status === 409) continue;
@@ -586,20 +602,30 @@
   }
   function openCloudModal() {
     var on = cloudOn();
+    var code = state.meta && state.meta.syncId ? String(state.meta.syncId) : '';
     openModal({
       title: '多端同步', icon: 'cloud',
-      sub: on ? cloudStatusText() : '让手机、平板看到同一份数据',
+      sub: on ? cloudStatusText() : '只给自家设备同步，用家庭同步码配对',
       body: '<div class="cloud-panel"><span class="cloud-big-dot' + (on && !cloud.err ? ' is-on' : '') + '"></span><div><strong>' + esc(cloudStatusText()) + '</strong>' +
-        '<p>' + (on ? '本机修改会自动合并上传；另一台设备打开后也会合并。' : '开启后，任务、星星、奖励、成绩目标、小搭聊天都会存到云端。') + '</p></div></div>' +
-        '<p class="form-note" style="margin-top:11px">存到旧版同一个腾讯云表的新行（id=2），不会覆盖经典版的 id=1。首次开启建议两台设备都升级到新版。</p>' +
+        '<p>' + (on ? '本机修改会自动合并上传；另一台设备输入同一个同步码即可加入。' : '开启后会生成一个家庭同步码；另一台设备输入同一个码加入。') + '</p></div></div>' +
+        (on
+          ? '<div class="cloud-code"><span>家庭同步码</span><b>' + esc(code) + '</b><button class="btn btn-ghost btn-xs" type="button" data-act="cloud-copy">复制</button></div>' +
+            '<p class="form-note" style="margin-top:8px">换设备时在新设备输入这个码。重置同步码后，旧设备需要重新加入。</p>'
+          : '<div class="field" style="margin-top:11px"><label for="cloudCode">已有家庭同步码（没有就点「新建同步」）</label><input id="cloudCode" inputmode="numeric" maxlength="12" placeholder="输入另一台设备的 9 位同步码"></div>') +
+        '<p class="form-note" style="margin-top:11px">数据存到家庭独立的腾讯云行，不再使用固定 id=2。同步包含任务、星星、奖励、成绩目标、小搭聊天/判题缩略图和家长 PIN 哈希；数据未做端到端加密。</p>' +
         (cloud.err ? '<p class="form-note" style="color:#b44">最近错误：' + esc(cloud.err) + '</p>' : ''),
       footer: on
-        ? '<button class="btn btn-soft" type="button" data-act="cloud-off">关闭同步</button><button class="btn btn-ghost" type="button" data-close>关闭</button><button class="btn btn-primary" type="button" data-act="cloud-now">立即同步</button>'
-        : '<button class="btn btn-ghost" type="button" data-close>取消</button><button class="btn btn-primary" type="button" data-act="cloud-on">开启同步</button>'
+        ? '<button class="btn btn-soft" type="button" data-act="cloud-reset">重置同步码</button><button class="btn btn-ghost" type="button" data-act="cloud-off">关闭同步</button><button class="btn btn-primary" type="button" data-act="cloud-now">立即同步</button>'
+        : '<button class="btn btn-ghost" type="button" data-close>取消</button><button class="btn btn-soft" type="button" data-act="cloud-join">加入已有</button><button class="btn btn-primary" type="button" data-act="cloud-on">新建同步</button>'
     });
   }
   function enableCloud() {
     if (!requireParent('切换到家长端才能开启多端同步')) return;
+    var migrated = false;
+    if (!state.meta.syncId) {
+      state.meta.syncId = newSyncId();
+      migrated = true;
+    }
     state.meta.cloudEnabled = true;
     state.meta.updatedAt = Date.now();
     save();
@@ -607,7 +633,55 @@
     closeModal();
     cloudRenderBadge();
     toast('已开启多端同步，正在和云端合并…', 'info');
+    var run = function () { cloudSyncNow(true); };
+    if (migrated) migrateLegacyCloudRow(state.meta.syncId).then(run, run);
+    else run();
+  }
+  function joinCloud() {
+    if (!requireParent('切换到家长端才能加入多端同步')) return;
+    var code = (($('#cloudCode') || {}).value || '').trim();
+    if (!/^\d{6,12}$/.test(code)) { toast('同步码应为 6–12 位数字', 'warn'); return; }
+    state.meta.syncId = code;
+    state.meta.cloudEnabled = true;
+    state.meta.updatedAt = Date.now();
+    save();
+    closeModal();
+    cloudRenderBadge();
+    toast('已加入同步，正在拉取云端数据…', 'info');
+    cloudPull(true).then(function (ok) { if (!ok) cloudPush(true); });
+  }
+  function copyCloudCode() {
+    var code = state.meta && state.meta.syncId ? String(state.meta.syncId) : '';
+    if (!code) return;
+    try {
+      navigator.clipboard.writeText(code).then(function () { toast('同步码已复制', 'success'); }, function () { toast('同步码：' + code, 'info'); });
+    } catch (e) { toast('同步码：' + code, 'info'); }
+  }
+  function resetCloudCode() {
+    if (!requireParent('切换到家长端才能重置同步码')) return;
+    state.meta.syncId = newSyncId();
+    state.meta.updatedAt = Date.now();
+    save();
+    closeModal();
+    cloudRenderBadge();
+    toast('已重置同步码，旧设备需要重新加入', 'info');
     cloudSyncNow(true);
+  }
+  async function migrateLegacyCloudRow(newId) {
+    if (!newId || String(newId) === String(CLOUD_ID)) return false;
+    try {
+      var old = await fetch(CLOUD_REST + '?id=eq.' + CLOUD_ID + '&select=id,data,updated_at', { headers: cloudHeaders(), cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; });
+      var oldRow = Array.isArray(old) && old[0] ? old[0] : null;
+      if (!oldRow || !oldRow.data) return false;
+      var target = await fetch(CLOUD_REST + '?id=eq.' + newId + '&select=id', { headers: cloudHeaders(), cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; });
+      if (Array.isArray(target) && target.length) return false;
+      var iso = new Date().toISOString();
+      var r = await fetch(CLOUD_REST, {
+        method: 'POST', headers: cloudHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+        body: JSON.stringify({ id: Number(newId), data: oldRow.data, updated_at: iso })
+      });
+      return !!r.ok;
+    } catch (e) { return false; }
   }
   function disableCloud() {
     if (!requireParent('切换到家长端才能关闭多端同步')) return;
@@ -623,6 +697,10 @@
   }
   function cloudInit() {
     cloud.enabled = cloudOn();
+    if (cloud.enabled && !state.meta.syncId) {
+      state.meta.syncId = newSyncId();
+      save();
+    }
     cloudRenderBadge();
     if (cloud.enabled) {
       setTimeout(function () {
@@ -810,6 +888,7 @@
     if (typeof s.meta.chatImported !== 'number') s.meta.chatImported = 0;
     if (typeof s.meta.requireApproval !== 'boolean') s.meta.requireApproval = false;
     if (typeof s.meta.cloudEnabled !== 'boolean') s.meta.cloudEnabled = false;
+    if (typeof s.meta.syncId !== 'string' || !/^\d{6,12}$/.test(s.meta.syncId)) s.meta.syncId = '';
     if (typeof s.meta.updatedAt !== 'number') s.meta.updatedAt = Date.now();
     if (!s.meta.lastRoll) s.meta.lastRoll = dayKey(Date.now());
     var i, t, todayKey = dayKey(Date.now());
@@ -3201,6 +3280,9 @@
       case 'clear-ai-token': clearAiToken(); break;
       case 'open-cloud': closeModal(); setTimeout(openCloudModal, 60); break;
       case 'cloud-on': enableCloud(); break;
+      case 'cloud-join': joinCloud(); break;
+      case 'cloud-copy': copyCloudCode(); break;
+      case 'cloud-reset': resetCloudCode(); break;
       case 'cloud-off': disableCloud(); break;
       case 'cloud-now': closeModal(); cloudSyncNow(true); break;
       case 'open-judge-records': closeModal(); setTimeout(openJudgeRecords, 60); break;
