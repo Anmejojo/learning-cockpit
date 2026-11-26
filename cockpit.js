@@ -693,6 +693,49 @@
     var delay = cloud.fail ? Math.min(60000, 8000 * Math.pow(2, Math.min(3, cloud.fail))) : 1500;
     cloud.timer = setTimeout(function () { cloud.timer = null; cloudPush(false); }, delay);
   }
+  function judgeResultHTML(j) {
+    var st = j && j.structured;
+    if (st && Array.isArray(st.items) && st.items.length) {
+      var tag = { blank: '空题', wrong: '可疑', ok: '正确', unclear: '看不清' };
+      return '<div class="judge-structured">' +
+        '<div class="judge-subject">' + esc(st.subject || '作业') + ' · ' + st.items.length + ' 道题</div>' +
+        st.items.map(function (it) {
+          return '<div class="judge-item is-' + esc(it.status) + '"><b>' + esc(it.no || '?') + '</b><span class="judge-status">' + tag[it.status] + '</span>' +
+            '<div><strong>' + esc(it.question || '') + '</strong>' + (it.step ? '<p>' + esc(it.step) + '</p>' : '') + '</div></div>';
+        }).join('') +
+        (st.summary ? '<div class="judge-summary">' + esc(st.summary) + '</div>' : '') +
+        '</div>';
+    }
+    return '<div class="judge-text">' + esc((j && j.text) || '没有文字结果。') + '</div>';
+  }
+  function openEditJudge(id) {
+    if (!requireParent('切换到家长端才能修正判题')) return;
+    var t = findTask(id);
+    if (!t || !t.judge) return;
+    openModal({
+      title: '修正判题结果', icon: 'edit',
+      sub: esc(t.title),
+      body: '<div class="field"><label for="judgeEditText">家长修正后的文字</label><textarea id="judgeEditText" rows="6" style="min-height:150px">' + esc(t.judge.text || '') + '</textarea></div>' +
+        '<p class="form-note" style="margin-top:8px">保存后会替换小搭原文，结构化结果会收起；孩子端会看到修正后的版本。</p>',
+      footer: '<button class="btn btn-ghost" type="button" data-close>取消</button><button class="btn btn-primary" type="button" data-act="submit-judge-edit" data-id="' + esc(id) + '">保存修正</button>'
+    });
+  }
+  function submitEditJudge(id) {
+    if (!requireParent('切换到家长端才能修正判题')) return;
+    var t = findTask(id);
+    if (!t || !t.judge) return;
+    var txt = String((($('#judgeEditText') || {}).value) || '').trim();
+    if (!txt) { toast('修正内容不能为空', 'warn'); return; }
+    t.judge.text = txt.slice(0, 1200);
+    t.judge.structured = null;
+    t.judge.manual = true;
+    t.judge.ts = Date.now();
+    t.updatedAt = Date.now();
+    save();
+    closeModal();
+    toast('已保存家长修正', 'success');
+    setTimeout(openJudgeRecords, 100);
+  }
   function openJudgeRecords() {
     if (!requireParent('切换到家长端才能看判题记录')) return;
     var recs = state.tasks.filter(function (t) { return t.judge && (t.judge.text || t.judge.thumb); }).sort(function (a, b) {
@@ -709,7 +752,8 @@
           '<div class="judge-main"><div class="judge-title">' + subjectChip(t.subject, true) + ' ' + esc(t.title) + '</div>' +
           '<div class="judge-meta">' + (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) +
           ' · ' + (j.ok ? '小搭已分析' : '仅保存照片') + '</div>' +
-          '<div class="judge-text">' + esc(j.text || '没有文字结果。') + '</div></div></div>';
+          judgeResultHTML(j) +
+          '<button class="judge-edit" type="button" data-act="edit-judge" data-id="' + esc(t.id) + '">家长修正</button></div></div>';
       }).join('') + '</div>';
     }
     openModal({
@@ -2292,11 +2336,37 @@
   function chatPreviewHTML() {
     if (!rt.chatImage) return '';
     return '<div class="chat-image-card"><img src="' + esc(rt.chatImage.thumb) + '" alt="待发送的作业照片"><span>' + esc(rt.chatImage.name) + '</span>' +
+      '<button class="chat-rotate" type="button" data-act="chat-rotate-image" aria-label="旋转图片">旋转</button>' +
       '<button type="button" data-act="chat-remove-image" aria-label="移除图片">×</button></div>';
   }
   function refreshChatPreview() {
     var box = $('#chatImagePreview');
     if (box) box.innerHTML = chatPreviewHTML();
+  }
+  function rotateChatImage() {
+    if (!rt.chatImage || !rt.chatImage.full) return;
+    var img = new Image();
+    img.onload = function () {
+      try {
+        var cv = document.createElement('canvas');
+        cv.width = img.height; cv.height = img.width;
+        var ctx = cv.getContext('2d');
+        ctx.translate(cv.width / 2, cv.height / 2);
+        ctx.rotate(Math.PI / 2);
+        ctx.drawImage(img, -img.width / 2, -img.height / 2);
+        var full = cv.toDataURL('image/jpeg', 0.82);
+        var scale = Math.min(1, 360 / Math.max(cv.width, cv.height));
+        var tc = document.createElement('canvas');
+        tc.width = Math.round(cv.width * scale); tc.height = Math.round(cv.height * scale);
+        tc.getContext('2d').drawImage(cv, 0, 0, tc.width, tc.height);
+        rt.chatImage.full = full;
+        rt.chatImage.thumb = tc.toDataURL('image/jpeg', 0.58);
+        refreshChatPreview();
+        toast('已旋转 90°', 'info');
+      } catch (e) { toast('旋转失败，换一张试试', 'warn'); }
+    };
+    img.onerror = function () { toast('图片读取失败', 'warn'); };
+    img.src = rt.chatImage.full;
   }
   function compressImageFile(file, maxDim, quality) {
     return new Promise(function (resolve, reject) {
@@ -2414,7 +2484,7 @@
     if (/谢谢|知道了|好的/.test(t)) return '嗯，我在。需要的时候再叫我。';
     return '我在听。是作业、考试，还是今天心情？说具体一点，我好接住。';
   }
-  function aiChat(text, image) {
+  function aiChat(text, image, mode) {
     var token = chatToken();
     if (!token) return Promise.resolve(null);
     var hist = state.chat.filter(function (m) { return !m.pending && m.text; }).slice(-8).map(function (m) {
@@ -2422,15 +2492,22 @@
     }).join('\n');
     var prompt;
     if (image) {
-      prompt = '这是乐乐上传的作业/试卷照片。请按下面结构简短分析，不要编：\n' +
-        '1) 先说你看到的科目和大致内容；\n' +
-        '2) 列出能看清的题号/题目；\n' +
-        '3) 指出空题或可疑错误；\n' +
-        '4) 每道需要讲的问题只给思路和第一步，不给最终答案；\n' +
-        '5) 看不清就明确说“照片看不清”，不要猜。\n' +
-        '最后用一句话告诉他下一步做什么。用 1-2-3 列，语气像小搭，短一点。' +
-        (text ? '\n他同时说：' + String(text).slice(0, 300) : '') +
-        '\n【最近对话】\n' + hist;
+      if (mode === 'homework') {
+        prompt = '这是乐乐上传的作业/试卷照片。只输出一个 JSON 对象，不要 markdown、不要代码块、不要额外解释。格式：' +
+          '{"subject":"语文/数学/英语/物理/其他","items":[{"no":"题号","question":"题目简述","status":"blank|wrong|ok|unclear","step":"只给思路和第一步，不给最终答案"}],"summary":"一句话下一步"}。' +
+          '看不清的题 status 用 unclear；不确定是否错误不要标 wrong；不要编题号。' +
+          (text ? '\n他补充说：' + String(text).slice(0, 200) : '');
+      } else {
+        prompt = '这是乐乐上传的作业/试卷照片。请按下面结构简短分析，不要编：\n' +
+          '1) 先说你看到的科目和大致内容；\n' +
+          '2) 列出能看清的题号/题目；\n' +
+          '3) 指出空题或可疑错误；\n' +
+          '4) 每道需要讲的问题只给思路和第一步，不给最终答案；\n' +
+          '5) 看不清就明确说“照片看不清”，不要猜。\n' +
+          '最后用一句话告诉他下一步做什么。用 1-2-3 列，语气像小搭，短一点。' +
+          (text ? '\n他同时说：' + String(text).slice(0, 300) : '') +
+          '\n【最近对话】\n' + hist;
+      }
     } else {
       prompt = '你是「小搭」，一个比初二学生大两届的高中男生，是他的同龄学习搭档，不是老师也不是家长。用微信口气，1-3 句话，不超过 80 字；只给思路和第一步，不给最终答案；不评判、不提成绩、不催；他情绪低落时先接住情绪。\n【最近对话】\n' + hist + '\n他：' + String(text).slice(0, 500);
     }
@@ -2440,6 +2517,29 @@
     }).then(function (r) { return r.json(); }).then(function (j) {
       return (j && j.ok && j.text) ? String(j.text).replace(/\s+/g, ' ').trim().slice(0, 1200) : null;
     }).catch(function () { return null; });
+  }
+  function parseHomeworkJSON(text) {
+    var s = String(text || '').replace(/```json/gi, '').replace(/```/g, '').trim();
+    var a = s.indexOf('{'), b = s.lastIndexOf('}');
+    if (a < 0 || b <= a) return null;
+    var obj;
+    try { obj = JSON.parse(s.slice(a, b + 1)); } catch (e) { return null; }
+    if (!obj || !Array.isArray(obj.items)) return null;
+    var items = obj.items.slice(0, 30).map(function (it) {
+      var status = String(it.status || 'unclear').toLowerCase();
+      if (['blank', 'wrong', 'ok', 'unclear'].indexOf(status) < 0) status = 'unclear';
+      return {
+        no: String(it.no || '').slice(0, 20),
+        question: String(it.question || '').slice(0, 160),
+        status: status,
+        step: String(it.step || '').slice(0, 300)
+      };
+    });
+    return {
+      subject: String(obj.subject || '').slice(0, 20),
+      items: items,
+      summary: String(obj.summary || '').slice(0, 240)
+    };
   }
   function sendChat() {
     var inp = $('#chatInput');
@@ -3446,24 +3546,31 @@
       if (task) { task.judge = { ts: Date.now(), busy: true, thumb: img.thumb }; save(); }
       rt.judge[id] = { busy: true, thumb: img.thumb };
       render();
-      return aiChat('请分析这张作业/笔记照片：先识别科目和题号，指出空题或可疑错误，只给思路和第一步，不要直接给答案；看不清就直说。', img.full).then(function (reply) {
-        var text = reply || (chatToken()
+      return aiChat('请分析这张作业/笔记照片：先识别科目和题号，指出空题或可疑错误，只给思路和第一步，不要直接给答案；看不清就直说。', img.full, 'homework').then(function (reply) {
+        var structured = parseHomeworkJSON(reply);
+        var display = reply || (chatToken()
           ? '在线分析暂时没成功，照片已保存。可以先说说你卡在哪一题，我陪你理思路。'
           : '现在没有 AI 口令，读不了图片里的字。照片已保存；家长可在「更多 → AI 口令」设置后重新拍一次。');
-        var result = { busy: false, ok: !!reply, text: text, thumb: img.thumb, ts: Date.now() };
+        if (structured) {
+          var tag = { blank: '空题', wrong: '可疑', ok: '正确', unclear: '看不清' };
+          display = (structured.subject || '作业') + '：' + structured.items.length + ' 道题' +
+            (structured.items.length ? '（' + structured.items.map(function (it) { return (it.no || '?') + ' ' + tag[it.status]; }).join('，') + '）' : '') +
+            (structured.summary ? '。下一步：' + structured.summary : '。');
+        }
+        var result = { busy: false, ok: !!reply, text: display, structured: structured || null, thumb: img.thumb, ts: Date.now() };
         rt.judge[id] = result;
         var t2 = findTask(id);
         if (t2) {
-          t2.judge = { ts: result.ts, ok: !!reply, text: text.slice(0, 1200), thumb: img.thumb };
+          t2.judge = { ts: result.ts, ok: !!reply, text: String(display).slice(0, 1200), structured: structured || null, thumb: img.thumb };
           t2.updatedAt = Date.now();
           save();
         }
         state.chat.push({ id: uid('c'), ts: Date.now(), role: 'u', text: '（上传了作业照片）', img: img.thumb });
-        state.chat.push({ id: uid('c'), ts: Date.now() + 1, role: 'a', text: text.slice(0, 1200) });
+        state.chat.push({ id: uid('c'), ts: Date.now() + 1, role: 'a', text: String(display).slice(0, 1200) });
         state.chat = state.chat.slice(-300);
         save();
         render();
-        toast(reply ? '小搭分析完成，结果已记在任务里' : '照片已保存，配置 AI 口令后可重新分析', reply ? 'success' : 'warn');
+        toast(reply ? (structured ? '小搭分析完成，已生成结构化结果' : '小搭分析完成，结果已记在任务里') : '照片已保存，配置 AI 口令后可重新分析', reply ? 'success' : 'warn');
       });
     }).catch(function () {
       rt.judge[id] = { busy: false, ok: false, text: '图片处理失败，换一张试试。', ts: Date.now() };
@@ -3528,6 +3635,7 @@
       case 'chat-send': sendChat(); break;
       case 'chat-pick-image': pickChatImage(); break;
       case 'chat-remove-image': rt.chatImage = null; refreshChatPreview(); break;
+      case 'chat-rotate-image': rotateChatImage(); break;
       case 'open-ai-token': closeModal(); setTimeout(openAiTokenModal, 60); break;
       case 'save-ai-token': saveAiToken(); break;
       case 'clear-ai-token': clearAiToken(); break;
@@ -3540,6 +3648,8 @@
       case 'cloud-off': disableCloud(); break;
       case 'cloud-now': closeModal(); cloudSyncNow(true); break;
       case 'open-judge-records': closeModal(); setTimeout(openJudgeRecords, 60); break;
+      case 'edit-judge': openEditJudge(id); break;
+      case 'submit-judge-edit': submitEditJudge(id); break;
       case 'export-data': exportData(); break;
       case 'import-data': triggerImport(); break;
       case 'do-import': doImport(); break;

@@ -1396,6 +1396,7 @@ body[data-role="parent"] .task-row .tick{border-style:dashed;background:#fbf8fd}
 .chat-image-card span{flex:1;min-width:0;font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chat-image-card button{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:var(--muted);font-size:15px;line-height:1}
 .chat-image-card button:hover{background:#fdeceb;color:var(--primary)}
+.chat-image-card .chat-rotate{width:auto;padding:0 6px;font-size:9px;font-weight:750;background:#f6f0fa;color:var(--primary-deep)}
 .chat-compose input{
   flex:1;min-width:0;height:36px;border:1px solid #e7ddec;background:#fdfbfe;border-radius:10px;
   padding:0 11px;font-size:12.5px;color:var(--ink);outline:none;
@@ -1474,6 +1475,20 @@ body[data-role="parent"] .task-row .tick{border-style:dashed;background:#fbf8fd}
 .judge-title .subject-chip{width:18px;height:18px;flex:none;font-size:8px;border-radius:5px}
 .judge-meta{font-size:9px;color:var(--muted);margin-top:3px}
 .judge-text{font-size:10.5px;color:var(--ink-2);line-height:1.6;margin-top:5px;white-space:pre-wrap;word-break:break-word;max-height:92px;overflow:auto}
+.judge-structured{margin-top:5px;max-height:180px;overflow:auto}
+.judge-subject{font-size:10px;font-weight:850;color:var(--primary-deep);margin-bottom:4px}
+.judge-item{display:flex;align-items:flex-start;gap:5px;padding:4px 0;border-top:1px dashed #f1eaf5;font-size:10px;line-height:1.5}
+.judge-item b{width:18px;flex:none;color:var(--ink-2)}
+.judge-item > div{flex:1;min-width:0}
+.judge-item strong{font-weight:750;color:var(--ink-2)}
+.judge-item p{color:var(--muted);margin-top:2px}
+.judge-status{font-size:8px;font-weight:850;border-radius:4px;padding:1px 4px;flex:none;background:#f3eef7;color:#86748f}
+.judge-item.is-blank .judge-status{background:#fff1e2;color:#b57625}
+.judge-item.is-wrong .judge-status{background:#ffebea;color:#c55049}
+.judge-item.is-ok .judge-status{background:#eaf7ef;color:#4f8f68}
+.judge-item.is-unclear .judge-status{background:#f0eef3;color:#8b7c94}
+.judge-summary{font-size:10px;color:var(--primary-deep);background:#fff7f6;border-radius:6px;padding:5px 7px;margin-top:5px;line-height:1.5}
+.judge-edit{align-self:flex-start;margin-top:5px;height:24px;padding:0 7px;border-radius:6px;border:1px solid #e9dcef;background:#fff;color:var(--muted);font-size:9px;font-weight:750}
 .judge-empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:5px;padding:28px 12px;color:var(--muted)}
 .judge-empty span{font-size:28px}
 .judge-empty strong{font-size:13px;color:var(--ink-2);font-weight:850}
