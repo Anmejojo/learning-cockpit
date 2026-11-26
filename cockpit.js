@@ -3341,7 +3341,10 @@
       state.role = 'student';
       save();
     }
-    if (params.has('parent')) state.role = 'parent';
+    if (params.has('parent')) {
+      if (safeSessionGet('lc_parent_ok') === '1' || !state.meta.parentPin) state.role = 'parent';
+      else { state.role = 'student'; setTimeout(requestParentAccess, 500); }
+    }
     else if (params.has('view')) state.role = 'student';
     ui.page = currentPage();
     var now = new Date();
