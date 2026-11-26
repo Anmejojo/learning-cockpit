@@ -317,7 +317,7 @@
 
   /* ---------- 5. 存储 / 迁移 ---------- */
   var state = null;
-  var ui = { page: 'today', tab: '全部', rewardCat: '全部', openTask: null, doneOpen: true, masteryOpen: { 语文: true, 英语: false, 数学: false, 物理: false }, calMonth: null, answers: {}, recog: null, recogBusy: false, recogCands: null, demoDismissed: false };
+  var ui = { page: 'today', tab: '全部', viewDate: dayKey(Date.now()), rewardCat: '全部', openTask: null, doneOpen: true, masteryOpen: { 语文: true, 英语: false, 数学: false, 物理: false }, calMonth: null, answers: {}, recog: null, recogBusy: false, recogCands: null, demoDismissed: false };
   var rt = { timers: {}, recordings: {}, recording: null, judgeTask: null, judge: {}, speakSeq: 0, confirm: null, lastFocus: null, modalOpen: false, chatOffline: false, chatImage: null };
   var saveWarned = false;
   var pendingImport = null;
@@ -1278,6 +1278,11 @@
     var key = dayKey(Date.now());
     return state.tasks.filter(function (t) { return (t.date || key) === key; });
   }
+  function viewTasks() {
+    if (!state) return [];
+    var key = ui.viewDate || dayKey(Date.now());
+    return state.tasks.filter(function (t) { return (t.date || dayKey(Date.now())) === key; });
+  }
   function shortDayLabel(key) {
     if (!key || !/^\d{4}-\d{2}-\d{2}$/.test(key)) return '';
     var p = key.split('-');
@@ -1353,8 +1358,8 @@
     totalCache = { log: l, len: l.length, first: first, last: last, val: v };
     return v;
   }
-  function todayStars() {
-    var key = dayKey(Date.now()), sum = 0;
+  function starsForDay(key) {
+    var sum = 0;
     for (var i = 0; i < state.log.length; i++) {
       var e = state.log[i];
       if (dayKey(e.ts) !== key) continue;
@@ -1363,6 +1368,7 @@
     }
     return Math.max(0, sum);
   }
+  function todayStars() { return starsForDay(dayKey(Date.now())); }
   function checkinCount() {
     var set = {};
     for (var i = 0; i < state.log.length; i++) {
@@ -1492,19 +1498,23 @@
       '<div><h1>' + (opts.icon ? icon(opts.icon) : '') + esc(opts.title || PAGE_TITLES[page]) + '</h1>' +
       '<p class="page-sub">' + (opts.sub || '') + '</p></div>' +
       '</div>' +
-      '<div class="page-head-side">' +
+      '<div class="page-head-side' + (page === 'today' ? ' has-date' : '') + '">' +
       '<span class="date-text">' + fullDateCN(d.getTime()) + '</span>' +
       (opts.side || '') +
       '</div></header>';
     return html;
   }
   function renderToday() {
-    var tasks = todayTasks();
+    var today = dayKey(Date.now());
+    var viewDate = ui.viewDate || today;
+    var isToday = viewDate === today;
+    var isFuture = viewDate > today;
+    var tasks = viewTasks();
     var doneTasks = tasks.filter(function (t) { return t.done; });
     var pendingTasks = tasks.filter(function (t) { return t.pendingApproval; });
     var pendingCount = pendingTasks.length;
     var undone = tasks.length - doneTasks.length - pendingCount;
-    var earned = todayStars();
+    var earned = starsForDay(viewDate);
     var subjects = [];
     SUB_ORDER.forEach(function (s) { if (tasks.some(function (t) { return t.subject === s; })) subjects.push(s); });
     tasks.forEach(function (t) { if (subjects.indexOf(t.subject) < 0) subjects.push(t.subject); });
@@ -1512,15 +1522,17 @@
     ui.tab = tab;
 
     var h = pageHead('today', {
-      title: '今天要做',
-      icon: 'sun',
-      sub: state.meta && state.meta.requireApproval ? '完成任务后由家长确认，确认后加星' : '按分类添加今天的任务，完成一个就 <b>+1</b> ⭐',
-      side: '<button class="btn btn-ghost btn-sm" type="button" data-act="scroll-tasks">' + icon('home') + '今天</button>'
+      title: isToday ? '今天要做' : (isFuture ? '提前布置' : '历史任务'),
+      icon: isToday ? 'sun' : 'calendar',
+      sub: isToday
+        ? (state.meta && state.meta.requireApproval ? '完成任务后由家长确认，确认后加星' : '按分类添加今天的任务，完成一个就 <b>+1</b> ⭐')
+        : (isFuture ? '这是提前布置的任务，到这天会自动出现在今天' : '查看 ' + viewDate + ' 的任务，只能回看/撤销，不能补打卡'),
+      side: '<div class="date-view"><input id="effViewDate" type="date" value="' + viewDate + '" aria-label="查看日期"><button class="btn btn-ghost btn-sm" type="button" data-act="view-today">今天</button></div>'
     });
 
     var meta = state.meta || {};
     var hasLegacyTasks = num(meta.legacyTasks) > 0;
-    if ((meta.demo || meta.demoTasks || hasLegacyTasks) && !meta.noticeDismissed && !ui.demoDismissed) {
+    if (isToday && (meta.demo || meta.demoTasks || hasLegacyTasks) && !meta.noticeDismissed && !ui.demoDismissed) {
       var demoText, demoTitle, demoBadge, demoActions;
       if (hasLegacyTasks) {
         demoTitle = '旧版任务和星星已导入';
@@ -1549,14 +1561,16 @@
     }
 
     h += '<div class="stat-row">' +
-      '<div class="stat"><b>' + tasks.length + '</b><span>今日任务</span></div>' +
+      '<div class="stat"><b>' + tasks.length + '</b><span>当日任务</span></div>' +
       '<div class="stat is-primary"><b>' + doneTasks.length + '</b><span>已完成</span></div>' +
-      '<div class="stat is-gold"><b>' + earned + '</b><span>今日获得 <i class="star-mini">★</i></span></div>' +
+      '<div class="stat is-gold"><b>' + earned + '</b><span>' + (isToday ? '今日获得' : '当日获得') + ' <i class="star-mini">★</i></span></div>' +
       '</div>';
     if (pendingCount) {
       h += '<div class="approval-banner">' + icon('clock') +
         '<span><strong>' + pendingCount + ' 条任务等家长确认</strong>' +
-        (state.role === 'parent' ? '，确认后才会加星星' : '，确认后星星才会到账') + '</span></div>';
+        (state.role === 'parent' ? '，确认后才会加星星' : '，确认后星星才会到账') + '</span>' +
+        (state.role === 'parent' ? '<span class="approval-actions"><button class="btn btn-primary btn-xs" type="button" data-act="approve-all">全部确认</button><button class="btn btn-ghost btn-xs" type="button" data-act="reject-all">全部退回</button></span>' : '') +
+        '</div>';
     }
 
     /* 拍照识别 */
@@ -1593,7 +1607,7 @@
     /* 分类清单 */
     h += '<section class="section" id="taskListSection">' +
       '<div class="section-head"><div class="section-title">' + icon('book') + '分类任务清单 <small>' + undone + ' 条待完成' + (pendingCount ? ' · ' + pendingCount + ' 条待确认' : '') + '</small></div>' +
-      '<div class="section-sub"><span>' + (state.meta && state.meta.requireApproval ? '提交后等家长确认' : '完成一个 +1 ⭐') + '</span><span class="meta-dot"></span><button class="section-link" type="button" data-act="open-history">历史完成</button></div></div>';
+      '<div class="section-sub"><span>' + (!isToday ? (isFuture ? '提前布置' : '历史记录') : (state.meta && state.meta.requireApproval ? '提交后等家长确认' : '完成一个 +1 ⭐')) + '</span><span class="meta-dot"></span><button class="section-link" type="button" data-act="open-history">历史完成</button></div></div>';
     if (tasks.length) {
       h += '<div class="chip-row task-tabs" role="tablist" aria-label="按科目筛选">';
       h += '<button class="chip' + (tab === '全部' ? ' is-active' : '') + '" type="button" data-act="tab" data-tab="全部" role="tab" aria-selected="' + (tab === '全部') + '">全部 <span class="chip-num">' + tasks.length + '</span></button>';
@@ -1621,7 +1635,7 @@
       });
       h += '</div>';
     } else {
-      h += emptyState('🌤️', '今天还没有任务', '点上面的「拍照 / 选择图片」，让 AI 帮你把作业拆成一条条小任务。', state.role === 'parent' ? '<button class="btn btn-primary btn-sm" type="button" data-act="add-task">' + icon('plus') + '手动添加任务</button>' : '');
+      h += emptyState(isFuture ? '🗓️' : '🌤️', isToday ? '今天还没有任务' : (isFuture ? '这天还没有提前布置' : '这天没有任务'), isToday ? '点上面的「拍照 / 选择图片」，让 AI 帮你把作业拆成一条条小任务。' : (isFuture ? '点「添加任务」，把作业提前放到这一天。' : '可以回看其他日期，或回到今天。'), state.role === 'parent' && (isToday || isFuture) ? '<button class="btn btn-primary btn-sm" type="button" data-act="add-task">' + icon('plus') + '手动添加任务</button>' : '');
     }
     h += '</section>';
 
@@ -2675,6 +2689,7 @@
         '<div class="field"><label for="atType">任务类型</label><select id="atType">' + typeOpts + '</select></div>' +
         '<div class="field field-full"><label for="atTitle">任务标题 <em>*</em></label><input id="atTitle" maxlength="40" placeholder="例如：背诵《答谢中书书》并录音"></div>' +
         '<div class="field"><label for="atStars">奖励星星</label><input id="atStars" type="number" min="1" max="20" step="1" value="1"></div>' +
+        '<div class="field"><label for="atDate">日期</label><input id="atDate" type="date" value="' + (ui.viewDate || dayKey(Date.now())) + '"></div>' +
         '<div class="field"><label for="atMinutes">预计分钟</label><input id="atMinutes" type="number" min="0" max="180" step="5" placeholder="10"></div>' +
         '<div class="field field-full"><label>重复</label><div class="repeat-days">' +
         [[1, '一'], [2, '二'], [3, '三'], [4, '四'], [5, '五'], [6, '六'], [0, '日']].map(function (d) {
@@ -2694,7 +2709,9 @@
     var type = ($('#atType') || {}).value || 'habit';
     var stars = clamp(Math.round(num(($('#atStars') || {}).value, 1)), 1, 20);
     var minutes = Math.max(0, Math.round(num(($('#atMinutes') || {}).value, 0)));
-    var task = { id: uid('t'), subject: subject, title: title, type: type, stars: stars, done: false, isNew: true, date: dayKey(Date.now()), createdAt: Date.now(), updatedAt: Date.now() };
+    var taskDate = ($('#atDate') || {}).value || '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(taskDate)) taskDate = dayKey(Date.now());
+    var task = { id: uid('t'), subject: subject, title: title, type: type, stars: stars, done: false, isNew: true, date: taskDate, createdAt: Date.now(), updatedAt: Date.now() };
     if (minutes > 0) task.minutes = minutes;
     if (type === 'timer') task.seconds = Math.max(60, (minutes || 5) * 60);
     if (type === 'words') task.words = ['study', 'practice', 'improve', 'knowledge', 'progress'];
@@ -2705,8 +2722,9 @@
     state.tasks.unshift(task);
     save();
     closeModal();
+    ui.viewDate = taskDate;
     setPage('today');
-    toast('已添加「' + title + '」' + (rdays.length ? '，' + repeatLabel(task.repeat) + '自动生成' : '，完成就能拿星星'), 'success');
+    toast('已添加「' + title + '」' + (taskDate !== dayKey(Date.now()) ? '到 ' + taskDate : '') + (rdays.length ? '，' + repeatLabel(task.repeat) + '自动生成' : ''), 'success');
   }
   function taskFormHTML(prefix, task) {
     var subjects = TASK_SUBJECTS;
@@ -3043,6 +3061,7 @@
     var t = findTask(id);
     if (!t) return;
     if (!requireStudent('家长端不能代打卡，切到学生端完成吧')) return;
+    if (ui.viewDate && ui.viewDate !== dayKey(Date.now())) { toast('只能完成今天的任务；提前布置的请到当天再打卡', 'warn'); return; }
     if (t.pendingApproval) { toast('已经提交了，等家长确认就行', 'info'); return; }
     if (t.done) { toast('这条已完成，可以在「已完成」里撤销', 'warn'); return; }
     if (state.meta && state.meta.requireApproval) {
@@ -3095,6 +3114,37 @@
     save();
     render();
     toast('已退回，让孩子再检查一下', 'info');
+  }
+  function approveAllPending() {
+    if (!requireParent('切换到家长端才能确认')) return;
+    var list = state.tasks.filter(function (t) { return t.pendingApproval; });
+    if (!list.length) return;
+    list.forEach(function (t) {
+      t.pendingApproval = false;
+      delete t.submittedAt;
+      t.done = true;
+      t.doneAt = Date.now();
+      t.awardedStars = t.stars;
+      t.awardSeq = num(t.awardSeq, 0) + 1;
+      t.updatedAt = Date.now();
+      changeStars(t.stars, '完成 · ' + t.title, 'task', 'task:' + t.id + ':' + t.awardSeq);
+    });
+    save();
+    render();
+    toast('已确认 ' + list.length + ' 条任务', 'success');
+  }
+  function rejectAllPending() {
+    if (!requireParent('切换到家长端才能退回')) return;
+    var list = state.tasks.filter(function (t) { return t.pendingApproval; });
+    if (!list.length) return;
+    list.forEach(function (t) {
+      t.pendingApproval = false;
+      delete t.submittedAt;
+      t.updatedAt = Date.now();
+    });
+    save();
+    render();
+    toast('已退回 ' + list.length + ' 条任务', 'info');
   }
   function toggleApproval() {
     if (!requireParent('切换到家长端才能设置确认方式')) return;
@@ -3513,6 +3563,7 @@
         toast('已回到学生端首页', 'success');
         break;
       }
+      case 'view-today': ui.viewDate = dayKey(Date.now()); render(); break;
       case 'scroll-tasks': {
         var sec = $('#taskListSection');
         if (sec) { try { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (err) { } }
@@ -3561,6 +3612,8 @@
       case 'exam-undo': undoExam(id); break;
       case 'approve-task': approveTask(id); break;
       case 'reject-task': rejectTask(id); break;
+      case 'approve-all': approveAllPending(); break;
+      case 'reject-all': rejectAllPending(); break;
       case 'toggle-approval': toggleApproval(); break;
       case 'mastery-group': {
         var sub = el.getAttribute('data-subject');
@@ -3607,6 +3660,11 @@
   function onChange(e) {
     var t = e.target;
     if (!t) return;
+    if (t.id === 'effViewDate') {
+      var vd = t.value;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(vd)) { ui.viewDate = vd; render(); }
+      return;
+    }
     if (t.id === 'effPhotoInput') {
       var f = t.files && t.files[0];
       t.value = '';

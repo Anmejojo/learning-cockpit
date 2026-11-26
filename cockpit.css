@@ -482,6 +482,8 @@ ul,ol{margin:0;padding:0;list-style:none}
 }
 .approval-banner .ico{width:15px;height:15px;flex:none;color:#c08a2f}
 .approval-banner strong{font-weight:850}
+.approval-actions{margin-left:auto;display:flex;align-items:center;gap:4px;flex:none}
+.approval-actions .btn{height:27px;padding:0 8px;font-size:9.5px}
 .task-main{flex:1;min-width:0;cursor:pointer}
 .task-title{
   font-size:13.5px;font-weight:700;line-height:1.4;color:var(--ink);
@@ -918,6 +920,12 @@ body[data-role="parent"] .task-row .tick{border-style:dashed;background:#fbf8fd}
 }
 .repeat-days input:checked + span{background:var(--primary-soft);border-color:#f3b7b2;color:var(--primary-deep)}
 .repeat-days input:focus-visible + span{outline:2.5px solid rgba(233,97,90,.55);outline-offset:2px}
+.date-view{display:flex;align-items:center;gap:6px}
+.date-view input{
+  height:30px;border:1px solid #e7ddec;background:#fff;border-radius:8px;padding:0 7px;
+  font-size:11px;color:var(--ink-2);font-family:var(--font);
+}
+.date-view input:focus{outline:none;border-color:#e9a39e;box-shadow:0 0 0 3px rgba(233,97,90,.1)}
 .field select{background-image:linear-gradient(45deg,transparent 50%,#a99db4 50%),linear-gradient(135deg,#a99db4 50%,transparent 50%);background-position:calc(100% - 16px) 17px,calc(100% - 11px) 17px;background-size:5px 5px;background-repeat:no-repeat;padding-right:30px}
 .field .field-hint{font-size:10px;color:var(--muted-2);line-height:1.5}
 .form-note{font-size:11px;color:var(--muted);background:#fbf8fd;border:1px dashed #e7dcf0;border-radius:10px;padding:9px 11px;line-height:1.6}
@@ -1440,7 +1448,17 @@ body[data-role="parent"] .task-row .tick{border-style:dashed;background:#fbf8fd}
   .reward-btn{min-height:36px}
 }
 @media (max-width:720px){
+  .page-head-side.has-date{display:flex;width:100%;justify-content:flex-end;padding-top:0}
+  .page-head-side.has-date .btn{display:inline-flex}
+  .date-view input{height:28px;font-size:10.5px}
+  .date-view .btn{height:28px;font-size:9.5px;padding:0 8px}
   .field input,.field select,.field textarea,.chat-compose input{font-size:16px}
+}
+@media (orientation:landscape) and (max-height:500px){
+  .page-head-side.has-date{display:flex;width:auto;margin-left:auto;padding-top:0}
+  .date-view{gap:4px}
+  .date-view input{height:27px;font-size:10px;width:118px}
+  .date-view .btn{height:27px;font-size:9px;padding:0 6px}
 }
 
 /* ---------- 14. 判题记录 ---------- */
