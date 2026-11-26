@@ -556,6 +556,32 @@
     var delay = cloud.fail ? Math.min(60000, 8000 * Math.pow(2, Math.min(3, cloud.fail))) : 1500;
     cloud.timer = setTimeout(function () { cloud.timer = null; cloudPush(false); }, delay);
   }
+  function openJudgeRecords() {
+    if (!requireParent('切换到家长端才能看判题记录')) return;
+    var recs = state.tasks.filter(function (t) { return t.judge && (t.judge.text || t.judge.thumb); }).sort(function (a, b) {
+      return num(b.judge.ts) - num(a.judge.ts);
+    });
+    var body;
+    if (!recs.length) {
+      body = '<div class="judge-empty"><span>📸</span><strong>还没有判题记录</strong><p>在作业任务里点「拍照 / 让小搭分析」，分析文字和照片缩略图会保存在这里，也会随云同步。</p></div>';
+    } else {
+      body = '<div class="judge-list">' + recs.map(function (t) {
+        var j = t.judge, d = new Date(num(j.ts) || Date.now());
+        return '<div class="judge-row">' +
+          (j.thumb ? '<img class="judge-thumb" src="' + esc(j.thumb) + '" alt="作业照片">' : '<div class="judge-thumb is-empty">📄</div>') +
+          '<div class="judge-main"><div class="judge-title">' + subjectChip(t.subject, true) + ' ' + esc(t.title) + '</div>' +
+          '<div class="judge-meta">' + (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) +
+          ' · ' + (j.ok ? '小搭已分析' : '仅保存照片') + '</div>' +
+          '<div class="judge-text">' + esc(j.text || '没有文字结果。') + '</div></div></div>';
+      }).join('') + '</div>';
+    }
+    openModal({
+      title: '判题记录', icon: 'camera',
+      sub: '小搭分析过的作业 · ' + recs.length + ' 条',
+      body: body,
+      footer: '<span class="foot-note">记录随任务保存，不会单独丢失</span><button class="btn btn-ghost" type="button" data-close>关闭</button>'
+    });
+  }
   function openCloudModal() {
     var on = cloudOn();
     openModal({
@@ -1026,7 +1052,16 @@
     }
     return { earned: earned, used: used, balance: earned - used };
   }
-  function starTotals() { return logTotals(state.log); }
+  var totalCache = { log: null, len: -1, first: '', last: '', val: null };
+  function starTotals() {
+    var l = state.log;
+    var first = l.length ? (l[0].id || (l[0].ts + ':' + l[0].delta)) : '';
+    var last = l.length ? (l[l.length - 1].id || (l[l.length - 1].ts + ':' + l[l.length - 1].delta)) : '';
+    if (totalCache.log === l && totalCache.len === l.length && totalCache.first === first && totalCache.last === last) return totalCache.val;
+    var v = logTotals(l);
+    totalCache = { log: l, len: l.length, first: first, last: last, val: v };
+    return v;
+  }
   function todayStars() {
     var key = dayKey(Date.now()), sum = 0;
     for (var i = 0; i < state.log.length; i++) {
@@ -2180,6 +2215,7 @@
         '<button class="more-link" type="button" data-act="export-data"><span class="more-ico">📤</span><span><strong>导出数据备份</strong><small>下载 JSON，换设备/清缓存前先备份</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="import-data"><span class="more-ico">📥</span><span><strong>导入数据备份</strong><small>用 JSON 覆盖本机数据</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="open-chat"><span class="more-ico">💬</span><span><strong>打开小搭</strong><small>聊天记录已从旧版导入</small></span>' + icon('arrowRight') + '</button>' +
+        '<button class="more-link" type="button" data-act="open-judge-records"><span class="more-ico">📸</span><span><strong>判题记录</strong><small>小搭分析过的作业，家长可回看</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="open-cloud"><span class="more-ico">☁️</span><span><strong>多端同步</strong><small>' + esc(cloudStatusText()) + '</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="open-ai-token"><span class="more-ico">🔑</span><span><strong>AI 口令</strong><small>' + (chatToken() ? '已检测到口令，小搭可在线分析作业' : '未设置；设置后小搭可在线分析作业') + '</small></span>' + icon('arrowRight') + '</button>' +
         '<a class="more-link" href="preview.html"><span class="more-ico">🧪</span><span><strong>打开本地测试台</strong><small>旧版双端预览工具</small></span>' + icon('arrowRight') + '</a>' +
@@ -3065,6 +3101,7 @@
       case 'cloud-on': enableCloud(); break;
       case 'cloud-off': disableCloud(); break;
       case 'cloud-now': closeModal(); cloudSyncNow(true); break;
+      case 'open-judge-records': closeModal(); setTimeout(openJudgeRecords, 60); break;
       case 'export-data': exportData(); break;
       case 'import-data': triggerImport(); break;
       case 'do-import': doImport(); break;
