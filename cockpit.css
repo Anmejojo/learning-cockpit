@@ -901,6 +901,15 @@ body[data-role="parent"] .task-row .tick{border-style:dashed;background:#fbf8fd}
 .field textarea{height:72px;padding:9px 11px;resize:vertical;line-height:1.55}
 .field input::placeholder,.field textarea::placeholder{color:#b8aec2}
 .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:#e9a39e;background:#fff;box-shadow:0 0 0 3px rgba(233,97,90,.1)}
+.repeat-days{display:flex;gap:5px;flex-wrap:wrap}
+.repeat-days label{position:relative;cursor:pointer}
+.repeat-days input{position:absolute;opacity:0;pointer-events:none}
+.repeat-days span{
+  width:30px;height:28px;display:grid;place-items:center;border-radius:7px;
+  background:#faf7fc;border:1px solid #e9e0f0;color:var(--muted);font-size:10.5px;font-weight:700;
+}
+.repeat-days input:checked + span{background:var(--primary-soft);border-color:#f3b7b2;color:var(--primary-deep)}
+.repeat-days input:focus-visible + span{outline:2.5px solid rgba(233,97,90,.55);outline-offset:2px}
 .field select{background-image:linear-gradient(45deg,transparent 50%,#a99db4 50%),linear-gradient(135deg,#a99db4 50%,transparent 50%);background-position:calc(100% - 16px) 17px,calc(100% - 11px) 17px;background-size:5px 5px;background-repeat:no-repeat;padding-right:30px}
 .field .field-hint{font-size:10px;color:var(--muted-2);line-height:1.5}
 .form-note{font-size:11px;color:var(--muted);background:#fbf8fd;border:1px dashed #e7dcf0;border-radius:10px;padding:9px 11px;line-height:1.6}

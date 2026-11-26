@@ -906,6 +906,11 @@
       if (t.pendingApproval) t.done = false;
       if (!t.pendingApproval) delete t.submittedAt;
       t.awardSeq = Math.max(0, Math.round(num(t.awardSeq, 0)));
+      if (t.repeat && Array.isArray(t.repeat.days)) {
+        t.repeat = { days: t.repeat.days.map(function (d) { return Math.round(num(d, -1)); }).filter(function (d) { return d >= 0 && d <= 6; }).filter(function (d, i, a) { return a.indexOf(d) === i; }) };
+        if (!t.repeat.days.length) delete t.repeat;
+      } else delete t.repeat;
+      if (t.repeatOf) t.repeatOf = String(t.repeatOf); else delete t.repeatOf;
       if (t.done) {
         if (t.awardedStars == null) t.awardedStars = t.stars;
         else t.awardedStars = Math.max(1, Math.round(num(t.awardedStars, t.stars)));
@@ -1129,6 +1134,37 @@
     var p = key.split('-');
     return Number(p[1]) + '月' + Number(p[2]) + '日';
   }
+  function repeatLabel(r) {
+    if (!r || !Array.isArray(r.days) || !r.days.length) return '';
+    var names = ['日', '一', '二', '三', '四', '五', '六'];
+    if (r.days.length === 7) return '每天';
+    if (r.days.length === 5 && [1, 2, 3, 4, 5].every(function (d) { return r.days.indexOf(d) >= 0; })) return '工作日';
+    if (r.days.length === 2 && r.days.indexOf(0) >= 0 && r.days.indexOf(6) >= 0) return '周末';
+    return '每周' + r.days.slice().sort(function (a, b) { return a - b; }).map(function (d) { return names[d]; }).join('、');
+  }
+  function ensureRecurringTasks() {
+    if (!state || !Array.isArray(state.tasks)) return false;
+    var today = dayKey(Date.now()), wd = new Date().getDay(), changed = false;
+    state.tasks.filter(function (t) { return t && t.repeat && !t.repeatOf && t.date <= today; }).forEach(function (t) {
+      if (t.repeat.days.indexOf(wd) < 0) return;
+      if (t.date === today) return;
+      var cid = t.id + '@' + today;
+      if (state.tasks.some(function (x) { return x.id === cid; })) return;
+      var c = {
+        id: cid, subject: t.subject, title: t.title, type: t.type, stars: t.stars,
+        date: today, done: false, repeatOf: t.id, createdAt: Date.now(), updatedAt: Date.now()
+      };
+      if (t.minutes) c.minutes = t.minutes;
+      if (t.seconds) c.seconds = t.seconds;
+      if (t.words) c.words = t.words.slice();
+      if (t.pairs) c.pairs = t.pairs.map(function (p) { return p.slice(); });
+      if (t.passage) c.passage = t.passage;
+      if (t.hint) c.hint = t.hint;
+      state.tasks.push(c);
+      changed = true;
+    });
+    return changed;
+  }
   function rollTasksOver() {
     if (!state) return false;
     var today = dayKey(Date.now()), changed = false;
@@ -1142,6 +1178,7 @@
         changed = true;
       }
     });
+    if (ensureRecurringTasks()) changed = true;
     if (state.meta && state.meta.lastRoll !== today) {
       state.meta.lastRoll = today;
       changed = true;
@@ -1475,6 +1512,8 @@
       (t.minutes ? '<span class="meta-dot"></span><span>' + t.minutes + ' 分钟</span>' : '') +
       (t.judge ? '<span class="meta-dot"></span><span>已判题</span>' : '') +
       (t.carriedFrom ? '<span class="meta-dot"></span><span>从 ' + shortDayLabel(t.carriedFrom) + ' 结转</span>' : '') +
+      (t.repeat ? '<span class="meta-dot"></span><span>' + repeatLabel(t.repeat) + '</span>' : '') +
+      (t.repeatOf ? '<span class="meta-dot"></span><span>重复任务</span>' : '') +
       (pending ? '<span class="meta-dot"></span><span class="pending-text">等家长确认</span>' : '') +
       '</div></div>' +
       '<div class="task-right">' +
@@ -2488,6 +2527,11 @@
         '<div class="field field-full"><label for="atTitle">任务标题 <em>*</em></label><input id="atTitle" maxlength="40" placeholder="例如：背诵《答谢中书书》并录音"></div>' +
         '<div class="field"><label for="atStars">奖励星星</label><input id="atStars" type="number" min="1" max="20" step="1" value="1"></div>' +
         '<div class="field"><label for="atMinutes">预计分钟</label><input id="atMinutes" type="number" min="0" max="180" step="5" placeholder="10"></div>' +
+        '<div class="field field-full"><label>重复</label><div class="repeat-days">' +
+        [[1, '一'], [2, '二'], [3, '三'], [4, '四'], [5, '五'], [6, '六'], [0, '日']].map(function (d) {
+          return '<label><input type="checkbox" name="atRepeatDay" value="' + d[0] + '"><span>' + d[1] + '</span></label>';
+        }).join('') +
+        '</div><p class="form-note" style="margin-top:5px">不勾选 = 单次；勾选 = 每周这些天自动生成一条。</p></div>' +
         '</div><p class="form-note" style="margin-top:11px">计时类任务会按「预计分钟」生成倒计时；留空则默认 5 分钟。</p>',
       footer: '<button class="btn btn-ghost" type="button" data-close>取消</button>' +
         '<button class="btn btn-primary" type="button" data-act="submit-task">' + icon('plus') + '添加任务</button>'
@@ -2507,11 +2551,13 @@
     if (type === 'words') task.words = ['study', 'practice', 'improve', 'knowledge', 'progress'];
     if (type === 'dictation') task.pairs = [['go', 'went'], ['take', 'took'], ['see', 'saw'], ['write', 'wrote']];
     if (type === 'recite' || type === 'read') task.passage = '';
+    var rdays = $$('input[name="atRepeatDay"]:checked').map(function (x) { return Number(x.value); }).filter(function (d) { return d >= 0 && d <= 6; });
+    if (rdays.length) task.repeat = { days: rdays };
     state.tasks.unshift(task);
     save();
     closeModal();
     setPage('today');
-    toast('已添加「' + title + '」，完成就能拿星星', 'success');
+    toast('已添加「' + title + '」' + (rdays.length ? '，' + repeatLabel(task.repeat) + '自动生成' : '，完成就能拿星星'), 'success');
   }
   function taskFormHTML(prefix, task) {
     var subjects = TASK_SUBJECTS;
