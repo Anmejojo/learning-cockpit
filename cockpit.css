@@ -453,6 +453,20 @@ ul,ol{margin:0;padding:0;list-style:none}
 .tick .ico{width:13px;height:13px;stroke-width:2.6;transition:.18s}
 .tick:hover{border-color:var(--primary);background:#fff8f7;transform:scale(1.06)}
 .task-row.is-done .tick{background:linear-gradient(145deg,#f0746d,#e9615a);border-color:transparent;color:#fff;box-shadow:0 4px 9px rgba(233,97,90,.25)}
+.task-row.is-pending{background:linear-gradient(90deg,#fffaf0,#fff)}
+.task-row.is-pending .tick{background:#fff4d9;border-color:#f2cf83;color:#b5822f;box-shadow:none}
+.task-row.is-pending .tick:disabled{opacity:1;cursor:default}
+.task-row.is-pending .task-right{gap:5px}
+.pending-text{color:#b5822f;font-weight:800}
+.pending-actions{display:flex;align-items:center;gap:4px}
+.pending-actions .btn{height:28px;padding:0 8px;font-size:10px;white-space:nowrap}
+.approval-banner{
+  display:flex;align-items:center;gap:8px;padding:8px 11px;margin:0 0 10px;
+  border-radius:10px;background:linear-gradient(110deg,#fffaf0,#fff);
+  border:1px solid #f3dfb8;color:#8a6627;font-size:11px;line-height:1.5;
+}
+.approval-banner .ico{width:15px;height:15px;flex:none;color:#c08a2f}
+.approval-banner strong{font-weight:850}
 .task-main{flex:1;min-width:0;cursor:pointer}
 .task-title{
   font-size:13.5px;font-weight:700;line-height:1.4;color:var(--ink);

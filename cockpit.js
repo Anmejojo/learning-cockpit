@@ -273,7 +273,7 @@
       chat: [],
       chatMem: [],
       _del: {},
-      meta: { demo: true, demoTasks: true, legacy: false, legacyTasks: 0, lastRoll: todayKeyNow, noticeDismissed: false, parentPin: '', parentPinAt: 0, catalogV: CATALOG_VERSION, goalsImported: 0, recordsImported: 0, chatImported: 0, cloudEnabled: false, updatedAt: Date.now() }
+      meta: { demo: true, demoTasks: true, legacy: false, legacyTasks: 0, lastRoll: todayKeyNow, noticeDismissed: false, parentPin: '', parentPinAt: 0, catalogV: CATALOG_VERSION, goalsImported: 0, recordsImported: 0, chatImported: 0, requireApproval: false, cloudEnabled: false, updatedAt: Date.now() }
     };
   }
 
@@ -808,6 +808,7 @@
     if (typeof s.meta.goalsImported !== 'number') s.meta.goalsImported = 0;
     if (typeof s.meta.recordsImported !== 'number') s.meta.recordsImported = 0;
     if (typeof s.meta.chatImported !== 'number') s.meta.chatImported = 0;
+    if (typeof s.meta.requireApproval !== 'boolean') s.meta.requireApproval = false;
     if (typeof s.meta.cloudEnabled !== 'boolean') s.meta.cloudEnabled = false;
     if (typeof s.meta.updatedAt !== 'number') s.meta.updatedAt = Date.now();
     if (!s.meta.lastRoll) s.meta.lastRoll = dayKey(Date.now());
@@ -821,6 +822,9 @@
       t.stars = Math.max(1, Math.round(num(t.stars, 1)));
       t.date = typeof t.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(t.date) ? t.date : todayKey;
       t.done = !!t.done;
+      t.pendingApproval = !!t.pendingApproval;
+      if (t.pendingApproval) t.done = false;
+      if (!t.pendingApproval) delete t.submittedAt;
       if (t.done) {
         if (t.awardedStars == null) t.awardedStars = t.stars;
         else t.awardedStars = Math.max(1, Math.round(num(t.awardedStars, t.stars)));
@@ -1227,7 +1231,9 @@
   function renderToday() {
     var tasks = todayTasks();
     var doneTasks = tasks.filter(function (t) { return t.done; });
-    var undone = tasks.length - doneTasks.length;
+    var pendingTasks = tasks.filter(function (t) { return t.pendingApproval; });
+    var pendingCount = pendingTasks.length;
+    var undone = tasks.length - doneTasks.length - pendingCount;
     var earned = todayStars();
     var subjects = [];
     SUB_ORDER.forEach(function (s) { if (tasks.some(function (t) { return t.subject === s; })) subjects.push(s); });
@@ -1238,7 +1244,7 @@
     var h = pageHead('today', {
       title: '今天要做',
       icon: 'sun',
-      sub: '按分类添加今天的任务，完成一个就 <b>+1</b> ⭐',
+      sub: state.meta && state.meta.requireApproval ? '完成任务后由家长确认，确认后加星' : '按分类添加今天的任务，完成一个就 <b>+1</b> ⭐',
       side: '<button class="btn btn-ghost btn-sm" type="button" data-act="scroll-tasks">' + icon('home') + '今天</button>'
     });
 
@@ -1277,6 +1283,11 @@
       '<div class="stat is-primary"><b>' + doneTasks.length + '</b><span>已完成</span></div>' +
       '<div class="stat is-gold"><b>' + earned + '</b><span>今日获得 <i class="star-mini">★</i></span></div>' +
       '</div>';
+    if (pendingCount) {
+      h += '<div class="approval-banner">' + icon('clock') +
+        '<span><strong>' + pendingCount + ' 条任务等家长确认</strong>' +
+        (state.role === 'parent' ? '，确认后才会加星星' : '，确认后星星才会到账') + '</span></div>';
+    }
 
     /* 拍照识别 */
     h += '<section class="recog-card' + (ui.recogBusy ? ' is-busy' : '') + '" aria-label="拍照识别生成任务">' +
@@ -1311,8 +1322,8 @@
 
     /* 分类清单 */
     h += '<section class="section" id="taskListSection">' +
-      '<div class="section-head"><div class="section-title">' + icon('book') + '分类任务清单 <small>' + undone + ' 条待完成</small></div>' +
-      '<div class="section-sub"><span>完成一个 +1 ⭐</span><span class="meta-dot"></span><button class="section-link" type="button" data-act="open-history">历史完成</button></div></div>';
+      '<div class="section-head"><div class="section-title">' + icon('book') + '分类任务清单 <small>' + undone + ' 条待完成' + (pendingCount ? ' · ' + pendingCount + ' 条待确认' : '') + '</small></div>' +
+      '<div class="section-sub"><span>' + (state.meta && state.meta.requireApproval ? '提交后等家长确认' : '完成一个 +1 ⭐') + '</span><span class="meta-dot"></span><button class="section-link" type="button" data-act="open-history">历史完成</button></div></div>';
     if (tasks.length) {
       h += '<div class="chip-row task-tabs" role="tablist" aria-label="按科目筛选">';
       h += '<button class="chip' + (tab === '全部' ? ' is-active' : '') + '" type="button" data-act="tab" data-tab="全部" role="tab" aria-selected="' + (tab === '全部') + '">全部 <span class="chip-num">' + tasks.length + '</span></button>';
@@ -1370,17 +1381,24 @@
   function taskItemHTML(t) {
     var open = ui.openTask === t.id;
     var isParent = state.role === 'parent';
+    var pending = !!t.pendingApproval;
     var h = '<div class="task-item" data-id="' + esc(t.id) + '">' +
-      '<div class="task-row' + (t.done ? ' is-done' : '') + '">' +
-      '<button class="tick" type="button" data-act="toggle-task" data-id="' + esc(t.id) + '" aria-label="' + (t.done ? '已完成' : '完成任务 ' + t.title) + '" aria-pressed="' + t.done + '">' + icon('check') + '</button>' +
+      '<div class="task-row' + (t.done ? ' is-done' : '') + (pending ? ' is-pending' : '') + '">' +
+      '<button class="tick" type="button" data-act="toggle-task" data-id="' + esc(t.id) + '" aria-label="' + (pending ? '等待家长确认' : (t.done ? '已完成' : '完成任务 ' + t.title)) + '" aria-pressed="' + (t.done || pending) + '"' + (pending ? ' disabled' : '') + '>' + icon(pending ? 'clock' : 'check') + '</button>' +
       '<div class="task-main" data-act="expand-task" data-id="' + esc(t.id) + '" role="button" tabindex="0" aria-expanded="' + open + '" aria-label="展开 ' + esc(t.title) + ' 的学习工具">' +
       '<div class="task-title">' + esc(t.title) + (t.isNew ? '<i class="task-new">AI</i>' : '') + (t.carriedFrom ? '<span class="task-carry">结转</span>' : '') + '</div>' +
       '<div class="task-meta"><span class="tag">' + typeTag(t.type) + '</span>' +
       (t.minutes ? '<span class="meta-dot"></span><span>' + t.minutes + ' 分钟</span>' : '') +
       (t.judge ? '<span class="meta-dot"></span><span>已判题</span>' : '') +
       (t.carriedFrom ? '<span class="meta-dot"></span><span>从 ' + shortDayLabel(t.carriedFrom) + ' 结转</span>' : '') +
+      (pending ? '<span class="meta-dot"></span><span class="pending-text">等家长确认</span>' : '') +
       '</div></div>' +
-      '<div class="task-right"><span class="star-pill">+' + t.stars + ' <i>★</i></span>' +
+      '<div class="task-right">' +
+      (pending
+        ? (isParent
+          ? '<div class="pending-actions"><button class="btn btn-primary btn-xs" type="button" data-act="approve-task" data-id="' + esc(t.id) + '">确认 +' + t.stars + '</button><button class="btn btn-ghost btn-xs" type="button" data-act="reject-task" data-id="' + esc(t.id) + '">退回</button></div>'
+          : '<span class="badge badge-gold">待确认</span>')
+        : '<span class="star-pill">+' + t.stars + ' <i>★</i></span>') +
       '<button class="task-expand" type="button" data-act="expand-task" data-id="' + esc(t.id) + '" aria-expanded="' + open + '" aria-label="' + (open ? '收起' : '展开') + '学习工具">' + icon('chevron') + '</button></div>' +
       '</div>';
     if (open && !t.done) h += taskToolsHTML(t);
@@ -2235,6 +2253,7 @@
         '<button class="more-link" type="button" data-act="import-data"><span class="more-ico">📥</span><span><strong>导入数据备份</strong><small>用 JSON 覆盖本机数据</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="open-chat"><span class="more-ico">💬</span><span><strong>打开小搭</strong><small>聊天记录已从旧版导入</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="open-judge-records"><span class="more-ico">📸</span><span><strong>判题记录</strong><small>小搭分析过的作业，家长可回看</small></span>' + icon('arrowRight') + '</button>' +
+        '<button class="more-link" type="button" data-act="toggle-approval"><span class="more-ico">✅</span><span><strong>完成需家长确认</strong><small>' + (state.meta && state.meta.requireApproval ? '已开启：孩子提交，家长确认后加星' : '已关闭：孩子点完成立即加星') + '</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="open-cloud"><span class="more-ico">☁️</span><span><strong>多端同步</strong><small>' + esc(cloudStatusText()) + '</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="open-ai-token"><span class="more-ico">🔑</span><span><strong>AI 口令</strong><small>' + (chatToken() ? '已检测到口令，小搭可在线分析作业' : '未设置；设置后小搭可在线分析作业') + '</small></span>' + icon('arrowRight') + '</button>' +
         '<a class="more-link" href="preview.html"><span class="more-ico">🧪</span><span><strong>打开本地测试台</strong><small>旧版双端预览工具</small></span>' + icon('arrowRight') + '</a>' +
@@ -2745,7 +2764,17 @@
     var t = findTask(id);
     if (!t) return;
     if (!requireStudent('家长端不能代打卡，切到学生端完成吧')) return;
+    if (t.pendingApproval) { toast('已经提交了，等家长确认就行', 'info'); return; }
     if (t.done) { toast('这条已完成，可以在「已完成」里撤销', 'warn'); return; }
+    if (state.meta && state.meta.requireApproval) {
+      t.pendingApproval = true;
+      t.submittedAt = Date.now();
+      t.updatedAt = Date.now();
+      save();
+      render();
+      toast('已提交，等家长确认后加星', 'success');
+      return;
+    }
     t.done = true;
     t.doneAt = Date.now();
     t.awardedStars = t.stars;
@@ -2759,6 +2788,40 @@
     if (rect) burstAt(rect.left + rect.width / 2, rect.top + rect.height / 2, 11);
     else burstAtEl($('#effSideBalance'), 9);
     toast('太棒了！+' + t.stars + ' 颗星星', 'success');
+  }
+  function approveTask(id) {
+    if (!requireParent('切换到家长端才能确认')) return;
+    var t = findTask(id);
+    if (!t || !t.pendingApproval) return;
+    t.pendingApproval = false;
+    delete t.submittedAt;
+    t.done = true;
+    t.doneAt = Date.now();
+    t.awardedStars = t.stars;
+    t.updatedAt = Date.now();
+    changeStars(t.stars, '完成 · ' + t.title, 'task');
+    save();
+    render();
+    toast('已确认，+' + t.stars + ' 颗星星', 'success');
+  }
+  function rejectTask(id) {
+    if (!requireParent('切换到家长端才能退回')) return;
+    var t = findTask(id);
+    if (!t || !t.pendingApproval) return;
+    t.pendingApproval = false;
+    delete t.submittedAt;
+    t.updatedAt = Date.now();
+    save();
+    render();
+    toast('已退回，让孩子再检查一下', 'info');
+  }
+  function toggleApproval() {
+    if (!requireParent('切换到家长端才能设置确认方式')) return;
+    state.meta.requireApproval = !state.meta.requireApproval;
+    save();
+    closeModal();
+    render();
+    toast(state.meta.requireApproval ? '已开启：孩子提交后需要家长确认才加星' : '已关闭：孩子点完成立即加星', 'info');
   }
   function undoTask(id) {
     var t = findTask(id);
@@ -3210,6 +3273,9 @@
       case 'confirm-redeem': confirmRedeem(id); break;
       case 'exam-done': markExam(id, el); break;
       case 'exam-undo': undoExam(id); break;
+      case 'approve-task': approveTask(id); break;
+      case 'reject-task': rejectTask(id); break;
+      case 'toggle-approval': toggleApproval(); break;
       case 'mastery-group': {
         var sub = el.getAttribute('data-subject');
         ui.masteryOpen[sub] = !ui.masteryOpen[sub];
