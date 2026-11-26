@@ -1,4 +1,4 @@
-﻿/* =========================================================
+/* =========================================================
    乐乐学习舱 · 效率学习 App 风
    cockpit.js · v1.0  2026-11-25
    结构：1 常量  2 工具  3 图标  4 演示数据  5 存储/迁移
@@ -311,7 +311,7 @@
       chat: [],
       chatMem: [],
       _del: {},
-      meta: { demo: true, demoTasks: true, legacy: false, legacyTasks: 0, lastRoll: todayKeyNow, noticeDismissed: false, parentPin: '', parentPinAt: 0, catalogV: CATALOG_VERSION, goalsImported: 0, recordsImported: 0, chatImported: 0, requireApproval: false, cloudEnabled: false, syncId: '', syncCode: '', syncEnc: false, updatedAt: Date.now() }
+      meta: { demo: true, demoTasks: true, legacy: false, legacyTasks: 0, lastRoll: todayKeyNow, noticeDismissed: false, parentPin: '', parentPinAt: 0, catalogV: CATALOG_VERSION, goalsImported: 0, recordsImported: 0, chatImported: 0, requireApproval: false, cloudEnabled: false, syncId: '', syncCode: '', syncEnc: false, deviceId: '', devices: [], updatedAt: Date.now() }
     };
   }
 
@@ -352,6 +352,44 @@
     if (!state) return;
     if (!state._del || typeof state._del !== 'object') state._del = {};
     state._del[kind + ':' + id] = Date.now();
+  }
+  function deviceName() {
+    var ua = navigator.userAgent || '';
+    if (/iPhone/i.test(ua)) return 'iPhone';
+    if (/iPad/i.test(ua)) return 'iPad';
+    if (/Android/i.test(ua)) return 'Android';
+    if (/Mac/i.test(ua)) return 'Mac';
+    if (/Windows/i.test(ua)) return 'Windows';
+    return '本机';
+  }
+  function ensureDevice() {
+    if (!state || !state.meta) return;
+    if (!state.meta.deviceId) state.meta.deviceId = uid('dev');
+    if (!Array.isArray(state.meta.devices)) state.meta.devices = [];
+    var d = state.meta.devices.filter(function (x) { return x && x.id === state.meta.deviceId; })[0];
+    var now = Date.now();
+    if (d) { d.lastSeen = now; d.name = d.name || deviceName(); }
+    else state.meta.devices.push({ id: state.meta.deviceId, name: deviceName(), lastSeen: now });
+    state.meta.devices = state.meta.devices.slice(-10);
+  }
+  function cloudDevicesHTML() {
+    var list = (state.meta.devices || []).slice().sort(function (a, b) { return num(b.lastSeen) - num(a.lastSeen); });
+    if (!list.length) return '';
+    return '<div class="cloud-devices"><div class="cloud-devices-title">已加入设备 <b>' + list.length + '</b></div>' + list.map(function (d) {
+      var me = d.id === state.meta.deviceId;
+      var t = d.lastSeen ? new Date(d.lastSeen) : null;
+      return '<div class="cloud-device"><span class="cloud-device-dot' + (me ? ' is-me' : '') + '"></span><strong>' + esc(d.name || '设备') + (me ? '（本机）' : '') + '</strong><span>' + (t ? (t.getMonth() + 1) + '月' + t.getDate() + '日 ' + pad2(t.getHours()) + ':' + pad2(t.getMinutes()) : '') + '</span></div>';
+    }).join('') + '</div>';
+  }
+  function cloudRevokeDevices() {
+    if (!requireParent('切换到家长端才能撤销设备')) return;
+    openModal({
+      title: '撤销其他设备？', icon: 'shield',
+      sub: '会重置家庭同步码',
+      body: '<p>重置后，除了这台设备，其他设备都需要用新同步码重新加入。</p><p class="form-note" style="margin-top:10px">云端旧数据不会删除，但旧设备无法再解密新数据。</p>',
+      footer: '<button class="btn btn-ghost" type="button" data-close>取消</button>' +
+        '<button class="btn btn-primary" type="button" data-act="cloud-reset">重置同步码</button>'
+    });
   }
   function cloudOn() { return !!(state && state.meta && state.meta.cloudEnabled); }
   function cloudStatusText() {
@@ -485,6 +523,15 @@
     out.meta.syncId = l.meta.syncId || r.meta.syncId || '';
     out.meta.syncCode = l.meta.syncCode || r.meta.syncCode || '';
     out.meta.syncEnc = !!l.meta.syncEnc;
+    out.meta.deviceId = l.meta.deviceId || r.meta.deviceId || '';
+    var devMap = {};
+    [l, r].forEach(function (x) {
+      (x.meta && Array.isArray(x.meta.devices) ? x.meta.devices : []).forEach(function (d) {
+        if (!d || !d.id) return;
+        if (!devMap[d.id] || num(d.lastSeen) > num(devMap[d.id].lastSeen)) devMap[d.id] = { id: d.id, name: d.name || '设备', lastSeen: num(d.lastSeen) };
+      });
+    });
+    out.meta.devices = Object.keys(devMap).map(function (k) { return devMap[k]; }).sort(function (a, b) { return num(b.lastSeen) - num(a.lastSeen); }).slice(0, 10);
     var lp = num(l.meta.parentPinAt), rp = num(r.meta.parentPinAt);
     if (lp || rp) out.meta.parentPin = lp >= rp ? l.meta.parentPin : r.meta.parentPin;
     out.meta.parentPinAt = Math.max(lp, rp);
@@ -682,12 +729,12 @@
         '<p>' + (on ? '本机修改会自动合并上传；另一台设备输入同一个同步码即可加入。' : '开启后会生成一个加密家庭同步码；另一台设备输入同一个码加入。') + '</p></div></div>' +
         (on
           ? '<div class="cloud-code"><span>家庭同步码</span><b>' + esc(code) + '</b><button class="btn btn-ghost btn-xs" type="button" data-act="cloud-copy">复制</button></div>' +
-            '<p class="form-note" style="margin-top:8px">' + (state.meta.syncEnc ? '数据已用这个同步码端到端加密。' : '这是旧版数字码，数据未加密；建议重置为加密码。') + '重置同步码后，旧设备需要重新加入。</p>'
+            '<p class="form-note" style="margin-top:8px">' + (state.meta.syncEnc ? '数据已用这个同步码端到端加密。' : '这是旧版数字码，数据未加密；建议重置为加密码。') + '重置同步码后，旧设备需要重新加入。</p>' + cloudDevicesHTML()
           : '<div class="field" style="margin-top:11px"><label for="cloudCode">已有家庭同步码（没有就点「新建加密同步」）</label><input id="cloudCode" maxlength="24" placeholder="LC-XXXX-XXXX-XXXX 或旧 9 位数字"></div>') +
         '<p class="form-note" style="margin-top:11px">数据存到家庭独立的腾讯云行。新同步码使用 AES-GCM 端到端加密，包含任务、星星、奖励、成绩目标、小搭聊天/判题缩略图和家长 PIN 哈希。</p>' +
         (cloud.err ? '<p class="form-note" style="color:#b44">最近错误：' + esc(cloud.err) + '</p>' : ''),
       footer: on
-        ? '<button class="btn btn-soft" type="button" data-act="cloud-reset">重置同步码</button><button class="btn btn-ghost" type="button" data-act="cloud-off">关闭同步</button><button class="btn btn-primary" type="button" data-act="cloud-now">立即同步</button>'
+        ? '<button class="btn btn-soft" type="button" data-act="cloud-revoke">撤销其他设备</button><button class="btn btn-ghost" type="button" data-act="cloud-off">关闭同步</button><button class="btn btn-primary" type="button" data-act="cloud-now">立即同步</button>'
         : '<button class="btn btn-ghost" type="button" data-close>取消</button><button class="btn btn-soft" type="button" data-act="cloud-join">加入已有</button><button class="btn btn-primary" type="button" data-act="cloud-on">新建加密同步</button>'
     });
   }
@@ -750,6 +797,7 @@
     state.meta.syncId = syncCodeToId(state.meta.syncCode);
     state.meta.syncEnc = true;
     state.meta.updatedAt = Date.now();
+    state.meta.devices = (state.meta.devices || []).filter(function (d) { return d && d.id === state.meta.deviceId; });
     save();
     closeModal();
     cloudRenderBadge();
@@ -988,6 +1036,9 @@
     if (typeof s.meta.syncId !== 'string' || !/^\d{6,12}$/.test(s.meta.syncId)) s.meta.syncId = '';
     if (typeof s.meta.syncCode !== 'string') s.meta.syncCode = '';
     if (typeof s.meta.syncEnc !== 'boolean') s.meta.syncEnc = false;
+    if (typeof s.meta.deviceId !== 'string') s.meta.deviceId = '';
+    if (!Array.isArray(s.meta.devices)) s.meta.devices = [];
+    s.meta.devices = s.meta.devices.filter(function (d) { return d && typeof d.id === 'string'; }).slice(-10);
     if (typeof s.meta.updatedAt !== 'number') s.meta.updatedAt = Date.now();
     if (!s.meta.lastRoll) s.meta.lastRoll = dayKey(Date.now());
     var i, t, todayKey = dayKey(Date.now());
@@ -3435,6 +3486,7 @@
       case 'cloud-join': joinCloud(); break;
       case 'cloud-copy': copyCloudCode(); break;
       case 'cloud-reset': resetCloudCode(); break;
+      case 'cloud-revoke': closeModal(); setTimeout(cloudRevokeDevices, 60); break;
       case 'cloud-off': disableCloud(); break;
       case 'cloud-now': closeModal(); cloudSyncNow(true); break;
       case 'open-judge-records': closeModal(); setTimeout(openJudgeRecords, 60); break;
@@ -3704,6 +3756,7 @@
       } catch (e2) { }
     }
     state = resetRequested ? normalizeState(seedState()) : loadState();
+    ensureDevice();
     if (resetRequested) {
       state.meta.goalsImported = 1;
       state.meta.recordsImported = 1;
