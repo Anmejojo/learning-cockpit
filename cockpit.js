@@ -20,6 +20,10 @@
   var REWARD_CATS = ['全部', '游戏', '零食', '出行', '文具', '心愿', '电脑'];
   var CATALOG_VERSION = 2;
   var CHAT_AI_URL = 'https://jiajia-study-d6gjyod13d77728d6-1483465315.ap-shanghai.app.tcloudbase.com/ai';
+  var CLOUD_REST = 'https://jiajia-study-d6gjyod13d77728d6.api.tcloudbasegateway.com/v1/rdb/rest/study_data';
+  var CLOUD_KEY = 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjNhNjk3Y2I2LWRjMDMtNGFkMi04ZGQ2LTFkMWNjNjZhNGQ5MSJ9.eyJpc3MiOiJodHRwczovL2ppYWppYS1zdHVkeS1kNmdqeW9kMTNkNzc3MjhkNi5hcC1zaGFuZ2hhaS50Y2ItYXBpLnRlbmNlbnRjbG91ZGFwaS5jb20iLCJzdWIiOiJhbm9uIiwiYXVkIjoiamlhamlhLXN0dWR5LWQ2Z2p5b2QxM2Q3NzcyOGQ2IiwiZXhwIjo0MDkyNTI4NDk2LCJpYXQiOjE3ODg4NDUyOTYsIm5vbmNlIjoiODhqMEJEQV9Tci1qTVNMT1BhVWFBZyIsImF0X2hhc2giOiI4OGowQkRBX1NyLWpNU0xPUGFVYUFnIiwibmFtZSI6IkFub255bW91cyIsInNjb3BlIjoiYW5vbnltb3VzIiwicHJvamVjdF9pZCI6ImppYWppYS1zdHVkeS1kNmdqeW9kMTNkNzc3MjhkNiIsIm1ldGEiOnsicGxhdGZvcm0iOiJQdWJsaXNoYWJsZUtleSJ9LCJyb2xlIjoiYW5vbiIsImlzX2Fub255bW91cyI6dHJ1ZSwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiYW5vbnltb3VzIiwicHJvdmlkZXJzIjpbImFub255bW91cyJdfSwidXNlcl9tZXRhZGF0YSI6eyJuYW1lIjoiQW5vbnltb3VzIn0sInVzZXJfdHlwZSI6IiIsImNsaWVudF90eXBlIjoiY2xpZW50X3VzZXIiLCJpc19zeXN0ZW1fYWRtaW4iOmZhbHNlfQ.Mp-ZotDDKuzD-fXrSi9TvnFQLh_HhZqfy3ZHON4TWnhbuG6y2atGQSk6fjYMJqNX3QYajY5ZaQ3gAcrLYUF_Sx3CFRj3Ugeask5lKlWFnlEkn7PpY9joBFcSP7-TXeNwssT4FoiuqlzoEetJw8pQFtTo8iB3vOYLBsWAw5O3uNPysNWRN9YKA3RXSvcqQOOMMWXjmVEJsuTLzK_w0VmuahW_RyXIvJk_mpnZ-PeAA21uWhGJws5spytiKEyG9OXen4_SeICfTUYBxLncReGrluLxRU9nyDnPTyq3aKemz0I5AbPJdngwsRtxk3W17Os6OxvUBwbWfGbeJOwFn74O8Q';
+  var CLOUD_ID = 2;
+  var cloud = { enabled: false, busy: false, applying: false, timer: null, last: 0, pending: false, err: '', fail: 0, ver: null };
   var WEEK_CN = ['日', '一', '二', '三', '四', '五', '六'];
   var WEEK_FULL = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
   var MASTERY_GROUPS = {
@@ -266,7 +270,8 @@
       settings: { starGoal: 200 },
       chat: [],
       chatMem: [],
-      meta: { demo: true, demoTasks: true, legacy: false, legacyTasks: 0, lastRoll: todayKeyNow, noticeDismissed: false, parentPin: '', catalogV: CATALOG_VERSION, goalsImported: 0, recordsImported: 0, chatImported: 0 }
+      _del: {},
+      meta: { demo: true, demoTasks: true, legacy: false, legacyTasks: 0, lastRoll: todayKeyNow, noticeDismissed: false, parentPin: '', parentPinAt: 0, catalogV: CATALOG_VERSION, goalsImported: 0, recordsImported: 0, chatImported: 0, cloudEnabled: false, updatedAt: Date.now() }
     };
   }
 
@@ -294,13 +299,312 @@
   }
   function save() {
     if (!state) return false;
+    if (state.meta) state.meta.updatedAt = Date.now();
     var ok = safeSet(STORE_KEY, JSON.stringify(state));
     if (!ok && !saveWarned) {
       saveWarned = true;
       try { toast('本地存储失败，请尽快在「更多」里导出备份', 'warn'); } catch (e) { }
     }
+    cloudSchedule();
     return ok;
   }
+  function markDel(kind, id) {
+    if (!state) return;
+    if (!state._del || typeof state._del !== 'object') state._del = {};
+    state._del[kind + ':' + id] = Date.now();
+  }
+  function cloudOn() { return !!(state && state.meta && state.meta.cloudEnabled); }
+  function cloudStatusText() {
+    if (!cloudOn()) return '本地模式';
+    if (cloud.busy) return '同步中…';
+    if (cloud.err) return '同步失败：' + cloud.err;
+    if (cloud.pending) return '待同步';
+    if (cloud.last) return '已同步 ' + pad2(new Date(cloud.last).getHours()) + ':' + pad2(new Date(cloud.last).getMinutes());
+    return '已开启，等待同步';
+  }
+  function cloudRenderBadge() {
+    var b = $('#effCloudBadge');
+    if (!b) return;
+    var on = cloudOn();
+    b.className = 'eff-cloud-badge' + (on ? ' is-on' : '') + (cloud.err ? ' is-err' : '');
+    b.innerHTML = '<span class="cloud-dot"></span><span class="cloud-label">' + esc(on ? cloudStatusText() : '本地模式') + '</span>';
+    b.title = on ? '多端同步：' + cloudStatusText() : '多端同步未开启，点开设置';
+  }
+  function cloudHeaders(extra) {
+    var h = { 'Authorization': 'Bearer ' + CLOUD_KEY, 'Accept': 'application/json' };
+    if (extra) for (var k in extra) h[k] = extra[k];
+    return h;
+  }
+  async function cloudFetchRow() {
+    var r = await fetch(CLOUD_REST + '?id=eq.' + CLOUD_ID + '&select=id,data,updated_at', { headers: cloudHeaders(), cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    var arr = await r.json();
+    return (Array.isArray(arr) && arr[0]) ? arr[0] : null;
+  }
+  function cloudItemTs(x) { return num(x && (x.updatedAt || x.ts || x.at || x.createdAt)); }
+  function cloudKeyTask(t) {
+    if (!t) return '';
+    if (t.source && String(t.source).indexOf('legacy') === 0) return 'lgt:' + t.date + '|' + t.subject + '|' + t.title;
+    return 'id:' + t.id;
+  }
+  function cloudKeyExam(g) {
+    if (!g) return '';
+    if (g.source === 'legacy-goal') return 'lgg:' + g.subject + '|' + g.target + '|' + g.title;
+    return 'id:' + g.id;
+  }
+  function cloudKeyLog(e) {
+    if (!e) return '';
+    return 'lg:' + num(e.ts) + '|' + num(e.delta) + '|' + String(e.reason || '') + '|' + String(e.kind || '');
+  }
+  function cloudKeyChat(m) {
+    if (!m) return '';
+    return 'ct:' + num(m.ts) + '|' + (m.role === 'u' ? 'u' : 'a') + '|' + String(m.text || '');
+  }
+  function cloudMergeList(a, b, keyFn, tsFn, preferA) {
+    var map = {}, order = [];
+    function add(item, isA) {
+      if (!item) return;
+      var k = keyFn(item);
+      if (!k) return;
+      if (!map[k]) { map[k] = { item: item, ts: tsFn(item), a: isA }; order.push(k); return; }
+      var cur = map[k], ti = tsFn(item), tc = cur.ts;
+      if (ti > tc || (ti === tc && ((isA && preferA) || (!isA && !preferA)))) map[k] = { item: item, ts: ti, a: isA };
+    }
+    (b || []).forEach(function (x) { add(x, false); });
+    (a || []).forEach(function (x) { add(x, true); });
+    return order.map(function (k) { return map[k].item; });
+  }
+  function cloudMerge(local, remote, localNewer) {
+    var l = local, r = remote;
+    var out = JSON.parse(JSON.stringify(localNewer ? l : r));
+    out.tasks = cloudMergeList(l.tasks, r.tasks, cloudKeyTask, cloudItemTs, localNewer);
+    out.examGoals = cloudMergeList(l.examGoals, r.examGoals, cloudKeyExam, cloudItemTs, localNewer);
+    out.rewards = cloudMergeList(l.rewards, r.rewards, function (x) { return 'id:' + x.id; }, cloudItemTs, localNewer);
+    out.mastery = cloudMergeList(l.mastery, r.mastery, function (x) { return 'id:' + x.id; }, cloudItemTs, localNewer);
+    out.log = cloudMergeList(l.log, r.log, cloudKeyLog, cloudItemTs, localNewer);
+    out.redemptions = cloudMergeList(l.redemptions, r.redemptions, function (x) { return 'id:' + x.id; }, cloudItemTs, localNewer);
+    out.chat = cloudMergeList(l.chat, r.chat, cloudKeyChat, cloudItemTs, localNewer);
+    out.chatMem = cloudMergeList(l.chatMem, r.chatMem, function (x) { return 'cm:' + x.text; }, cloudItemTs, localNewer);
+    var del = {};
+    [l, r].forEach(function (x) {
+      var d = (x && x._del) || {};
+      Object.keys(d).forEach(function (k) { del[k] = Math.max(del[k] || 0, num(d[k])); });
+    });
+    out._del = del;
+    out.log.sort(function (a, b) { return num(b.ts) - num(a.ts); });
+    out.chat.sort(function (a, b) { return num(a.ts) - num(b.ts); });
+    out.chat = out.chat.slice(-300);
+    out.chatMem = out.chatMem.slice(-40);
+    out.tasks = out.tasks.filter(function (t) { var d = del['task:' + t.id]; return !(d && d >= cloudItemTs(t)); });
+    out.rewards = out.rewards.filter(function (x) { var d = del['reward:' + x.id]; return !(d && d >= cloudItemTs(x)); });
+    out.examGoals = out.examGoals.filter(function (g) { var d = del['exam:' + g.id]; return !(d && d >= cloudItemTs(g)); });
+    out.meta = Object.assign({}, (localNewer ? r : l).meta || {}, (localNewer ? l : r).meta || {});
+    var baseMeta = (localNewer ? l : r).meta || {};
+    out.meta.parentPin = baseMeta.parentPin || l.meta.parentPin || r.meta.parentPin || '';
+    var lp = num(l.meta.parentPinAt), rp = num(r.meta.parentPinAt);
+    if (lp || rp) out.meta.parentPin = lp >= rp ? l.meta.parentPin : r.meta.parentPin;
+    out.meta.parentPinAt = Math.max(lp, rp);
+    out.meta.cloudEnabled = !!l.meta.cloudEnabled;
+    out.meta.demo = !!(l.meta.demo && r.meta.demo);
+    out.meta.demoTasks = !!(l.meta.demoTasks && r.meta.demoTasks);
+    out.meta.legacy = !!(l.meta.legacy || r.meta.legacy);
+    out.meta.legacyTasks = Math.max(num(l.meta.legacyTasks), num(r.meta.legacyTasks));
+    out.meta.catalogV = Math.max(num(l.meta.catalogV), num(r.meta.catalogV));
+    out.meta.goalsImported = Math.max(num(l.meta.goalsImported), num(r.meta.goalsImported));
+    out.meta.recordsImported = Math.max(num(l.meta.recordsImported), num(r.meta.recordsImported));
+    out.meta.chatImported = Math.max(num(l.meta.chatImported), num(r.meta.chatImported));
+    out.meta.updatedAt = Math.max(num(l.meta.updatedAt), num(r.meta.updatedAt));
+    out.profile = (localNewer ? l : r).profile || l.profile;
+    out.settings = (localNewer ? l : r).settings || l.settings;
+    out.role = l.role;
+    out.v = l.v;
+    return out;
+  }
+  function cloudApply(merged) {
+    cloud.applying = true;
+    state = normalizeState(merged);
+    state.meta.cloudEnabled = true;
+    safeSet(STORE_KEY, JSON.stringify(state));
+    cloud.applying = false;
+    render();
+    cloudRenderBadge();
+  }
+  async function cloudPull(manual) {
+    if (!cloudOn()) { if (manual) toast('先开启多端同步', 'warn'); return false; }
+    if (cloud.busy) return false;
+    cloud.busy = true; cloud.pending = false; cloudRenderBadge();
+    try {
+      var localAtStart = num(state.meta.updatedAt);
+      var row = await cloudFetchRow();
+      var remote = row && row.data ? normalizeState(row.data) : null;
+      if (!remote) { if (manual) toast('云端还没有数据，本机会先上传一份', 'info'); return false; }
+      var local = state;
+      if (local.meta.demo && !remote.meta.demo) {
+        cloudApply(remote);
+        cloud.last = Date.now(); cloud.err = ''; cloud.pending = false;
+        toast('已载入云端的真实数据', 'success');
+        return true;
+      }
+      if (remote.meta.demo && !local.meta.demo) {
+        if (manual) toast('云端是演示数据，已保留本机真实数据', 'info');
+        cloudSchedule();
+        return false;
+      }
+      if (num(state.meta.updatedAt) !== localAtStart) { cloudSchedule(); return false; }
+      var merged = cloudMerge(local, remote, num(local.meta.updatedAt) >= num(remote.meta.updatedAt));
+      var normalized = normalizeState(merged);
+      var changed = JSON.stringify(normalized) !== JSON.stringify(local);
+      if (changed) cloudApply(merged);
+      cloud.last = Date.now(); cloud.err = ''; cloud.pending = false;
+      if (JSON.stringify(normalized) !== JSON.stringify(remote)) cloudSchedule();
+      if (manual) toast(changed ? '已拉取云端并合并' : '云端已是最新', 'success');
+      return changed;
+    } catch (e) {
+      cloud.err = String((e && e.message) || e).slice(0, 80);
+      cloud.pending = true;
+      if (manual) toast('云端读取失败：' + cloud.err, 'warn');
+      return false;
+    } finally {
+      cloud.busy = false;
+      cloudRenderBadge();
+    }
+  }
+  async function cloudPush(manual) {
+    if (!cloudOn()) { if (manual) toast('先开启多端同步', 'warn'); return false; }
+    if (cloud.busy) { cloud.pending = true; return false; }
+    cloud.busy = true; cloud.pending = false; cloudRenderBadge();
+    var ok = false, merged = null;
+    try {
+      for (var attempt = 0; attempt < 3 && !ok; attempt++) {
+        var localAtStart = num(state.meta.updatedAt);
+        var row = await cloudFetchRow();
+        var remote = row && row.data ? normalizeState(row.data) : null;
+        var local = state;
+        var localNewer = num(local.meta.updatedAt) >= num(remote && remote.meta.updatedAt);
+        var m;
+        if (!remote) m = local;
+        else if (local.meta.demo && !remote.meta.demo) m = remote;
+        else if (remote.meta.demo && !local.meta.demo) m = local;
+        else m = cloudMerge(local, remote, localNewer);
+        m.meta.cloudEnabled = true;
+        m.meta.updatedAt = Date.now();
+        merged = m;
+        if (remote && JSON.stringify(normalizeState(m)) === JSON.stringify(remote)) { ok = true; break; }
+        var iso = new Date().toISOString();
+        var r;
+        if (row && row.updated_at) {
+          r = await fetch(CLOUD_REST + '?id=eq.' + CLOUD_ID + '&updated_at=eq.' + encodeURIComponent(row.updated_at) + '&select=id', {
+            method: 'PATCH',
+            headers: cloudHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }),
+            body: JSON.stringify({ data: m, updated_at: iso })
+          });
+          if (r.ok) {
+            var arr = await r.json().catch(function () { return null; });
+            if (arr && arr.length) ok = true;
+            else continue;
+          } else if (r.status === 409) continue;
+          else throw new Error('HTTP ' + r.status + ' ' + String(await r.text().catch(function () { return ''; })).slice(0, 90));
+        } else if (row) {
+          r = await fetch(CLOUD_REST + '?id=eq.' + CLOUD_ID, {
+            method: 'PATCH',
+            headers: cloudHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+            body: JSON.stringify({ data: m, updated_at: iso })
+          });
+          if (r.ok) ok = true;
+          else throw new Error('HTTP ' + r.status);
+        } else {
+          r = await fetch(CLOUD_REST, {
+            method: 'POST',
+            headers: cloudHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+            body: JSON.stringify({ id: CLOUD_ID, data: m, updated_at: iso })
+          });
+          if (r.ok) ok = true;
+          else if (r.status === 409) continue;
+          else throw new Error('HTTP ' + r.status);
+        }
+      }
+      if (!ok) throw new Error('并发冲突，稍后自动重试');
+      cloud.last = Date.now(); cloud.err = ''; cloud.pending = false; cloud.fail = 0;
+      if (cloud.timer) { clearTimeout(cloud.timer); cloud.timer = null; }
+      if (num(state.meta.updatedAt) !== localAtStart) cloud.pending = true;
+      else if (merged && JSON.stringify(normalizeState(merged)) !== JSON.stringify(state)) cloudApply(merged);
+      if (manual) toast(cloud.pending ? '已同步，正在补传刚才的新修改' : '已同步到云端', 'success');
+      return true;
+    } catch (e) {
+      cloud.err = String((e && e.message) || e).slice(0, 90);
+      cloud.pending = true;
+      cloud.fail++;
+      if (manual) toast('云端同步失败：' + cloud.err, 'warn');
+      return false;
+    } finally {
+      cloud.busy = false;
+      cloudRenderBadge();
+      if (cloud.pending && !cloud.timer) cloudSchedule();
+    }
+  }
+  function cloudSyncNow(manual) {
+    if (!cloudOn()) { if (manual) toast('先开启多端同步', 'warn'); return Promise.resolve(false); }
+    return cloudPull(manual).then(function () { return cloudPush(manual); });
+  }
+  function cloudSchedule() {
+    if (!cloudOn() || cloud.applying) return;
+    cloud.pending = true;
+    cloudRenderBadge();
+    if (cloud.timer) clearTimeout(cloud.timer);
+    var delay = cloud.fail ? Math.min(60000, 8000 * Math.pow(2, Math.min(3, cloud.fail))) : 1500;
+    cloud.timer = setTimeout(function () { cloud.timer = null; cloudPush(false); }, delay);
+  }
+  function openCloudModal() {
+    var on = cloudOn();
+    openModal({
+      title: '多端同步', icon: 'cloud',
+      sub: on ? cloudStatusText() : '让手机、平板看到同一份数据',
+      body: '<div class="cloud-panel"><span class="cloud-big-dot' + (on && !cloud.err ? ' is-on' : '') + '"></span><div><strong>' + esc(cloudStatusText()) + '</strong>' +
+        '<p>' + (on ? '本机修改会自动合并上传；另一台设备打开后也会合并。' : '开启后，任务、星星、奖励、成绩目标、小搭聊天都会存到云端。') + '</p></div></div>' +
+        '<p class="form-note" style="margin-top:11px">存到旧版同一个腾讯云表的新行（id=2），不会覆盖经典版的 id=1。首次开启建议两台设备都升级到新版。</p>' +
+        (cloud.err ? '<p class="form-note" style="color:#b44">最近错误：' + esc(cloud.err) + '</p>' : ''),
+      footer: on
+        ? '<button class="btn btn-soft" type="button" data-act="cloud-off">关闭同步</button><button class="btn btn-ghost" type="button" data-close>关闭</button><button class="btn btn-primary" type="button" data-act="cloud-now">立即同步</button>'
+        : '<button class="btn btn-ghost" type="button" data-close>取消</button><button class="btn btn-primary" type="button" data-act="cloud-on">开启同步</button>'
+    });
+  }
+  function enableCloud() {
+    if (!requireParent('切换到家长端才能开启多端同步')) return;
+    state.meta.cloudEnabled = true;
+    state.meta.updatedAt = Date.now();
+    save();
+    cloud.enabled = true;
+    closeModal();
+    cloudRenderBadge();
+    toast('已开启多端同步，正在和云端合并…', 'info');
+    cloudSyncNow(true);
+  }
+  function disableCloud() {
+    if (!requireParent('切换到家长端才能关闭多端同步')) return;
+    state.meta.cloudEnabled = false;
+    state.meta.updatedAt = Date.now();
+    save();
+    cloud.enabled = false;
+    cloud.pending = false;
+    if (cloud.timer) { clearTimeout(cloud.timer); cloud.timer = null; }
+    closeModal();
+    cloudRenderBadge();
+    toast('已关闭多端同步，数据只留在本机', 'info');
+  }
+  function cloudInit() {
+    cloud.enabled = cloudOn();
+    cloudRenderBadge();
+    if (cloud.enabled) {
+      setTimeout(function () {
+        cloudPull(false).then(function (ok) { if (!ok) cloudPush(false); });
+      }, 900);
+    }
+    window.addEventListener('online', function () { if (cloudOn()) cloudSyncNow(false); });
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden && cloudOn() && Date.now() - cloud.last > 60000) cloudPull(false);
+    });
+  }
+
   function importLegacy() {
     var raw = safeGet(LEGACY_KEY);
     if (!raw) return null;
@@ -463,6 +767,7 @@
     s.log = Array.isArray(s.log) ? s.log : [];
     s.chat = Array.isArray(s.chat) ? s.chat : [];
     s.chatMem = Array.isArray(s.chatMem) ? s.chatMem : [];
+    s._del = s._del && typeof s._del === 'object' && !Array.isArray(s._del) ? s._del : {};
     s.settings = s.settings && typeof s.settings === 'object' ? s.settings : { starGoal: 200 };
     s.meta = s.meta && typeof s.meta === 'object' ? s.meta : {};
     if (typeof s.meta.demo !== 'boolean') s.meta.demo = false;
@@ -471,9 +776,12 @@
     if (typeof s.meta.legacyTasks !== 'number' || !isFinite(s.meta.legacyTasks)) s.meta.legacyTasks = 0;
     if (typeof s.meta.noticeDismissed !== 'boolean') s.meta.noticeDismissed = false;
     if (typeof s.meta.parentPin !== 'string') s.meta.parentPin = '';
+    if (typeof s.meta.parentPinAt !== 'number') s.meta.parentPinAt = 0;
     if (typeof s.meta.goalsImported !== 'number') s.meta.goalsImported = 0;
     if (typeof s.meta.recordsImported !== 'number') s.meta.recordsImported = 0;
     if (typeof s.meta.chatImported !== 'number') s.meta.chatImported = 0;
+    if (typeof s.meta.cloudEnabled !== 'boolean') s.meta.cloudEnabled = false;
+    if (typeof s.meta.updatedAt !== 'number') s.meta.updatedAt = Date.now();
     if (!s.meta.lastRoll) s.meta.lastRoll = dayKey(Date.now());
     var i, t, todayKey = dayKey(Date.now());
     for (i = 0; i < s.tasks.length; i++) {
@@ -537,6 +845,14 @@
       var tex = typeof m === 'string' ? m : m.text;
       return { id: (m && m.id) || uid('cm'), text: String(tex).slice(0, 120), tags: (m && m.tags) || [], at: Number(m && m.at) || Date.now() };
     }).slice(-40);
+    var delNow = Date.now();
+    Object.keys(s._del).forEach(function (k) {
+      var tv = num(s._del[k]);
+      if (!tv || delNow - tv > 90 * 24 * 3600 * 1000) delete s._del[k];
+    });
+    s.tasks = s.tasks.filter(function (t) { return !(s._del['task:' + t.id] && s._del['task:' + t.id] >= num(t.updatedAt || t.createdAt)); });
+    s.rewards = s.rewards.filter(function (r) { return !(s._del['reward:' + r.id] && s._del['reward:' + r.id] >= num(r.updatedAt)); });
+    s.examGoals = s.examGoals.filter(function (g) { return !(s._del['exam:' + g.id] && s._del['exam:' + g.id] >= num(g.updatedAt)); });
     return s;
   }
   function ensureCatalogRewards(s) {
@@ -827,6 +1143,7 @@
     pageEl.innerHTML = html;
     pageEl.setAttribute('data-page', ui.page);
     renderChrome();
+    cloudRenderBadge();
   }
 
   /* ---------- 7. 页面渲染 · 今天要做 ---------- */
@@ -1535,6 +1852,7 @@
     if (p1 !== p2) { toast('两次输入的 PIN 不一致', 'warn'); return; }
     hashPin(p1).then(function (h) {
       state.meta.parentPin = h;
+    state.meta.parentPinAt = Date.now();
       save();
       grantParent();
       toast('家长 PIN 已保存', 'success');
@@ -1862,6 +2180,7 @@
         '<button class="more-link" type="button" data-act="export-data"><span class="more-ico">📤</span><span><strong>导出数据备份</strong><small>下载 JSON，换设备/清缓存前先备份</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="import-data"><span class="more-ico">📥</span><span><strong>导入数据备份</strong><small>用 JSON 覆盖本机数据</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="open-chat"><span class="more-ico">💬</span><span><strong>打开小搭</strong><small>聊天记录已从旧版导入</small></span>' + icon('arrowRight') + '</button>' +
+        '<button class="more-link" type="button" data-act="open-cloud"><span class="more-ico">☁️</span><span><strong>多端同步</strong><small>' + esc(cloudStatusText()) + '</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="open-ai-token"><span class="more-ico">🔑</span><span><strong>AI 口令</strong><small>' + (chatToken() ? '已检测到口令，小搭可在线分析作业' : '未设置；设置后小搭可在线分析作业') + '</small></span>' + icon('arrowRight') + '</button>' +
         '<a class="more-link" href="preview.html"><span class="more-ico">🧪</span><span><strong>打开本地测试台</strong><small>旧版双端预览工具</small></span>' + icon('arrowRight') + '</a>' +
         '<button class="more-link is-danger" type="button" data-act="open-reset"><span class="more-ico">🧹</span><span><strong>重置演示数据</strong><small>恢复初始任务、星星和奖励</small></span>' + icon('arrowRight') + '</button>' +
@@ -2109,6 +2428,7 @@
     var t = findTask(id);
     if (!t) { closeModal(); return; }
     stopTimer(id, true);
+    markDel('task', id);
     state.tasks = state.tasks.filter(function (x) { return x.id !== id; });
     if (ui.openTask === id) ui.openTask = null;
     save();
@@ -2139,7 +2459,7 @@
     var emoji = (($('#arIcon') || {}).value || '🎁').trim().slice(0, 4) || '🎁';
     var cost = clamp(Math.round(num(($('#arCost') || {}).value, 30)), 1, 999);
     var cat = ($('#arCat') || {}).value || '心愿';
-    state.rewards.unshift({ id: uid('r'), name: name, icon: emoji, cost: cost, cat: cat });
+    state.rewards.unshift({ id: uid('r'), name: name, icon: emoji, cost: cost, cat: cat, updatedAt: Date.now() });
     save();
     closeModal();
     ui.rewardCat = '全部';
@@ -2178,6 +2498,7 @@
     r.icon = (($('#erIcon') || {}).value || '🎁').trim().slice(0, 4) || '🎁';
     r.cost = clamp(Math.round(num(($('#erCost') || {}).value, 10)), 1, 999);
     r.cat = ($('#erCat') || {}).value || '心愿';
+    r.updatedAt = Date.now();
     save();
     closeModal();
     ui.rewardCat = '全部';
@@ -2200,6 +2521,7 @@
     if (!requireParent('切换到家长端才能删除奖励')) return;
     var r = state.rewards.filter(function (x) { return x.id === id; })[0];
     if (!r) { closeModal(); return; }
+    markDel('reward', id);
     state.rewards = state.rewards.filter(function (x) { return x.id !== id; });
     save();
     closeModal();
@@ -2229,7 +2551,7 @@
     var target = clamp(Math.round(num(($('#aeTarget') || {}).value, 90)), 0, 150);
     var stars = clamp(Math.round(num(($('#aeStars') || {}).value, 5)), 1, 50);
     var title = (($('#aeTitle') || {}).value || '').trim() || '期末' + subject + '目标';
-    state.examGoals.push({ id: uid('e'), subject: subject, title: title, target: target, stars: stars, done: false });
+    state.examGoals.push({ id: uid('e'), subject: subject, title: title, target: target, stars: stars, done: false, updatedAt: Date.now() });
     save();
     closeModal();
     setPage('exam');
@@ -2265,6 +2587,7 @@
     var stars = clamp(Math.round(num(($('#eeStars') || {}).value, g.stars)), 1, 50);
     var title = (($('#eeTitle') || {}).value || '').trim() || '期末' + subject + '目标';
     g.subject = subject; g.target = target; g.stars = stars; g.title = title;
+    g.updatedAt = Date.now();
     save();
     closeModal();
     render();
@@ -2287,6 +2610,7 @@
     if (!requireParent('切换到家长端才能删除考试目标')) return;
     var g = state.examGoals.filter(function (x) { return x.id === id; })[0];
     if (!g) { closeModal(); return; }
+    markDel('exam', id);
     state.examGoals = state.examGoals.filter(function (x) { return x.id !== id; });
     save();
     closeModal();
@@ -2355,6 +2679,7 @@
     if (t.done) { toast('这条已完成，可以在「已完成」里撤销', 'warn'); return; }
     t.done = true;
     t.doneAt = Date.now();
+    t.updatedAt = Date.now();
     changeStars(t.stars, '完成 · ' + t.title, 'task');
     save();
     if (ui.openTask === id) ui.openTask = null;
@@ -2372,6 +2697,7 @@
     if (starTotals().balance - t.stars < 0) { toast('星星已经花掉了，暂时不能撤销这条', 'warn'); return; }
     t.done = false;
     delete t.doneAt;
+    t.updatedAt = Date.now();
     changeStars(-t.stars, '撤销 · ' + t.title, 'undo');
     save();
     render();
@@ -2387,6 +2713,7 @@
     if (!g || g.done) return;
     g.done = true;
     g.doneAt = Date.now();
+    g.updatedAt = Date.now();
     changeStars(g.stars, '达成考试目标 · ' + g.title + ' ' + g.target + ' 分', 'exam');
     save();
     var rect = el ? el.getBoundingClientRect() : null;
@@ -2401,6 +2728,7 @@
     if (starTotals().balance - g.stars < 0) { toast('星星已经花掉了，暂时不能撤销', 'warn'); return; }
     g.done = false;
     delete g.doneAt;
+    g.updatedAt = Date.now();
     changeStars(-g.stars, '撤销考试奖励 · ' + g.title, 'exam');
     save();
     render();
@@ -2410,6 +2738,7 @@
     var m = state.mastery.filter(function (x) { return x.id === id; })[0];
     if (!m) return;
     m.known = !m.known;
+    m.updatedAt = Date.now();
     save();
     render();
     if (m.known) toast('已标记掌握：' + m.title, 'success');
@@ -2607,7 +2936,7 @@
     picked.forEach(function (i) {
       var c = ui.recogCands[i];
       if (!c) return;
-      var t = { id: uid('t'), subject: c.subject, title: c.title, type: c.type, stars: c.stars, done: false, isNew: true };
+      var t = { id: uid('t'), subject: c.subject, title: c.title, type: c.type, stars: c.stars, done: false, isNew: true, date: dayKey(Date.now()), createdAt: Date.now(), updatedAt: Date.now() };
       if (c.minutes) t.minutes = c.minutes;
       if (c.passage) t.passage = c.passage;
       if (c.words) t.words = c.words.slice();
@@ -2731,6 +3060,10 @@
       case 'open-ai-token': closeModal(); setTimeout(openAiTokenModal, 60); break;
       case 'save-ai-token': saveAiToken(); break;
       case 'clear-ai-token': clearAiToken(); break;
+      case 'open-cloud': closeModal(); setTimeout(openCloudModal, 60); break;
+      case 'cloud-on': enableCloud(); break;
+      case 'cloud-off': disableCloud(); break;
+      case 'cloud-now': closeModal(); cloudSyncNow(true); break;
       case 'export-data': exportData(); break;
       case 'import-data': triggerImport(); break;
       case 'do-import': doImport(); break;
@@ -2959,6 +3292,15 @@
       chatImg.type = 'file'; chatImg.id = 'chatImageInput'; chatImg.accept = 'image/*'; chatImg.style.display = 'none';
       document.body.appendChild(chatImg);
     }
+    if (!$('#effCloudBadge')) {
+      var cb = document.createElement('button');
+      cb.type = 'button'; cb.id = 'effCloudBadge'; cb.className = 'eff-cloud-badge';
+      cb.addEventListener('click', openCloudModal);
+      var foot = $('#effSidebar .eff-side-foot');
+      var sb = $('#effSidebar');
+      if (foot && foot.parentNode) foot.parentNode.insertBefore(cb, foot);
+      else if (sb) sb.appendChild(cb);
+    }
   }
 
   function init() {
@@ -2996,6 +3338,7 @@
     injectShell();
     bindEvents();
     render();
+    cloudInit();
     registerSW();
     watchDayChange();
     window.__effReady = true;
@@ -3007,7 +3350,10 @@
       roll: function () { var c = rollTasksOver(); render(); return c; },
       exportJSON: function () { return JSON.stringify(state); },
       go: function (p) { setPage(p); },
-      render: render
+      render: render,
+      cloudSync: cloudSyncNow,
+      cloudState: function () { return { enabled: cloudOn(), busy: cloud.busy, pending: cloud.pending, last: cloud.last, err: cloud.err }; },
+      cloudMergeTest: function (a, b, preferA) { return cloudMerge(a, b, preferA === undefined ? true : !!preferA); }
     };
     if (ui.page !== 'today') {
       try { window.scrollTo(0, 0); } catch (e3) { }

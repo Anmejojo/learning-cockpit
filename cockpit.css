@@ -186,6 +186,27 @@ ul,ol{margin:0;padding:0;list-style:none}
 .eff-nav-btn em:empty{display:none}
 
 .eff-side-foot{margin-top:auto;display:flex;align-items:center;gap:6px;padding-top:12px;border-top:1px dashed #e9e0f0;flex:none}
+#effCloudBadge + .eff-side-foot{margin-top:0}
+.eff-cloud-badge{
+  margin-top:auto;margin-bottom:4px;display:flex;align-items:center;gap:6px;width:100%;
+  padding:7px 9px;border-radius:9px;font-size:9.5px;color:var(--muted);background:rgba(255,255,255,.5);
+  border:1px solid transparent;text-align:left;transition:.16s;
+}
+.eff-cloud-badge:hover{background:#fff;border-color:#eee5f4;color:var(--ink-2)}
+.cloud-dot{width:6px;height:6px;border-radius:50%;background:#c9bfd3;flex:none}
+.eff-cloud-badge.is-on{color:var(--sage-deep);background:rgba(237,248,241,.8)}
+.eff-cloud-badge.is-on .cloud-dot{background:var(--sage);box-shadow:0 0 0 3px rgba(143,201,168,.16)}
+.eff-cloud-badge.is-err{color:#b44;background:#fff5f4}
+.eff-cloud-badge.is-err .cloud-dot{background:#e06a62}
+.cloud-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cloud-panel{
+  display:flex;align-items:flex-start;gap:10px;padding:11px;border-radius:10px;
+  background:linear-gradient(120deg,#f7f2fb,#fff);border:1px solid #eee4f4;
+}
+.cloud-big-dot{width:11px;height:11px;border-radius:50%;background:#c9bfd3;flex:none;margin-top:4px}
+.cloud-big-dot.is-on{background:var(--sage);box-shadow:0 0 0 4px rgba(143,201,168,.16)}
+.cloud-panel strong{font-size:12.5px;color:var(--ink);font-weight:850}
+.cloud-panel p{font-size:10.5px;color:var(--muted);line-height:1.65;margin-top:3px}
 .eff-user{display:flex;align-items:center;gap:8px;min-width:0;flex:1;text-align:left;padding:4px;border-radius:11px;transition:background .18s}
 .eff-user:hover{background:#faf6fd}
 .eff-mini-avatar{width:29px;height:29px;flex:none;border-radius:50%;overflow:hidden;border:1.5px solid #fff;box-shadow:0 2px 6px rgba(80,60,100,.15);background:#f2ecfb}
@@ -1343,6 +1364,8 @@ body[data-role="parent"] .task-row .tick{border-style:dashed;background:#fbf8fd}
   .chat-shell{height:56vh;min-height:260px}
   .chat-bubble{font-size:12px}
   .chat-mode-tip{display:none}
+  .eff-cloud-badge{justify-content:center;padding:6px 2px;margin-bottom:2px}
+  .eff-cloud-badge .cloud-label{display:none}
 }
 
 
