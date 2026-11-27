@@ -21,8 +21,8 @@
   --panel-warm:#fffbf6;
   --ink:#38303f;
   --ink-2:#5b5265;
-  --muted:#7f748a;
-  --muted-2:#948a9e;
+  --muted:#6a5f75;
+  --muted-2:#776c81;
   --line:#e9e1ee;
   --line-strong:#ded3e7;
   --primary:#e9615a;
@@ -34,7 +34,7 @@
   --gold-soft:#fff4d9;
   --gold-line:#f5e0ae;
   --lilac:#b9a4e2;
-  --lilac-deep:#8e77bd;
+  --lilac-deep:#6d5798;
   --lilac-soft:#f2ecfb;
   --sage:#8fc9a8;
   --sage-deep:#5f9c7b;
@@ -342,7 +342,7 @@ ul,ol{margin:0;padding:0;list-style:none}
 .chip:not(.is-active) .chip-num{background:#f5eef9;color:var(--muted)}
 
 .badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:750;padding:2px 7px;border-radius:7px;line-height:1.6}
-.badge-gold{background:var(--gold-soft);color:#a3741f;border:1px solid var(--gold-line)}
+.badge-gold{background:var(--gold-soft);color:#8a5f18;border:1px solid var(--gold-line)}
 .badge-sage{background:var(--sage-soft);color:var(--sage-deep);border:1px solid #d6ebdd}
 .badge-lilac{background:var(--lilac-soft);color:var(--lilac-deep);border:1px solid #e5daf6}
 .badge-primary{background:var(--primary-soft);color:var(--primary-deep);border:1px solid var(--primary-line)}
@@ -755,11 +755,11 @@ body[data-role="parent"] .task-row .tick{border-style:dashed;background:#fbf8fd}
 .cal-day.has-star .cal-num{color:#8a5a25}
 .cal-day.is-today{border-color:var(--primary);box-shadow:0 0 0 2px rgba(233,97,90,.14)}
 .cal-day.is-today .cal-num{color:var(--primary-deep);font-weight:850}
-.cal-day.is-future{opacity:.45}
+.cal-day.is-future{opacity:1;background:#fbfafc}
 .cal-num{line-height:1.1}
 .cal-stars{font-size:8.5px;font-weight:800;color:#b5822f;display:flex;align-items:center;gap:1px;line-height:1}
 .cal-stars i{font-style:normal;color:var(--gold);font-size:8px}
-.cal-today-tag{position:absolute;top:2px;right:3px;font-size:6.5px;font-weight:800;color:#fff;background:var(--primary);border-radius:4px;padding:0 3px;line-height:1.5}
+.cal-today-tag{position:absolute;top:2px;right:3px;font-size:6.5px;font-weight:800;color:#fff;background:#b53d37;border-radius:4px;padding:0 3px;line-height:1.5}
 .cal-legend{display:flex;align-items:center;gap:10px;margin-top:11px;font-size:9.5px;color:var(--muted);flex-wrap:wrap}
 .cal-legend i{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:3px;vertical-align:-1px;border:1px solid #f0e5cf;background:linear-gradient(160deg,#fff8ec,#fdefdc)}
 .cal-legend .lg-today i{background:#fff;border-color:var(--primary)}
@@ -780,8 +780,8 @@ body[data-role="parent"] .task-row .tick{border-style:dashed;background:#fbf8fd}
 .flow-main strong{display:block;font-size:11.5px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .flow-main small{font-size:9.5px;color:var(--muted-2)}
 .flow-delta{font-size:11.5px;font-weight:850;white-space:nowrap;font-variant-numeric:tabular-nums}
-.flow-delta.pos{color:var(--gold-deep)}
-.flow-delta.neg{color:var(--primary-deep)}
+.flow-delta.pos{color:#8a5f18}
+.flow-delta.neg{color:#b53d37}
 .flow-empty{padding:26px 10px;text-align:center;font-size:11.5px;color:var(--muted)}
 
 /* ---------- 8. 我的要兑换 ---------- */

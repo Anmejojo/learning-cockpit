@@ -1,4 +1,4 @@
-/* =========================================================
+﻿/* =========================================================
    乐乐学习舱 · 效率学习 App 风
    cockpit.js · v1.0  2026-11-25
    结构：1 常量  2 工具  3 图标  4 演示数据  5 存储/迁移
@@ -13,7 +13,7 @@
   var BACKUP_KEY = 'lc_backups_v1';
   var LEGACY_KEY = 'lc_v3';
   var VERSION = 1;
-  var APP_VERSION = 'eff31';
+  var APP_VERSION = 'eff32';
   var PAGES = ['today', 'exam', 'mastery', 'stars', 'rewards'];
   var PAGE_TITLES = { today: '今天要做', exam: '考试赚星星', mastery: '初二必掌握', stars: '我的星星', rewards: '我的要兑换' };
   var SUB_ORDER = ['语文', '数学', '英语', '物理', '化学', '生物', '历史', '道法', '地理', '阅读', '习惯', '运动', '体育'];
@@ -2143,7 +2143,7 @@
       '<div class="cal-legend"><span><i></i>当天有星星</span><span class="lg-today"><i></i>今天</span><span class="lg-empty"><i></i>未打卡</span></div>' +
       '</section>' +
       '<section class="flow-card" aria-label="星星流水"><div class="flow-head"><div class="card-title">' + icon('sparkles') + '星星流水</div><span class="tiny muted">最近 ' + Math.min(60, state.log.length) + ' 条</span></div>' +
-      '<div class="flow-list">';
+      '<div class="flow-list" tabindex="0" aria-label="星星流水列表">';
     if (!state.log.length) {
       h += '<div class="flow-empty">还没有星星记录，去「今天要做」完成第一个任务吧。</div>';
     } else {
