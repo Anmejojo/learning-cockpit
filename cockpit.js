@@ -1,4 +1,4 @@
-/* =========================================================
+﻿/* =========================================================
    乐乐学习舱 · 效率学习 App 风
    cockpit.js · v1.0  2026-11-25
    结构：1 常量  2 工具  3 图标  4 演示数据  5 存储/迁移
@@ -13,7 +13,7 @@
   var BACKUP_KEY = 'lc_backups_v1';
   var LEGACY_KEY = 'lc_v3';
   var VERSION = 1;
-  var APP_VERSION = 'eff33';
+  var APP_VERSION = 'eff34';
   var PAGES = ['today', 'exam', 'mastery', 'stars', 'rewards'];
   var PAGE_TITLES = { today: '今天要做', exam: '考试赚星星', mastery: '初二必掌握', stars: '我的星星', rewards: '我的要兑换' };
   var SUB_ORDER = ['语文', '数学', '英语', '物理', '化学', '生物', '历史', '道法', '地理', '阅读', '习惯', '运动', '体育'];
@@ -2307,7 +2307,7 @@
       if (f) { try { f.focus(); } catch (e) { } }
     }, 30);
   }
-  function closeModal() {
+  function closeModal(keepChatImage) {
     var root = $('#effModalRoot');
     if (!root) return;
     root.classList.remove('is-open');
@@ -2316,7 +2316,7 @@
     rt.modalOpen = false;
     rt.confirm = null;
     pendingImport = null;
-    rt.chatImage = null;
+    if (!keepChatImage) rt.chatImage = null;
     document.body.style.overflow = '';
     if (rt.lastFocus && typeof rt.lastFocus.focus === 'function') { try { rt.lastFocus.focus(); } catch (e) { } }
     rt.lastFocus = null;
@@ -2501,12 +2501,59 @@
   function chatPreviewHTML() {
     if (!rt.chatImage) return '';
     return '<div class="chat-image-card"><img src="' + esc(rt.chatImage.thumb) + '" alt="待发送的作业照片"><span>' + esc(rt.chatImage.name) + '</span>' +
+      '<button class="chat-rotate" type="button" data-act="chat-crop-image" aria-label="裁剪图片">裁剪</button>' +
       '<button class="chat-rotate" type="button" data-act="chat-rotate-image" aria-label="旋转图片">旋转</button>' +
       '<button type="button" data-act="chat-remove-image" aria-label="移除图片">×</button></div>';
   }
   function refreshChatPreview() {
     var box = $('#chatImagePreview');
     if (box) box.innerHTML = chatPreviewHTML();
+  }
+  function openCropImage() {
+    if (!rt.chatImage || !rt.chatImage.full) return;
+    openModal({
+      title: '裁剪题目区域', icon: 'camera',
+      sub: '只把要分析的半页发给小搭，字会更清楚',
+      body: '<div class="crop-preview"><img src="' + esc(rt.chatImage.full) + '" alt="待裁剪作业"></div>' +
+        '<div class="crop-modes">' +
+        '<button class="btn btn-soft" type="button" data-act="apply-crop" data-mode="top">上半页</button>' +
+        '<button class="btn btn-soft" type="button" data-act="apply-crop" data-mode="bottom">下半页</button>' +
+        '<button class="btn btn-soft" type="button" data-act="apply-crop" data-mode="left">左半页</button>' +
+        '<button class="btn btn-soft" type="button" data-act="apply-crop" data-mode="right">右半页</button>' +
+        '<button class="btn btn-soft" type="button" data-act="apply-crop" data-mode="center">中间 80%</button>' +
+        '</div><p class="form-note" style="margin-top:8px">裁剪后可继续旋转，确认后再发送。</p>',
+      footer: '<button class="btn btn-ghost" type="button" data-act="cancel-crop">取消</button>'
+    });
+  }
+  function applyCrop(mode) {
+    if (!rt.chatImage || !rt.chatImage.full) return;
+    var img = new Image();
+    img.onload = function () {
+      try {
+        var w = img.width, h = img.height, sx = 0, sy = 0, sw = w, sh = h;
+        if (mode === 'top') sh = Math.round(h * 0.55);
+        else if (mode === 'bottom') { sy = Math.round(h * 0.45); sh = h - sy; }
+        else if (mode === 'left') sw = Math.round(w * 0.58);
+        else if (mode === 'right') { sx = Math.round(w * 0.42); sw = w - sx; }
+        else if (mode === 'center') { sx = Math.round(w * 0.1); sy = Math.round(h * 0.1); sw = Math.round(w * 0.8); sh = Math.round(h * 0.8); }
+        var cv = document.createElement('canvas');
+        cv.width = sw; cv.height = sh;
+        cv.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+        var full = cv.toDataURL('image/jpeg', 0.84);
+        var scale = Math.min(1, 360 / Math.max(sw, sh));
+        var tc = document.createElement('canvas');
+        tc.width = Math.round(sw * scale); tc.height = Math.round(sh * scale);
+        tc.getContext('2d').drawImage(cv, 0, 0, tc.width, tc.height);
+        rt.chatImage.full = full;
+        rt.chatImage.thumb = tc.toDataURL('image/jpeg', 0.58);
+        closeModal(true);
+        openChat();
+        setTimeout(refreshChatPreview, 30);
+        toast('已裁剪，字会更清楚', 'success');
+      } catch (e) { toast('裁剪失败，换一张试试', 'warn'); }
+    };
+    img.onerror = function () { toast('图片读取失败', 'warn'); };
+    img.src = rt.chatImage.full;
   }
   function rotateChatImage() {
     if (!rt.chatImage || !rt.chatImage.full) return;
@@ -3880,6 +3927,9 @@
       case 'chat-pick-image': pickChatImage(); break;
       case 'chat-remove-image': rt.chatImage = null; refreshChatPreview(); break;
       case 'chat-rotate-image': rotateChatImage(); break;
+      case 'chat-crop-image': openCropImage(); break;
+      case 'apply-crop': applyCrop(el.getAttribute('data-mode')); break;
+      case 'cancel-crop': closeModal(true); openChat(); setTimeout(refreshChatPreview, 30); break;
       case 'open-ai-token': closeModal(); setTimeout(openAiTokenModal, 60); break;
       case 'save-ai-token': saveAiToken(); break;
       case 'clear-ai-token': clearAiToken(); break;
