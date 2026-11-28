@@ -13,7 +13,7 @@
   var BACKUP_KEY = 'lc_backups_v1';
   var LEGACY_KEY = 'lc_v3';
   var VERSION = 1;
-  var APP_VERSION = 'eff34';
+  var APP_VERSION = 'eff35';
   var PAGES = ['today', 'exam', 'mastery', 'stars', 'rewards'];
   var PAGE_TITLES = { today: '今天要做', exam: '考试赚星星', mastery: '初二必掌握', stars: '我的星星', rewards: '我的要兑换' };
   var SUB_ORDER = ['语文', '数学', '英语', '物理', '化学', '生物', '历史', '道法', '地理', '阅读', '习惯', '运动', '体育'];
@@ -892,7 +892,7 @@
           '<div class="judge-meta">' + (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) +
           ' · ' + (j.ok ? '小搭已分析' : '仅保存照片') + '</div>' +
           judgeResultHTML(j) +
-          '<button class="judge-edit" type="button" data-act="edit-judge" data-id="' + esc(t.id) + '">家长修正</button></div></div>';
+          '<div class="judge-actions"><button class="judge-edit" type="button" data-act="retry-judge" data-id="' + esc(t.id) + '">重新分析</button><button class="judge-edit" type="button" data-act="edit-judge" data-id="' + esc(t.id) + '">家长修正</button></div></div></div>';
       }).join('') + '</div>';
     }
     openModal({
@@ -917,7 +917,9 @@
         '<p class="form-note" style="margin-top:11px">数据存到家庭独立的腾讯云行。新同步码使用 AES-GCM 端到端加密，包含任务、星星、奖励、成绩目标、小搭聊天/判题缩略图和家长 PIN 哈希。</p>' +
         (cloud.err ? '<p class="form-note" style="color:#b44">最近错误：' + esc(cloud.err) + '</p>' : ''),
       footer: on
-        ? '<button class="btn btn-soft" type="button" data-act="cloud-revoke">撤销其他设备</button><button class="btn btn-ghost" type="button" data-act="cloud-off">关闭同步</button><button class="btn btn-primary" type="button" data-act="cloud-now">立即同步</button>'
+        ? (state.meta.syncEnc
+          ? '<button class="btn btn-soft" type="button" data-act="cloud-revoke">撤销其他设备</button><button class="btn btn-ghost" type="button" data-act="cloud-off">关闭同步</button><button class="btn btn-primary" type="button" data-act="cloud-now">立即同步</button>'
+          : '<button class="btn btn-soft" type="button" data-act="cloud-reset">升级为加密</button><button class="btn btn-ghost" type="button" data-act="cloud-off">关闭同步</button><button class="btn btn-primary" type="button" data-act="cloud-now">立即同步</button>')
         : '<button class="btn btn-ghost" type="button" data-close>取消</button><button class="btn btn-soft" type="button" data-act="cloud-join">加入已有</button><button class="btn btn-primary" type="button" data-act="cloud-on">新建加密同步</button>'
     });
   }
@@ -1955,7 +1957,8 @@
         h += '<div class="homework-result">' +
           (j.thumb ? '<img class="homework-shot" src="' + esc(j.thumb) + '" alt="作业照片">' : '') +
           '<div class="homework-copy">' + (j.ok ? icon('check') : icon('info')) +
-          '<span>' + esc(j.text || '已上传照片，但没有可分析的文字结果。') + '</span></div></div>';
+          '<span>' + esc(j.text || '已上传照片，但没有可分析的文字结果。') + '</span></div></div>' +
+          (j.thumb ? '<button class="btn btn-ghost btn-xs" type="button" data-act="retry-judge" data-id="' + esc(t.id) + '">重新分析</button>' : '');
       }
       h += '<div class="tools-tip">' + icon('info') + '<span>拍清楚题面再上传，小搭会先识别科目/题号，再指出空题或可疑错误，只给思路和第一步。</span></div>';
     } else if (t.type === 'read') {
@@ -3825,6 +3828,39 @@
     var input = $('#effJudgeInput');
     if (input) { input.value = ''; input.click(); }
   }
+  function runJudgeAnalysis(id, img, retry) {
+    var task = findTask(id);
+    if (task) { task.judge = { ts: Date.now(), busy: true, thumb: img.thumb }; save(); }
+    rt.judge[id] = { busy: true, thumb: img.thumb };
+    render();
+    return aiChat('请分析这张作业/笔记照片：先识别科目和题号，指出空题或可疑错误，只给思路和第一步，不要直接给答案；看不清就直说。', img.full, 'homework').then(function (reply) {
+      var structured = parseHomeworkJSON(reply);
+      var display = reply || (chatToken()
+        ? '在线分析暂时没成功，照片已保存。可以先说说你卡在哪一题，我陪你理思路。'
+        : '现在没有 AI 口令，读不了图片里的字。照片已保存；家长可在「更多 → AI 口令」设置后再点一次重试。');
+      if (structured) {
+        var tag = { blank: '空题', wrong: '可疑', ok: '正确', unclear: '看不清' };
+        display = (structured.subject || '作业') + '：' + structured.items.length + ' 道题' +
+          (structured.items.length ? '（' + structured.items.map(function (it) { return (it.no || '?') + ' ' + tag[it.status]; }).join('，') + '）' : '') +
+          (structured.summary ? '。下一步：' + structured.summary : '。');
+      }
+      var result = { busy: false, ok: !!reply, text: display, structured: structured || null, thumb: img.thumb, ts: Date.now() };
+      rt.judge[id] = result;
+      var t2 = findTask(id);
+      if (t2) {
+        t2.judge = { ts: result.ts, ok: !!reply, text: String(display).slice(0, 1200), structured: structured || null, thumb: img.thumb };
+        t2.updatedAt = Date.now();
+        save();
+      }
+      state.chat.push({ id: uid('c'), ts: Date.now(), role: 'u', text: retry ? '（重新分析了作业照片）' : '（上传了作业照片）', img: img.thumb });
+      state.chat.push({ id: uid('c'), ts: Date.now() + 1, role: 'a', text: String(display).slice(0, 1200) });
+      state.chat = state.chat.slice(-300);
+      save();
+      render();
+      toast(reply ? (structured ? '小搭分析完成，已生成结构化结果' : '小搭分析完成，结果已记在任务里') : '照片已保存，配置 AI 口令后可重试', reply ? 'success' : 'warn');
+      return result;
+    });
+  }
   function handleJudge(file) {
     var id = rt.judgeTask;
     if (!id || !file) return;
@@ -3833,40 +3869,25 @@
     render();
     toast('小搭正在看这张作业…', 'info');
     prepareChatImage(file).then(function (img) {
-      var task = findTask(id);
-      if (task) { task.judge = { ts: Date.now(), busy: true, thumb: img.thumb }; save(); }
-      rt.judge[id] = { busy: true, thumb: img.thumb };
-      render();
-      return aiChat('请分析这张作业/笔记照片：先识别科目和题号，指出空题或可疑错误，只给思路和第一步，不要直接给答案；看不清就直说。', img.full, 'homework').then(function (reply) {
-        var structured = parseHomeworkJSON(reply);
-        var display = reply || (chatToken()
-          ? '在线分析暂时没成功，照片已保存。可以先说说你卡在哪一题，我陪你理思路。'
-          : '现在没有 AI 口令，读不了图片里的字。照片已保存；家长可在「更多 → AI 口令」设置后重新拍一次。');
-        if (structured) {
-          var tag = { blank: '空题', wrong: '可疑', ok: '正确', unclear: '看不清' };
-          display = (structured.subject || '作业') + '：' + structured.items.length + ' 道题' +
-            (structured.items.length ? '（' + structured.items.map(function (it) { return (it.no || '?') + ' ' + tag[it.status]; }).join('，') + '）' : '') +
-            (structured.summary ? '。下一步：' + structured.summary : '。');
-        }
-        var result = { busy: false, ok: !!reply, text: display, structured: structured || null, thumb: img.thumb, ts: Date.now() };
-        rt.judge[id] = result;
-        var t2 = findTask(id);
-        if (t2) {
-          t2.judge = { ts: result.ts, ok: !!reply, text: String(display).slice(0, 1200), structured: structured || null, thumb: img.thumb };
-          t2.updatedAt = Date.now();
-          save();
-        }
-        state.chat.push({ id: uid('c'), ts: Date.now(), role: 'u', text: '（上传了作业照片）', img: img.thumb });
-        state.chat.push({ id: uid('c'), ts: Date.now() + 1, role: 'a', text: String(display).slice(0, 1200) });
-        state.chat = state.chat.slice(-300);
-        save();
-        render();
-        toast(reply ? (structured ? '小搭分析完成，已生成结构化结果' : '小搭分析完成，结果已记在任务里') : '照片已保存，配置 AI 口令后可重新分析', reply ? 'success' : 'warn');
-      });
+      return runJudgeAnalysis(id, img, false);
     }).catch(function () {
       rt.judge[id] = { busy: false, ok: false, text: '图片处理失败，换一张试试。', ts: Date.now() };
       render();
       toast('图片处理失败，换一张试试', 'warn');
+    });
+  }
+  function retryJudge(id) {
+    var t = findTask(id);
+    var j = (t && t.judge) || rt.judge[id];
+    var thumb = j && j.thumb;
+    if (!thumb) { toast('没有可重试的照片，请重新拍照', 'warn'); return; }
+    rt.judge[id] = { busy: true, thumb: thumb };
+    render();
+    toast('小搭正在重新看这张照片…', 'info');
+    runJudgeAnalysis(id, { full: thumb, thumb: thumb }, true).catch(function () {
+      rt.judge[id] = { busy: false, ok: false, text: '重试失败，请稍后再试或重新拍照。', ts: Date.now() };
+      render();
+      toast('重试失败，请稍后再试', 'warn');
     });
   }
 
@@ -3943,6 +3964,7 @@
       case 'cloud-now': closeModal(); cloudSyncNow(true); break;
       case 'open-judge-records': closeModal(); setTimeout(openJudgeRecords, 60); break;
       case 'edit-judge': openEditJudge(id); break;
+      case 'retry-judge': retryJudge(id); break;
       case 'submit-judge-edit': submitEditJudge(id); break;
       case 'export-data': exportData(); break;
       case 'open-backups': closeModal(); setTimeout(openBackups, 60); break;
