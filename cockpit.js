@@ -1,4 +1,4 @@
-﻿/* =========================================================
+/* =========================================================
    乐乐学习舱 · 效率学习 App 风
    cockpit.js · v1.0  2026-11-25
    结构：1 常量  2 工具  3 图标  4 演示数据  5 存储/迁移
@@ -13,7 +13,7 @@
   var BACKUP_KEY = 'lc_backups_v1';
   var LEGACY_KEY = 'lc_v3';
   var VERSION = 1;
-  var APP_VERSION = 'eff32';
+  var APP_VERSION = 'eff33';
   var PAGES = ['today', 'exam', 'mastery', 'stars', 'rewards'];
   var PAGE_TITLES = { today: '今天要做', exam: '考试赚星星', mastery: '初二必掌握', stars: '我的星星', rewards: '我的要兑换' };
   var SUB_ORDER = ['语文', '数学', '英语', '物理', '化学', '生物', '历史', '道法', '地理', '阅读', '习惯', '运动', '体育'];
@@ -313,7 +313,7 @@
       chat: [],
       chatMem: [],
       _del: {},
-      meta: { demo: true, demoTasks: true, legacy: false, legacyTasks: 0, lastRoll: todayKeyNow, noticeDismissed: false, parentPin: '', parentPinAt: 0, catalogV: CATALOG_VERSION, goalsImported: 0, recordsImported: 0, chatImported: 0, requireApproval: false, cloudEnabled: false, syncId: '', syncCode: '', syncEnc: false, deviceId: '', devices: [], updatedAt: Date.now() }
+      meta: { demo: true, demoTasks: true, legacy: false, legacyTasks: 0, lastRoll: todayKeyNow, noticeDismissed: false, parentPin: '', parentPinAt: 0, catalogV: CATALOG_VERSION, goalsImported: 0, recordsImported: 0, chatImported: 0, requireApproval: false, reminderEnabled: false, reminderTime: '19:30', lastReminderDay: '', cloudEnabled: false, syncId: '', syncCode: '', syncEnc: false, deviceId: '', devices: [], updatedAt: Date.now() }
     };
   }
 
@@ -383,6 +383,54 @@
         '<div class="report-section"><div class="report-title">兑换与提醒</div><p class="form-note">这周兑换 <b>' + red + '</b> 次。' + (pending ? '还有 ' + pending + ' 条任务等确认。' : '没有待确认任务。') + '</p></div>',
       footer: '<button class="btn btn-ghost" type="button" data-close>关闭</button>'
     });
+  }
+  function openReminder() {
+    if (!requireParent('切换到家长端才能设置提醒')) return;
+    var enabled = !!(state.meta && state.meta.reminderEnabled);
+    var time = (state.meta && state.meta.reminderTime) || '19:30';
+    openModal({
+      title: '每日提醒', icon: 'clock',
+      sub: '只在打开 App 时提醒；关掉 App 的系统推送需要后端',
+      body: '<label class="reminder-toggle"><input id="reminderEnabled" type="checkbox"' + (enabled ? ' checked' : '') + '><span><strong>今天还有任务没完成时提醒</strong><small>每天最多提醒一次</small></span></label>' +
+        '<div class="field" style="margin-top:12px"><label for="reminderTime">提醒时间</label><input id="reminderTime" type="time" value="' + esc(time) + '"></div>' +
+        '<p class="form-note" style="margin-top:8px">打开 App 或让 App 在后台保持时才会检查；系统级推送需要后端服务。</p>',
+      footer: '<button class="btn btn-ghost" type="button" data-close>取消</button><button class="btn btn-primary" type="button" data-act="save-reminder">保存</button>'
+    });
+  }
+  function saveReminder() {
+    if (!requireParent('切换到家长端才能设置提醒')) return;
+    var on = !!($('#reminderEnabled') || {}).checked;
+    var time = (($('#reminderTime') || {}).value || '19:30').trim();
+    if (!/^\d{2}:\d{2}$/.test(time)) { toast('提醒时间格式不对', 'warn'); return; }
+    state.meta.reminderEnabled = on;
+    state.meta.reminderTime = time;
+    state.meta.lastReminderDay = '';
+    save();
+    if (on && window.Notification && Notification.permission === 'default' && !navigator.webdriver) {
+      try { Notification.requestPermission(); } catch (e) { }
+    }
+    closeModal();
+    toast(on ? '已设置每天 ' + time + ' 提醒' : '已关闭每日提醒', 'success');
+    setTimeout(function () { checkReminder(true); }, 800);
+  }
+  function checkReminder(force) {
+    if (!state || !state.meta || !state.meta.reminderEnabled) return false;
+    var today = dayKey(Date.now());
+    if (!force && state.meta.lastReminderDay === today) return false;
+    var parts = String(state.meta.reminderTime || '19:30').split(':');
+    var target = num(parts[0], 19) * 60 + num(parts[1], 30);
+    var d = new Date();
+    if (d.getHours() * 60 + d.getMinutes() < target) return false;
+    var left = todayTasks().filter(function (t) { return !t.done; }).length;
+    if (!left) return false;
+    state.meta.lastReminderDay = today;
+    save();
+    var msg = '今天还有 ' + left + ' 条任务没完成，完成一件就少一件。';
+    toast(msg, 'info');
+    try {
+      if (window.Notification && Notification.permission === 'granted') new Notification('乐乐学习舱', { body: msg, icon: 'icon-192.png' });
+    } catch (e) { }
+    return true;
   }
   function openBackups() {
     if (!requireParent('切换到家长端才能看本机备份')) return;
@@ -1172,6 +1220,9 @@
     if (typeof s.meta.recordsImported !== 'number') s.meta.recordsImported = 0;
     if (typeof s.meta.chatImported !== 'number') s.meta.chatImported = 0;
     if (typeof s.meta.requireApproval !== 'boolean') s.meta.requireApproval = false;
+    if (typeof s.meta.reminderEnabled !== 'boolean') s.meta.reminderEnabled = false;
+    if (typeof s.meta.reminderTime !== 'string' || !/^\d{2}:\d{2}$/.test(s.meta.reminderTime)) s.meta.reminderTime = '19:30';
+    if (typeof s.meta.lastReminderDay !== 'string') s.meta.lastReminderDay = '';
     if (typeof s.meta.cloudEnabled !== 'boolean') s.meta.cloudEnabled = false;
     if (typeof s.meta.syncId !== 'string' || !/^\d{6,12}$/.test(s.meta.syncId)) s.meta.syncId = '';
     if (typeof s.meta.syncCode !== 'string') s.meta.syncCode = '';
@@ -2753,6 +2804,7 @@
         '<button class="more-link" type="button" data-act="import-data"><span class="more-ico">📥</span><span><strong>导入数据备份</strong><small>用 JSON 覆盖本机数据</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="open-backups"><span class="more-ico">🗂️</span><span><strong>本机自动备份</strong><small>每天留一份，最近 7 份可恢复</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="open-weekly-report"><span class="more-ico">📊</span><span><strong>家长周报</strong><small>最近 7 天完成、星星、科目、兑换</small></span>' + icon('arrowRight') + '</button>' +
+        '<button class="more-link" type="button" data-act="open-reminder"><span class="more-ico">⏰</span><span><strong>每日提醒</strong><small>' + (state.meta && state.meta.reminderEnabled ? '已开启 · 每天 ' + esc(state.meta.reminderTime) : '未开启 · 打开 App 时提醒') + '</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="open-csv"><span class="more-ico">📑</span><span><strong>导出 CSV</strong><small>任务 / 星星流水 / 兑换记录</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="open-chat"><span class="more-ico">💬</span><span><strong>打开小搭</strong><small>聊天记录已从旧版导入</small></span>' + icon('arrowRight') + '</button>' +
         '<button class="more-link" type="button" data-act="open-judge-records"><span class="more-ico">📸</span><span><strong>判题记录</strong><small>小搭分析过的作业，家长可回看</small></span>' + icon('arrowRight') + '</button>' +
@@ -3845,6 +3897,8 @@
       case 'export-data': exportData(); break;
       case 'open-backups': closeModal(); setTimeout(openBackups, 60); break;
       case 'open-weekly-report': closeModal(); setTimeout(openWeeklyReport, 60); break;
+      case 'open-reminder': closeModal(); setTimeout(openReminder, 60); break;
+      case 'save-reminder': saveReminder(); break;
       case 'open-csv': closeModal(); setTimeout(openCSV, 60); break;
       case 'export-csv': exportCSV(el.getAttribute('data-kind')); break;
       case 'restore-backup': restoreBackup(el.getAttribute('data-ts')); break;
@@ -4163,6 +4217,8 @@
     });
     registerSW();
     watchDayChange();
+    setTimeout(function () { checkReminder(false); }, 1800);
+    setInterval(function () { checkReminder(false); }, 60000);
     window.__effReady = true;
     window.__eff = {
       version: '1.1',
@@ -4173,6 +4229,7 @@
       exportJSON: function () { return JSON.stringify(state); },
       go: function (p) { setPage(p); },
       render: render,
+      checkReminder: checkReminder,
       cloudSync: cloudSyncNow,
       cloudState: function () { return { enabled: cloudOn(), busy: cloud.busy, pending: cloud.pending, last: cloud.last, err: cloud.err }; },
       cloudMergeTest: function (a, b, preferA) { return cloudMerge(a, b, preferA === undefined ? true : !!preferA); },

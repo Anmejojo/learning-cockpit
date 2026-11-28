@@ -882,6 +882,11 @@ body[data-role="parent"] .task-row .tick{border-style:dashed;background:#fbf8fd}
 .report-row b{color:var(--ink-2)}
 .csv-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}
 .csv-actions .btn{flex:1;min-width:100px;height:34px;font-size:11px}
+.reminder-toggle{display:flex;align-items:flex-start;gap:9px;padding:10px;border-radius:9px;background:#fbf8fd;border:1px solid #eee5f4;cursor:pointer}
+.reminder-toggle input{width:16px;height:16px;margin-top:1px;accent-color:var(--primary);flex:none}
+.reminder-toggle span{flex:1;min-width:0}
+.reminder-toggle strong{display:block;font-size:11px;color:var(--ink-2);font-weight:800}
+.reminder-toggle small{display:block;margin-top:2px;font-size:9px;color:var(--muted)}
 
 /* ---------- 9. 弹窗 / 提示 / 动画 ---------- */
 .eff-toast{
